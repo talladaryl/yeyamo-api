@@ -1,0 +1,93 @@
+package com.yeyamo_mobile.api.event_service.dto;
+
+import java.time.Instant;
+import java.util.UUID;
+
+import com.yeyamo_mobile.api.event_service.enums.EventStatus;
+
+import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
+public class EventRequest {
+
+    @NotNull
+    private UUID placeId;
+
+    @NotBlank
+    @Size(max = 255)
+    private String title;
+
+    private String description;
+
+    @NotNull
+    @Future
+    private Instant startAt;
+
+    @NotNull
+    private Instant endAt;
+
+    @NotNull
+    @Min(1)
+    private Integer capacity;
+
+    private EventStatus status;
+
+    public UUID getPlaceId() {
+        return placeId;
+    }
+
+    public void setPlaceId(UUID placeId) {
+        this.placeId = placeId;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public Instant getStartAt() {
+        return startAt;
+    }
+
+    public void setStartAt(Instant startAt) {
+        this.startAt = startAt;
+    }
+
+    public Instant getEndAt() {
+        return endAt;
+    }
+
+    public void setEndAt(Instant endAt) {
+        this.endAt = endAt;
+    }
+
+    public Integer getCapacity() {
+        return capacity;
+    }
+
+    public void setCapacity(Integer capacity) {
+        this.capacity = capacity;
+    }
+
+    public EventStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(EventStatus status) {
+        this.status = status;
+    }
+}
