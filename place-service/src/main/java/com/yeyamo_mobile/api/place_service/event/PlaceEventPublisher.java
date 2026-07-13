@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+import org.slf4j.MDC;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,11 +31,11 @@ public class PlaceEventPublisher {
     }
 
     public void publishCreated(Place place) {
-        publish(PlaceEvent.created(toPayload(place)));
+        publish(PlaceEvent.created(toPayload(place), correlationId(), actorId()));
     }
 
     public void publishUpdated(Place place) {
-        publish(PlaceEvent.updated(toPayload(place)));
+        publish(PlaceEvent.updated(toPayload(place), correlationId(), actorId()));
     }
 
     private PlaceEventPayload toPayload(Place place) {
@@ -42,9 +43,17 @@ public class PlaceEventPublisher {
                 place.getId(),
                 place.getPartnerId(),
                 place.getName(),
+                place.getSlug(),
+                place.getDescription(),
                 place.getLatitude(),
                 place.getLongitude(),
-                place.getCategory() != null ? place.getCategory().getSlug() : null
+                place.getCategory() != null ? place.getCategory().getSlug() : null,
+                place.getRegion() != null ? place.getRegion().getCode() : null,
+                place.getCity() != null ? place.getCity().getName() : null,
+                place.getDistrict() != null ? place.getDistrict().getName() : null,
+                place.getAddress(),
+                place.getStatus() != null ? place.getStatus().name() : null,
+                place.getUpdatedAt() != null ? place.getUpdatedAt() : place.getCreatedAt()
         );
     }
 
@@ -55,5 +64,15 @@ public class PlaceEventPublisher {
         } catch (JsonProcessingException exception) {
             log.error("Impossible de serialiser l'evenement Kafka pour le lieu {}", event.payload().placeId(), exception);
         }
+    }
+
+    private String correlationId() {
+        String value = MDC.get("correlationId");
+        return value == null || value.isBlank() ? UUID.randomUUID().toString() : value;
+    }
+
+    private String actorId() {
+        String value = MDC.get("actorId");
+        return value == null || value.isBlank() ? "system" : value;
     }
 }

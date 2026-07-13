@@ -24,6 +24,7 @@ import com.yeyamo_mobile.api.auth_service.enums.LabelRole;
 import com.yeyamo_mobile.api.auth_service.enums.Roles;
 import com.yeyamo_mobile.api.auth_service.enums.UserStatus;
 import com.yeyamo_mobile.api.auth_service.exception.ApiException;
+import com.yeyamo_mobile.api.auth_service.event.AuthEventOutbox;
 import com.yeyamo_mobile.api.auth_service.models.OAuthAccount;
 import com.yeyamo_mobile.api.auth_service.models.RefreshToken;
 import com.yeyamo_mobile.api.auth_service.models.Role;
@@ -47,6 +48,7 @@ public class AuthService {
     private final OAuthTokenVerifier oAuthTokenVerifier;
     private final OtpService otpService;
     private final EmailService emailService;
+    private final AuthEventOutbox eventOutbox;
 
     public AuthService(
             UserRepository userRepository,
@@ -58,7 +60,8 @@ public class AuthService {
             RefreshTokenService refreshTokenService,
             OAuthTokenVerifier oAuthTokenVerifier,
             OtpService otpService,
-            EmailService emailService
+            EmailService emailService,
+            AuthEventOutbox eventOutbox
     ) {
         this.userRepository = userRepository;
         this.oAuthAccountRepository = oAuthAccountRepository;
@@ -70,6 +73,7 @@ public class AuthService {
         this.oAuthTokenVerifier = oAuthTokenVerifier;
         this.otpService = otpService;
         this.emailService = emailService;
+        this.eventOutbox = eventOutbox;
     }
 
     @Transactional
@@ -91,6 +95,7 @@ public class AuthService {
         user.getRoles().add(defaultUserRole());
 
         User savedUser = userRepository.save(user);
+        eventOutbox.userCreated(savedUser, null);
         if (hasText(savedUser.getEmail())) {
             sendEmailVerificationOtp(savedUser);
         }
@@ -250,6 +255,7 @@ public class AuthService {
             }
             user.getRoles().add(defaultUserRole());
             user = userRepository.save(user);
+            eventOutbox.userCreated(user, null);
         }
 
         OAuthAccount account = new OAuthAccount();

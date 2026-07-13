@@ -9,6 +9,8 @@ public record DomainEvent(
         int eventVersion,
         Instant occurredAt,
         String producer,
+        String aggregateType,
+        String aggregateId,
         String correlationId,
         String actorId,
         DomainEventPayload payload
@@ -25,6 +27,8 @@ public record DomainEvent(
                 1,
                 Instant.now(),
                 "event-service",
+                "event",
+                payload.eventId().toString(),
                 correlationId,
                 actorId,
                 payload

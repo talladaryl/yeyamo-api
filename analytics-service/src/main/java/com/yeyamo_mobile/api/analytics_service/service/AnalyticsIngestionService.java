@@ -51,6 +51,10 @@ public class AnalyticsIngestionService {
             eventId = uuid(event, "eventId", eventId);
             eventType = text(event, "eventType", eventType);
             correlationId = text(event, "correlationId", null);
+            validateEnvelope(event, eventId, eventType);
+            if (eventLogRepository.existsByEventId(eventId)) {
+                return;
+            }
 
             saveKpiSnapshot(eventId, eventType, event);
             saveEventLog(eventId, eventType, AnalyticsEventStatus.SUCCESS);
@@ -60,12 +64,26 @@ public class AnalyticsIngestionService {
         }
     }
 
+    private void validateEnvelope(JsonNode event, UUID eventId, String eventType) {
+        if (eventId == null || eventType == null || "unknown".equals(eventType)) {
+            throw new IllegalArgumentException("Invalid domain event identity");
+        }
+        if (event.path("eventVersion").asInt(0) < 1) {
+            throw new IllegalArgumentException("Unsupported domain event version");
+        }
+        if (text(event, "producer", null) == null || event.path("payload").isMissingNode()) {
+            throw new IllegalArgumentException("Incomplete domain event envelope");
+        }
+    }
+
     private void saveKpiSnapshot(UUID eventId, String eventType, JsonNode event) {
         KpiHistory kpi = new KpiHistory();
         kpi.setKpiName(resolveKpiName(eventType));
         kpi.setEventType(eventType);
         kpi.setCalculatedAt(LocalDateTime.now());
-        kpi.setEntityId(uuid(event.path("payload"), "id", eventId));
+        kpi.setEntityId(uuid(event.path("payload"), "id",
+                uuid(event.path("payload"), "placeId",
+                        uuid(event.path("payload"), "eventId", eventId))));
         kpi.setEntityType(resolveEntityType(eventType));
         kpi.setKpiValue(Map.of(
                 "count", 1,

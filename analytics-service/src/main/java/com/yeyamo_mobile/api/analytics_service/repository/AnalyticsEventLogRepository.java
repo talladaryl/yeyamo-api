@@ -9,4 +9,5 @@ import com.yeyamo_mobile.api.analytics_service.models.AnalyticsEventLog;
 
 public interface AnalyticsEventLogRepository extends ElasticsearchRepository<AnalyticsEventLog, UUID> {
     List<AnalyticsEventLog> findTop50ByOrderByProcessedAtDesc();
+    boolean existsByEventId(UUID eventId);
 }

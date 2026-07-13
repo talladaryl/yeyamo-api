@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.partner_service.interfaces.rest;
+import java.time.Instant;import java.util.List;public record ErrorResponse(String code,String message,List<FieldError>details,Instant timestamp,String correlationId){public static ErrorResponse of(String c,String m,List<FieldError>d,String id){return new ErrorResponse(c,m,d,Instant.now(),id==null?"":id);}public record FieldError(String field,String message){}}
