@@ -45,14 +45,25 @@ public class CatalogAssetService {
         outbox.append("catalog.asset.status_changed",saved,correlationId,actorId);
         return saved;
     }
+    public void delete(UUID id,String correlationId,String actorId){
+        CatalogAsset asset=getRequired(id);asset.delete();CatalogAsset saved=repository.save(asset);
+        outbox.append("catalog.asset.deleted",saved,correlationId,actorId);
+    }
     public CatalogAsset synchronizeLegacyPlace(String externalId,UUID ownerId,String name,String requestedSlug,
             String description,String categoryCode,String regionCode,String city,String district,String address,
             double latitude,double longitude,AssetStatus status,String correlationId){
-        CatalogAsset asset=repository.findBySourceAndExternalId("place-service",externalId).orElse(null);
+        return synchronizeExternalAsset("place-service",externalId,AssetType.PLACE,ownerId,name,requestedSlug,
+                description,categoryCode,regionCode,city,district,address,latitude,longitude,status,correlationId,"place-service");
+    }
+    public CatalogAsset synchronizeExternalAsset(String source,String externalId,AssetType type,UUID ownerId,String name,String requestedSlug,
+            String description,String categoryCode,String regionCode,String city,String district,String address,
+            double latitude,double longitude,AssetStatus status,String correlationId,String actorId){
+        if(source==null||source.isBlank()||externalId==null||externalId.isBlank())throw new CatalogException("INVALID_EXTERNAL_ASSET","source and externalId are required");
+        CatalogAsset asset=repository.findBySourceAndExternalId(source,externalId).orElse(null);
         String desiredSlug=slug(requestedSlug,name);
         if(asset==null){
-            if(repository.existsBySlugAndIdNot(desiredSlug,new UUID(0,0))) desiredSlug=desiredSlug+"-"+externalId.substring(0,8);
-            asset=CatalogAsset.create(AssetType.PLACE,ownerId,"place-service",externalId,name,desiredSlug,
+            if(repository.existsBySlugAndIdNot(desiredSlug,new UUID(0,0))) desiredSlug=desiredSlug+"-"+shortSuffix(externalId);
+            asset=CatalogAsset.create(type,ownerId,source,externalId,name,desiredSlug,
                     description,categoryCode,regionCode,city,district,address,new GeoPoint(latitude,longitude));
         }else{
             asset.update(name,desiredSlug,description,categoryCode,regionCode,city,district,address,
@@ -60,10 +71,11 @@ public class CatalogAssetService {
         }
         asset.synchronizeStatus(status);
         CatalogAsset saved=repository.save(asset);
-        outbox.append("catalog.asset.synchronized",saved,correlationId,"place-service");
+        outbox.append("catalog.asset.synchronized",saved,correlationId,actorId);
         return saved;
     }
-    @Transactional(readOnly=true) public CatalogAsset get(UUID id){return getRequired(id);}
+    @Transactional(readOnly=true) public CatalogAsset get(UUID id){CatalogAsset asset=getRequired(id);if(asset.getStatus()!=AssetStatus.PUBLISHED)throw new CatalogException("CATALOG_ASSET_NOT_FOUND","Catalog asset not found");return asset;}
+    @Transactional(readOnly=true) public CatalogAsset getForManagement(UUID id){return getRequired(id);}
     @Transactional(readOnly=true) public CatalogAsset getBySlug(String slug){
         return repository.findBySlug(slug).filter(a->a.getStatus()==AssetStatus.PUBLISHED)
                 .orElseThrow(()->new CatalogException("CATALOG_ASSET_NOT_FOUND","Catalog asset not found"));
@@ -89,4 +101,5 @@ public class CatalogAssetService {
         if(normalized.isBlank())throw new CatalogException("INVALID_SLUG","A valid slug is required");
         return normalized;
     }
+    private String shortSuffix(String value){String normalized=value.replaceAll("[^A-Za-z0-9]","").toLowerCase(Locale.ROOT);return normalized.substring(0,Math.min(8,normalized.length()));}
 }

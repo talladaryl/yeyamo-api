@@ -1,0 +1,7 @@
+package com.yeyamo_mobile.api.interaction_service.infrastructure.persistence;
+import java.time.Instant;import java.util.UUID;import jakarta.persistence.*;
+@Entity @Table(name="interaction_command_receipts",uniqueConstraints=@UniqueConstraint(name="uk_command_actor_key_operation",columnNames={"actor_id","idempotency_key","operation"}))
+public class CommandReceiptEntity{@Id private UUID id;@Column(name="idempotency_key",nullable=false,length=200)private String idempotencyKey;@Column(name="actor_id",nullable=false,length=100)private String actorId;@Column(nullable=false,length=200)private String operation;
+ @Column(name="result_id",nullable=false)private UUID resultId;@Column(nullable=false)private boolean changed;@Column(name="created_at",nullable=false)private Instant createdAt;
+ public UUID getId(){return id;}public void setId(UUID v){id=v;}public String getIdempotencyKey(){return idempotencyKey;}public void setIdempotencyKey(String v){idempotencyKey=v;}public String getActorId(){return actorId;}public void setActorId(String v){actorId=v;}
+ public String getOperation(){return operation;}public void setOperation(String v){operation=v;}public UUID getResultId(){return resultId;}public void setResultId(UUID v){resultId=v;}public boolean isChanged(){return changed;}public void setChanged(boolean v){changed=v;}public Instant getCreatedAt(){return createdAt;}public void setCreatedAt(Instant v){createdAt=v;}}

@@ -10,4 +10,11 @@ class CatalogAssetTests {
         a.changeStatus(AssetStatus.IN_REVIEW);a.changeStatus(AssetStatus.PUBLISHED);
         assertEquals(AssetStatus.PUBLISHED,a.getStatus());
     }
+
+    @Test void softDeleteIsIdempotentAndFinal(){
+        CatalogAsset asset=CatalogAsset.create(AssetType.EXPERIENCE,null,"catalog",null,"Visit","visit",null,null,null,null,null,null,new GeoPoint(3,11));
+        asset.delete();asset.delete();
+        assertEquals(AssetStatus.DELETED,asset.getStatus());
+        assertThrows(IllegalStateException.class,()->asset.changeStatus(AssetStatus.DRAFT));
+    }
 }

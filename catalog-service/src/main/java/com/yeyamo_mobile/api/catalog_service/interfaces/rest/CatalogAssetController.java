@@ -9,12 +9,16 @@ import com.yeyamo_mobile.api.catalog_service.application.CatalogAssetService;
 import com.yeyamo_mobile.api.catalog_service.domain.model.AssetType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
-@RestController @RequestMapping("/api/v1/catalog/assets")
+@RestController @RequestMapping("/api/v1/catalog/assets") @Tag(name="Catalog assets")
 public class CatalogAssetController {
     private final CatalogAssetService service;
     public CatalogAssetController(CatalogAssetService service){this.service=service;}
     @GetMapping("/{id}") public CatalogAssetResponse get(@PathVariable UUID id){return CatalogAssetResponse.from(service.get(id));}
+    @GetMapping("/manage/{id}") @Operation(summary="Read any asset status for management",security=@SecurityRequirement(name="bearerAuth")) public CatalogAssetResponse manage(@PathVariable UUID id){return CatalogAssetResponse.from(service.getForManagement(id));}
     @GetMapping("/slug/{slug}") public CatalogAssetResponse bySlug(@PathVariable String slug){return CatalogAssetResponse.from(service.getBySlug(slug));}
     @GetMapping public List<CatalogAssetResponse> search(@RequestParam(required=false) AssetType type,
             @RequestParam(required=false) String regionCode,@RequestParam(required=false) String categoryCode,
@@ -29,21 +33,23 @@ public class CatalogAssetController {
             @RequestParam(defaultValue="50") @Min(1) @Max(100) int limit){
         return service.nearby(lat,lng,radiusKm,type,categoryCode,limit).stream().map(CatalogAssetResponse::from).toList();
     }
-    @PostMapping @ResponseStatus(HttpStatus.CREATED)
+    @PostMapping @ResponseStatus(HttpStatus.CREATED) @Operation(summary="Create a destination, place or experience",security=@SecurityRequirement(name="bearerAuth"))
     public CatalogAssetResponse create(@Valid @RequestBody CatalogAssetRequest r,
             @RequestHeader(value="X-Correlation-Id",required=false) String correlationId,Authentication auth){
         return CatalogAssetResponse.from(service.create(r.type(),r.ownerId(),r.name(),r.slug(),r.description(),
                 r.categoryCode(),r.regionCode(),r.city(),r.district(),r.address(),r.latitude(),r.longitude(),
                 correlationId,auth.getName()));
     }
-    @PutMapping("/{id}") public CatalogAssetResponse update(@PathVariable UUID id,@Valid @RequestBody CatalogAssetRequest r,
+    @PutMapping("/{id}") @Operation(summary="Update a catalog asset",security=@SecurityRequirement(name="bearerAuth")) public CatalogAssetResponse update(@PathVariable UUID id,@Valid @RequestBody CatalogAssetRequest r,
             @RequestHeader(value="X-Correlation-Id",required=false) String correlationId,Authentication auth){
         return CatalogAssetResponse.from(service.update(id,r.name(),r.slug(),r.description(),r.categoryCode(),
                 r.regionCode(),r.city(),r.district(),r.address(),r.latitude(),r.longitude(),correlationId,auth.getName()));
     }
-    @PatchMapping("/{id}/status") public CatalogAssetResponse status(@PathVariable UUID id,
+    @PatchMapping("/{id}/status") @Operation(summary="Change catalog workflow status",security=@SecurityRequirement(name="bearerAuth")) public CatalogAssetResponse status(@PathVariable UUID id,
             @Valid @RequestBody StatusChangeRequest r,
             @RequestHeader(value="X-Correlation-Id",required=false) String correlationId,Authentication auth){
         return CatalogAssetResponse.from(service.changeStatus(id,r.status(),correlationId,auth.getName()));
     }
+    @DeleteMapping("/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) @Operation(summary="Soft-delete a catalog asset",security=@SecurityRequirement(name="bearerAuth"))
+    public void delete(@PathVariable UUID id,@RequestHeader(value="X-Correlation-Id",required=false)String correlationId,Authentication auth){service.delete(id,correlationId,auth.getName());}
 }

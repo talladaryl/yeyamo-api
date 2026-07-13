@@ -68,11 +68,18 @@ public class CatalogAsset {
             case IN_REVIEW -> target == AssetStatus.DRAFT || target == AssetStatus.PUBLISHED || target == AssetStatus.ARCHIVED;
             case PUBLISHED -> target == AssetStatus.IN_REVIEW || target == AssetStatus.ARCHIVED;
             case ARCHIVED -> target == AssetStatus.DRAFT;
+            case DELETED -> false;
         };
         if (!allowed || target == status) {
             throw new IllegalStateException("Invalid catalog status transition: " + status + " -> " + target);
         }
         status = target;
+        updatedAt = Instant.now();
+    }
+
+    public void delete() {
+        if (status == AssetStatus.DELETED) return;
+        status = AssetStatus.DELETED;
         updatedAt = Instant.now();
     }
 

@@ -617,11 +617,11 @@ Les statuts employés sont :
 | `place-service` | **Partiel à durcir** | CRUD géographique riche, catégories, médias, horaires, géohash, événements Kafka | Migrer vers le futur `catalog-service` ; ajouter Flyway, Resource Server, outbox et tests métier |
 | `event-service` | **Partiel à durcir** | Événements, inscriptions, statuts, API par lieu, publication Kafka | Ajouter sécurité, Flyway, outbox, idempotence et tests métier |
 | `analytics-service` | **Partiel à durcir** | Consommation Kafka, projections KPI et dashboard | Revoir après stabilisation des contrats V2 ; ajouter migrations, idempotence et reprise |
-| `catalog-service` | **Initialisé V2** | Config/Eureka, PostgreSQL/PostGIS, Flyway, Kafka, JWT, Docker | Première implémentation V2 |
-| `ingestion-service` | **Initialisé V2** | Socle PostgreSQL/Kafka/Flyway | À construire après le modèle canonique du catalogue |
-| `media-service` | **Initialisé V2** | Socle PostgreSQL/Kafka/Flyway | À construire avant les publications sociales |
-| `content-service` | **Initialisé V2** | Socle PostgreSQL/Kafka/Flyway | Remplace la partie publication de l'ancien `social-service` |
-| `interaction-service` | **Initialisé V2** | Socle PostgreSQL/Redis/Kafka/Flyway | Likes, commentaires, sauvegardes, partages, check-ins |
+| `catalog-service` | **Prêt V1** | Destinations, lieux, expériences, régions, villes, catégories, recherche PostGIS, Flyway, JWT/RBAC, Outbox et consumers idempotents | Raccorder feed/discovery/recommandation à `catalog.events` |
+| `ingestion-service` | **Prêt V1** | Imports CSV/JSON/API, pipeline, validation, déduplication, jobs idempotents, PostgreSQL/Flyway et outbox Kafka | Raccorder le consumer catalog puis tester avec PostgreSQL/Kafka |
+| `media-service` | **Prêt V1** | Upload images/vidéos, métadonnées, stockage par port/adapter, miniatures, PostgreSQL/Flyway, Outbox Kafka, JWT et OpenAPI | Ajouter un adapter S3/MinIO pour la production |
+| `content-service` | **Prêt V1** | Brouillons, publications, visibilité, hashtags, références media/catalog, soft delete, Flyway, JWT, OpenAPI et Outbox Kafka | Raccorder interaction, feed et modération à `content.events` |
+| `interaction-service` | **Prêt V1** | Likes, commentaires, favoris, partages, check-ins, PostgreSQL/Flyway, Redis cache-aside, CQRS léger, idempotence, Outbox Kafka, JWT et OpenAPI | Raccorder feed/recommandation à `interaction.events` |
 | `moderation-trust-service` | **Initialisé V2** | Socle PostgreSQL/Kafka/Flyway | Reçoit progressivement la modération actuellement dans `admin-service` |
 | `feed-service` | **Initialisé V2** | Socle PostgreSQL/Redis/Kafka/Flyway | Dépend de content, interaction, catalog et user |
 | `discovery-service` | **Initialisé V2** | Socle PostgreSQL/Redis/Kafka/Flyway | Successeur fonctionnel de `search-service` |
@@ -803,12 +803,310 @@ réutilisant et migrant les concepts valides de `place-service`, puis
 `ingestion-service` et `media-service`. Cette séquence réduit les doublons et
 fournit les données stables dont dépend tout le social V2.
 
+### Implémentation de catalog-service
+
+`catalog-service` est la source canonique V2 des destinations, lieux,
+expériences et référentiels géographiques. `place-service` reste accepté comme
+source de migration par événement, mais ne partage ni table ni entité JPA avec
+le catalogue.
+
+Architecture et règles :
+
+- architecture hexagonale : domaine, cas d'usage, ports puis adapters JPA,
+  PostGIS, Kafka et REST ;
+- actifs typés `DESTINATION`, `PLACE`, `EXPERIENCE` ou `EVENT` avec workflow
+  `DRAFT → IN_REVIEW → PUBLISHED → ARCHIVED` et suppression logique ;
+- régions, villes et catégories gérées comme référentiels versionnés et
+  désactivables ; une ville exige une région active et les catégories peuvent
+  être hiérarchiques ;
+- recherche textuelle et filtres par type, région et catégorie ;
+- recherche de proximité PostGIS avec `ST_DWithin`, tri par `ST_Distance` et
+  index GiST sur `geometry(Point, 4326)` ;
+- Flyway crée PostGIS, les contraintes, index géographiques/plein texte,
+  l'Outbox et la table des événements consommés ;
+- JWT Resource Server stateless : lectures publiées publiques, écritures et
+  lectures de gestion réservées à `ADMIN`, `SUPER_ADMIN` ou `PARTNER` ;
+- Outbox transactionnelle vers `catalog.events` pour les actifs et les
+  référentiels ;
+- consommateurs idempotents de `place.events` et
+  `catalog.ingestion.events`, avec retries puis DLT ;
+- OpenAPI et Swagger UI.
+
+Endpoints principaux :
+
+```text
+GET    /api/v1/catalog/assets
+GET    /api/v1/catalog/assets/nearby
+GET    /api/v1/catalog/assets/{id}
+GET    /api/v1/catalog/assets/slug/{slug}
+GET    /api/v1/catalog/assets/manage/{id}
+POST   /api/v1/catalog/assets
+PUT    /api/v1/catalog/assets/{id}
+PATCH  /api/v1/catalog/assets/{id}/status
+DELETE /api/v1/catalog/assets/{id}
+
+GET|POST /api/v1/catalog/regions
+GET|PUT|DELETE /api/v1/catalog/regions/{id}
+GET|POST /api/v1/catalog/cities
+GET|PUT|DELETE /api/v1/catalog/cities/{id}
+GET|POST /api/v1/catalog/categories
+GET|PUT|DELETE /api/v1/catalog/categories/{id}
+POST /api/v1/catalog/{regions|cities|categories}/{id}/activate
+
+GET /v3/api-docs
+GET /swagger-ui.html
+```
+
+Événements sortants : `catalog.asset.created`, `catalog.asset.updated`,
+`catalog.asset.status_changed`, `catalog.asset.deleted`,
+`catalog.asset.synchronized`, `catalog.reference.created`,
+`catalog.reference.updated`, `catalog.reference.activated` et
+`catalog.reference.deactivated`.
+
+Lancement Docker local après construction du jar :
+
+```powershell
+cd catalog-service
+..\config-server\mvnw.cmd clean package
+docker compose up --build
+```
+
+Le Compose démarre PostGIS sur le port hôte `5438`, Kafka/Redpanda sur `19092`
+et le service sur `8088`. Le secret JWT fourni dans le Compose est uniquement
+destiné au développement local.
+
+### Implémentation d'ingestion-service
+
+`ingestion-service` est désormais un service fonctionnel V1 pour alimenter le
+catalogue à partir de données externes.
+
+Fonctionnalités :
+
+- création de jobs avec l'en-tête obligatoire `Idempotency-Key` ;
+- stratégies d'extraction CSV, JSON et API ;
+- API distante protégée par une liste blanche d'hôtes afin de limiter le SSRF ;
+- pipeline commun de normalisation, validation et déduplication ;
+- fingerprint SHA-256 stable ;
+- persistance PostgreSQL de chaque job et de chaque ligne acceptée, rejetée ou
+  détectée comme doublon ;
+- worker asynchrone persistant et protégé par verrouillage optimiste ;
+- outbox transactionnelle vers `catalog.ingestion.events` ;
+- enveloppe `catalog.asset.ingested` conforme au contrat événementiel YeYamo ;
+- Flyway, JWT/RBAC, Eureka, Config Client, Actuator et tests H2.
+
+Endpoints :
+
+```text
+POST /api/v1/catalog/imports
+GET  /api/v1/catalog/imports/{jobId}
+```
+
+Le POST est réservé à `ADMIN` et `PARTNER` et retourne `202 Accepted`.
+Exemple JSON :
+
+```http
+POST /api/v1/catalog/imports
+Idempotency-Key: partner-42-places-2026-07-13
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "sourceType": "CSV",
+  "sourceReference": "partner-42",
+  "payload": "external_id,name,type,latitude,longitude\\nP1,Musée National,PLACE,3.87,11.52"
+}
+```
+
+Pour une source API, `sourceReference` contient l'URL et son hôte doit être
+présent dans `INGESTION_API_ALLOWED_HOSTS`. Les tableaux JSON sont acceptés
+directement ou sous la forme `{"data": [...]}`.
+
+Variables principales :
+
+```text
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/yeyamo_ingestion
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=...
+JWT_SECRET=...
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+INGESTION_API_ALLOWED_HOSTS=data.example.org,partner.example.org
+```
+
+### Implémentation de media-service
+
+`media-service` gère désormais les originaux, les métadonnées et les
+miniatures sans exposer le fournisseur de stockage au domaine.
+
+Architecture :
+
+- `ObjectStoragePort` isole le stockage objet ;
+- `LocalObjectStorageAdapter` fournit un stockage atomique local pour le
+  développement et bloque les traversées de chemins ;
+- `ThumbnailStrategy` sélectionne le traitement image ou vidéo ;
+- les images sont redimensionnées et converties en JPEG avec Java2D ;
+- les vidéos utilisent FFmpeg avec un timeout configurable ;
+- PostgreSQL conserve les métadonnées et le soft delete ;
+- une outbox transactionnelle publie `media.uploaded`, `media.ready`,
+  `media.thumbnail_failed` et `media.deleted` sur `media.events`.
+
+Endpoints :
+
+```text
+POST   /api/v1/media
+GET    /api/v1/media/{id}
+GET    /api/v1/media/{id}/content
+GET    /api/v1/media/{id}/thumbnail
+DELETE /api/v1/media/{id}
+GET    /v3/api-docs
+GET    /swagger-ui.html
+```
+
+L'upload et la suppression exigent un JWT. La lecture d'un média au statut
+`READY` est publique. La suppression est limitée au propriétaire, avec une
+exception pour `ADMIN` et `SUPER_ADMIN`.
+
+Formats acceptés : JPEG, PNG, WEBP, MP4, WEBM et MOV. Le service vérifie la
+signature binaire en plus du type MIME, calcule un SHA-256 et refuse un doublon
+actif pour le même propriétaire.
+
+Variables principales :
+
+```text
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/yeyamo_media
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=...
+JWT_SECRET=...
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+MEDIA_STORAGE_ROOT=./storage/media
+FFMPEG_PATH=ffmpeg
+```
+
+Pour la production, remplacer l'adapter local par S3/MinIO sans modifier le
+domaine ni les cas d'usage. Le stockage local ne doit pas être utilisé avec
+plusieurs réplicas du service.
+
+### Implémentation de content-service
+
+`content-service` est désormais le propriétaire du cycle de vie des
+publications sociales. Il conserve uniquement les identifiants des médias et
+des actifs catalogue ; les données de `media-service` et `catalog-service`
+ne sont ni copiées ni partagées.
+
+Règles principales :
+
+- une publication est créée au statut `DRAFT` ;
+- seul un brouillon peut être édité ou publié ;
+- la publication exige un texte ou au moins un média ;
+- les visibilités disponibles sont `PUBLIC`, `FOLLOWERS` et `PRIVATE` ;
+- les recherches anonymes retournent uniquement `PUBLISHED + PUBLIC` ;
+- un post accepte au maximum 10 médias et 20 hashtags ;
+- les hashtags sont normalisés en minuscules sans le caractère `#` ;
+- la suppression est logique et conserve l'historique événementiel ;
+- auteur, administrateur, super-administrateur ou modérateur peuvent appliquer
+  les actions autorisées selon leur rôle.
+
+Endpoints :
+
+```text
+POST   /api/v1/posts
+PUT    /api/v1/posts/{id}
+POST   /api/v1/posts/{id}/publish
+PATCH  /api/v1/posts/{id}/visibility
+POST   /api/v1/posts/{id}/archive
+DELETE /api/v1/posts/{id}
+GET    /api/v1/posts/{id}
+GET    /api/v1/posts/me
+GET    /api/v1/posts/me/{id}
+GET    /api/v1/posts/hashtags/{tag}
+GET    /api/v1/posts/catalog/{catalogAssetId}
+GET    /v3/api-docs
+GET    /swagger-ui.html
+```
+
+L'outbox publie les événements `content.post.created`,
+`content.post.updated`, `content.post.published`,
+`content.post.visibility_changed`, `content.post.archived` et
+`content.post.deleted` sur `content.events`.
+
+### Implémentation de interaction-service
+
+`interaction-service` porte désormais les signaux sociaux demandés par les
+architectures V1 et V2 sans recopier les publications ni le catalogue. Les
+références `postId` et `catalogAssetId` restent des identifiants externes vers
+`content-service` et `catalog-service`.
+
+Architecture et garanties :
+
+- architecture hexagonale avec domaine et ports indépendants de JPA, Redis et Kafka ;
+- CQRS léger : `InteractionCommandService` sépare les mutations de
+  `InteractionQueryService` et de ses projections de lecture ;
+- likes et favoris uniques par couple utilisateur/publication ;
+- commentaires hiérarchiques, modifiables par leur auteur ou un rôle de
+  modération, avec suppression logique et verrouillage optimiste ;
+- commandes idempotentes via `Idempotency-Key` et reçus PostgreSQL uniques ;
+- compteurs lus en cache-aside Redis avec TTL et repli PostgreSQL si Redis est
+  indisponible ;
+- Outbox transactionnelle PostgreSQL puis publication asynchrone sur
+  `interaction.events` ;
+- JWT Resource Server stateless et documentation OpenAPI.
+
+Endpoints :
+
+```text
+PUT    /api/v1/interactions/posts/{postId}/like
+DELETE /api/v1/interactions/posts/{postId}/like
+PUT    /api/v1/interactions/posts/{postId}/favorite
+DELETE /api/v1/interactions/posts/{postId}/favorite
+POST   /api/v1/interactions/posts/{postId}/comments
+GET    /api/v1/interactions/posts/{postId}/comments
+PUT    /api/v1/interactions/comments/{commentId}
+DELETE /api/v1/interactions/comments/{commentId}
+POST   /api/v1/interactions/posts/{postId}/shares
+GET    /api/v1/interactions/posts/{postId}/summary
+GET    /api/v1/saves
+POST   /api/v1/checkins
+GET    /api/v1/checkins/me
+GET    /v3/api-docs
+GET    /swagger-ui.html
+```
+
+Toutes les mutations exigent un JWT et l'en-tête `Idempotency-Key`. La lecture
+des commentaires et des compteurs est publique ; les favoris et check-ins sont
+privés. Les événements produits sont :
+
+```text
+interaction.like.added
+interaction.like.removed
+interaction.favorite.added
+interaction.favorite.removed
+interaction.comment.created
+interaction.comment.updated
+interaction.comment.deleted
+interaction.post.shared
+interaction.checkin.created
+```
+
+Variables principales :
+
+```text
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/yeyamo_interactions
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=...
+JWT_SECRET=... # au moins 32 octets et identique à auth-service
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+REDIS_HOST=localhost
+REDIS_PORT=6379
+INTERACTION_EVENTS_TOPIC=interaction.events
+INTERACTION_CACHE_TTL_SECONDS=60
+```
+
 ## Conclusion
 
 YeYamo possède un socle microservices opérationnel et quatre domaines métier
 V1 cohérents : auth, profils utilisateur, partenaires et administration. La
-V2 est correctement amorcée, mais ses douze nouveaux modules ne contiennent
-encore aucune logique métier.
+V2 dispose maintenant d'un noyau métier concret pour le catalogue, l'ingestion,
+les médias, le contenu et les interactions. Les autres modules V2 restent à
+implémenter ou à durcir selon leur état indiqué plus haut.
 
 La priorité est de stabiliser les contrats transverses, puis d'implémenter
 `catalog-service` comme source de vérité en faisant converger

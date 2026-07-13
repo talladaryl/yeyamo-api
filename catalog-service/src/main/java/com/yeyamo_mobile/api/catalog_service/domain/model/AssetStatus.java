@@ -4,5 +4,6 @@ public enum AssetStatus {
     DRAFT,
     IN_REVIEW,
     PUBLISHED,
-    ARCHIVED
+    ARCHIVED,
+    DELETED
 }
