@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.feed_service.application.ranking;import java.time.Instant;import java.util.Map;import com.yeyamo_mobile.api.feed_service.domain.model.FeedCandidate;public interface RankingStrategy{double score(FeedCandidate candidate,Map<String,Double>authorAffinities,Instant now);}

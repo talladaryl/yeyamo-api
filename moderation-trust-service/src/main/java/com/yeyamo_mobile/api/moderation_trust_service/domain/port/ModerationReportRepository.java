@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.moderation_trust_service.domain.port;import java.util.*;import com.yeyamo_mobile.api.moderation_trust_service.domain.model.*;
+public interface ModerationReportRepository{ModerationReport save(ModerationReport r);Optional<ModerationReport>findById(UUID id);List<ModerationReport>find(ReportStatus status,String reporter,int limit);boolean existsOpen(TargetType type,String target,String reporter);}

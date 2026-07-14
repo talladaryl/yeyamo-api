@@ -1,0 +1,11 @@
+package com.yeyamo_mobile.api.discovery_service.infrastructure.web;
+import org.springframework.context.annotation.*;
+import io.swagger.v3.oas.models.*;
+import io.swagger.v3.oas.models.Components;
+import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.security.*;
+@Configuration public class OpenApiConfig {
+    @Bean OpenAPI discoveryOpenApi() { return new OpenAPI().info(new Info().title("YeYamo Discovery API").version("v1").description("Recherche textuelle, géographique et tendances"))
+            .components(new Components().addSecuritySchemes("bearerAuth",new SecurityScheme().type(SecurityScheme.Type.HTTP).scheme("bearer").bearerFormat("JWT")))
+            .addSecurityItem(new SecurityRequirement().addList("bearerAuth")); }
+}

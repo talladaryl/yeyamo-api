@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.feed_service.application.port;import java.util.*;import com.yeyamo_mobile.api.feed_service.domain.model.*;
+public interface FeedProjectionPort{void savePost(FeedPost p);Optional<FeedPost>findPost(UUID id);FeedMetric metric(UUID id);void saveMetric(FeedMetric m);void adjustSignal(String user,UUID post,double weight);List<FeedCandidate>candidates(int limit);Map<String,Double>authorAffinities(String user);}

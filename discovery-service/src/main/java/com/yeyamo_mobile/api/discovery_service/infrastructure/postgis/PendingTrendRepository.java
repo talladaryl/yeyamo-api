@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.discovery_service.infrastructure.postgis;import org.springframework.data.jpa.repository.JpaRepository;public interface PendingTrendRepository extends JpaRepository<PendingTrendEntity,String>{}

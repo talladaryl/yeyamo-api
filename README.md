@@ -622,9 +622,9 @@ Les statuts employés sont :
 | `media-service` | **Prêt V1** | Upload images/vidéos, métadonnées, stockage par port/adapter, miniatures, PostgreSQL/Flyway, Outbox Kafka, JWT et OpenAPI | Ajouter un adapter S3/MinIO pour la production |
 | `content-service` | **Prêt V1** | Brouillons, publications, visibilité, hashtags, références media/catalog, soft delete, Flyway, JWT, OpenAPI et Outbox Kafka | Raccorder interaction, feed et modération à `content.events` |
 | `interaction-service` | **Prêt V1** | Likes, commentaires, favoris, partages, check-ins, PostgreSQL/Flyway, Redis cache-aside, CQRS léger, idempotence, Outbox Kafka, JWT et OpenAPI | Raccorder feed/recommandation à `interaction.events` |
-| `moderation-trust-service` | **Initialisé V2** | Socle PostgreSQL/Kafka/Flyway | Reçoit progressivement la modération actuellement dans `admin-service` |
-| `feed-service` | **Initialisé V2** | Socle PostgreSQL/Redis/Kafka/Flyway | Dépend de content, interaction, catalog et user |
-| `discovery-service` | **Initialisé V2** | Socle PostgreSQL/Redis/Kafka/Flyway | Successeur fonctionnel de `search-service` |
+| `moderation-trust-service` | **Prêt V1** | Signalements, workflow de modération, scores de confiance, audit append-only, Flyway, JWT, Outbox et consumers idempotents | Migrer progressivement les anciens signalements de `admin-service` |
+| `feed-service` | **Prêt V1** | Fil personnalisé, CQRS léger, projections PostgreSQL, ranking Strategy, Redis cache-aside, Outbox et consumers idempotents | Enrichir ultérieurement avec les préférences explicites de `user-service` |
+| `discovery-service` | **Prêt V1** | Recherche textuelle et PostGIS, tendances, projections Kafka idempotentes, Redis cache-aside, JWT, OpenAPI et adaptateur OpenSearch sélectionnable | Brancher `catalog.events`, `content.events` et `interaction.events` puis valider sur l'infrastructure locale |
 | `recommendation-service` | **Initialisé V2** | Socle PostgreSQL/Redis/Kafka/Flyway | Dépend des signaux catalog, user et interaction |
 | `gamification-service` | **Initialisé V2** | Socle PostgreSQL/Redis/Kafka/Flyway | XP, badges, passeport et séries |
 | `mission-reward-service` | **Initialisé V2** | Socle PostgreSQL/Kafka/Flyway | Dépend de gamification et des événements d'activité |
@@ -1098,6 +1098,133 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 INTERACTION_EVENTS_TOPIC=interaction.events
 INTERACTION_CACHE_TTL_SECONDS=60
+```
+
+### Implémentation de moderation-trust-service
+
+`moderation-trust-service` devient le propriétaire V2 des signalements, des
+décisions de modération et des scores de confiance. La modération historique
+de `admin-service` peut être migrée progressivement par événements sans partage
+de base de données.
+
+Règles et architecture :
+
+- architecture hexagonale avec agrégats `ModerationReport` et `TrustScore` ;
+- cibles supportées : publication, commentaire, média, utilisateur, partenaire
+  et actif catalogue ;
+- raisons normalisées : spam, harcèlement, haine, violence, nudité, fraude,
+  désinformation, copyright et autre ;
+- workflow strict `OPEN → REVIEW → APPROVED|REJECTED` ;
+- un seul dossier `OPEN/REVIEW` par signalant et cible ;
+- score de confiance borné entre 0 et 100, initialisé à 50 ;
+- un signalement approuvé diminue le score du propriétaire ciblé et valorise
+  légèrement le signalant ; un signalement rejeté pénalise légèrement le
+  signalant ;
+- audit append-only : l'application expose uniquement l'ajout et PostgreSQL
+  interdit physiquement les `UPDATE` et `DELETE` par trigger ;
+- Outbox transactionnelle vers `moderation.events` ;
+- consommateurs idempotents de `content.events`, `interaction.events` et
+  `admin.events`, avec reçus PostgreSQL, trois retries et DLT ;
+- JWT stateless avec rôles `ADMIN`, `SUPER_ADMIN` et `MODERATOR` pour la file
+  de modération ;
+- OpenAPI et Swagger UI.
+
+Endpoints :
+
+```text
+POST /api/v1/moderation/reports
+GET  /api/v1/moderation/reports/me
+GET  /api/v1/moderation/reports
+GET  /api/v1/moderation/reports/{id}
+POST /api/v1/moderation/reports/{id}/review
+POST /api/v1/moderation/reports/{id}/decision
+GET  /api/v1/moderation/audit
+GET  /api/v1/trust/{subjectId}
+GET  /v3/api-docs
+GET  /swagger-ui.html
+```
+
+Événements sortants :
+
+```text
+moderation.report.created
+moderation.report.review_started
+moderation.report.approved
+moderation.report.rejected
+trust.score.changed
+```
+
+Variables principales :
+
+```text
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/yeyamo_moderation
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=...
+JWT_SECRET=... # au moins 32 octets
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+MODERATION_EVENTS_TOPIC=moderation.events
+CONTENT_EVENTS_TOPIC=content.events
+INTERACTION_EVENTS_TOPIC=interaction.events
+ADMIN_EVENTS_TOPIC=admin.events
+```
+
+### Implémentation de feed-service
+
+`feed-service` construit un fil personnalisé sans appel synchrone à
+`content-service` ou `interaction-service`. Il matérialise localement les
+événements nécessaires puis répond depuis PostgreSQL et Redis.
+
+Architecture et comportement :
+
+- CQRS léger avec `FeedProjectionCommandService` pour les événements et
+  `FeedQueryService` pour les lectures ;
+- trois projections matérialisées : publications, métriques d'engagement et
+  signaux utilisateur/publication ;
+- consommation idempotente de `content.events` et `interaction.events` avec
+  reçus PostgreSQL, trois retries et DLT ;
+- les métriques et signaux peuvent être reçus avant la publication : ils sont
+  conservés puis automatiquement exploitables quand le contenu arrive ;
+- seules les publications `PUBLISHED + PUBLIC` apparaissent dans le fil ;
+- `PersonalizedRankingStrategy` combine fraîcheur exponentielle, engagement
+  pondéré et affinité avec l'auteur ;
+- l'interface `RankingStrategy` permet d'ajouter ultérieurement une stratégie
+  exploration/diversité ou ML sans modifier le cas d'usage ;
+- pagination bornée à 50 éléments et sélection d'un ensemble de candidats
+  récent avant ranking ;
+- cache-aside Redis avec TTL, repli PostgreSQL et invalidation O(1) par version
+  globale ;
+- Outbox transactionnelle vers `feed.events` ;
+- JWT Resource Server et documentation OpenAPI.
+
+Endpoint :
+
+```text
+GET /api/v1/feed?page=0&size=20
+GET /v3/api-docs
+GET /swagger-ui.html
+```
+
+Événements sortants :
+
+```text
+feed.post.projected
+feed.metrics.updated
+```
+
+Variables principales :
+
+```text
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/yeyamo_feed
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=...
+JWT_SECRET=... # au moins 32 octets
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+REDIS_HOST=localhost
+REDIS_PORT=6379
+CONTENT_EVENTS_TOPIC=content.events
+INTERACTION_EVENTS_TOPIC=interaction.events
+FEED_EVENTS_TOPIC=feed.events
+FEED_CACHE_TTL_SECONDS=60
 ```
 
 ## Conclusion

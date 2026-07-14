@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.feed_service.domain.model;import java.time.Instant;import java.util.UUID;
+public record FeedMetric(UUID postId,long likes,long comments,long shares,long favorites,Instant updatedAt){public static FeedMetric empty(UUID id){return new FeedMetric(id,0,0,0,0,Instant.now());}public FeedMetric adjust(long l,long c,long s,long f){return new FeedMetric(postId,Math.max(0,likes+l),Math.max(0,comments+c),Math.max(0,shares+s),Math.max(0,favorites+f),Instant.now());}public double engagement(){return likes+comments*2d+shares*3d+favorites*.5d;}}

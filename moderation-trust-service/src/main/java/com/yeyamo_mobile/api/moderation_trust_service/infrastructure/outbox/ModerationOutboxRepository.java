@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.moderation_trust_service.infrastructure.outbox;import java.util.*;import org.springframework.data.jpa.repository.JpaRepository;public interface ModerationOutboxRepository extends JpaRepository<ModerationOutboxEvent,UUID>{List<ModerationOutboxEvent>findTop100ByPublishedAtIsNullOrderByOccurredAtAsc();}

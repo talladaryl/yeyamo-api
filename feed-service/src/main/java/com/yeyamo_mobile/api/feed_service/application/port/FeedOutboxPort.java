@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.feed_service.application.port;import java.util.Map;public interface FeedOutboxPort{void append(String type,String aggregateId,String correlation,Map<String,Object>payload);}

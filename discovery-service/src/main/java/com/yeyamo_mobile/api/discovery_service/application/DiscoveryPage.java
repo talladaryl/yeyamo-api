@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.discovery_service.application;import java.time.Instant;import java.util.List;import com.yeyamo_mobile.api.discovery_service.domain.model.DiscoveryDocument;public record DiscoveryPage(int page,int size,boolean hasNext,List<DiscoveryDocument>items,Instant generatedAt){}

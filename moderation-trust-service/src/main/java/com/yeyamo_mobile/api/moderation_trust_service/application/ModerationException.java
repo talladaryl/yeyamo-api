@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.moderation_trust_service.application;public class ModerationException extends RuntimeException{private final String code;public ModerationException(String c,String m){super(m);code=c;}public String getCode(){return code;}}
