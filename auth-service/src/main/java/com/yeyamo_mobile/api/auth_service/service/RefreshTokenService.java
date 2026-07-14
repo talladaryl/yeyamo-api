@@ -1,0 +1,88 @@
+package com.yeyamo_mobile.api.auth_service.service;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.HexFormat;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.yeyamo_mobile.api.auth_service.exception.ApiException;
+import com.yeyamo_mobile.api.auth_service.models.RefreshToken;
+import com.yeyamo_mobile.api.auth_service.models.User;
+import com.yeyamo_mobile.api.auth_service.repository.RefreshTokenRepository;
+
+@Service
+public class RefreshTokenService {
+
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final SecureRandom secureRandom = new SecureRandom();
+    private final long refreshTokenExpirationMs;
+
+    public RefreshTokenService(
+            RefreshTokenRepository refreshTokenRepository,
+            @Value("${jwt.refresh-token-expiration}") long refreshTokenExpirationMs
+    ) {
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.refreshTokenExpirationMs = refreshTokenExpirationMs;
+    }
+
+    public String create(User user) {
+        String rawToken = randomToken();
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setUser(user);
+        refreshToken.setTokenHash(hash(rawToken));
+        refreshToken.setExpiresAt(LocalDateTime.now().plusNanos(refreshTokenExpirationMs * 1_000_000));
+        refreshTokenRepository.save(refreshToken);
+        return rawToken;
+    }
+
+    public RefreshToken verify(String rawToken) {
+        RefreshToken refreshToken = refreshTokenRepository.findByTokenHash(hash(rawToken))
+                .orElseThrow(() -> new ApiException("INVALID_REFRESH_TOKEN", "Refresh token invalide", HttpStatus.UNAUTHORIZED));
+
+        if (refreshToken.getRevokedAt() != null || refreshToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new ApiException("INVALID_REFRESH_TOKEN", "Refresh token expiré ou révoqué", HttpStatus.UNAUTHORIZED);
+        }
+
+        return refreshToken;
+    }
+
+    public void revoke(RefreshToken refreshToken) {
+        refreshToken.setRevokedAt(LocalDateTime.now());
+        refreshTokenRepository.save(refreshToken);
+    }
+
+    @Transactional
+    public void revokeAll(User user) {
+        refreshTokenRepository.deleteByUser(user);
+    }
+
+    public String rotate(String rawToken) {
+        RefreshToken existing = verify(rawToken);
+        User user = existing.getUser();
+        revoke(existing);
+        return create(user);
+    }
+
+    private String randomToken() {
+        byte[] bytes = new byte[64];
+        secureRandom.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private String hash(String rawToken) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(rawToken.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 indisponible", exception);
+        }
+    }
+}

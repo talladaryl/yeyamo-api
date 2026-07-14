@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.moderation_trust_service.infrastructure.audit;import java.util.*;import org.springframework.data.domain.Pageable;import org.springframework.data.jpa.repository.JpaRepository;public interface SpringAuditRepository extends JpaRepository<AuditEntryEntity,UUID>{List<AuditEntryEntity>findAllByOrderByOccurredAtDesc(Pageable p);}

@@ -1,0 +1,3 @@
+package com.yeyamo_mobile.api.partner_service.infrastructure.persistence;
+import java.util.Optional;import java.util.UUID;import org.springframework.data.domain.*;import org.springframework.data.jpa.repository.*;import org.springframework.data.repository.query.Param;import com.yeyamo_mobile.api.partner_service.domain.model.PartnerStatus;
+public interface SpringPartnerRepository extends JpaRepository<PartnerEntity,UUID>{Optional<PartnerEntity>findByOwnerUserId(String id);boolean existsByOwnerUserId(String id);@Query("select p from PartnerEntity p where p.status=:status and (:q='' or lower(coalesce(p.tradeName,p.legalName)) like lower(concat('%',:q,'%'))) ")Page<PartnerEntity>search(@Param("q")String q,@Param("status")PartnerStatus status,Pageable pageable);}

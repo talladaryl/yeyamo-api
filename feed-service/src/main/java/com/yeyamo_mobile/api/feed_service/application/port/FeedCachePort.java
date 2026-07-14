@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.feed_service.application.port;import java.util.Optional;import com.yeyamo_mobile.api.feed_service.application.FeedPage;public interface FeedCachePort{Optional<FeedPage>get(String user,int page,int size);void put(FeedPage page);void invalidate();}

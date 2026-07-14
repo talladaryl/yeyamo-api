@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.discovery_service.application.port;import java.util.Optional;import com.yeyamo_mobile.api.discovery_service.application.*;public interface DiscoveryCachePort{Optional<DiscoveryPage>get(DiscoverySearch search);void put(DiscoverySearch search,DiscoveryPage page);void invalidate();}

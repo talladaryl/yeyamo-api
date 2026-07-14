@@ -1,0 +1,4 @@
+com\yeyamo_mobile\api\catalog_service\domain\model\CatalogAssetTests.class
+com\yeyamo_mobile\api\catalog_service\CatalogServiceApplicationTests.class
+com\yeyamo_mobile\api\catalog_service\application\CatalogAssetServiceTests$MemoryRepository.class
+com\yeyamo_mobile\api\catalog_service\application\CatalogAssetServiceTests.class

@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.moderation_trust_service.interfaces.rest;import com.yeyamo_mobile.api.moderation_trust_service.domain.model.ReportStatus;import jakarta.validation.constraints.*;public record DecisionRequest(@NotNull ReportStatus status,@NotBlank@Size(max=2000)String resolution){}

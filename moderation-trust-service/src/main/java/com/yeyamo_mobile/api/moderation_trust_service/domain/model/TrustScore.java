@@ -1,0 +1,6 @@
+package com.yeyamo_mobile.api.moderation_trust_service.domain.model;
+import java.time.Instant;
+public class TrustScore {private String subjectId;private int score;private int approvedReports;private int rejectedReports;private Instant updatedAt;private long version;
+ public static TrustScore initial(String id){if(id==null||id.isBlank())throw new IllegalArgumentException("subjectId is required");TrustScore s=new TrustScore();s.subjectId=id;s.score=50;s.updatedAt=Instant.now();return s;}
+ public void approvedAgainst(){score=Math.max(0,score-10);approvedReports++;updatedAt=Instant.now();}public void validReporter(){score=Math.min(100,score+1);updatedAt=Instant.now();}public void rejectedReporter(){score=Math.max(0,score-2);rejectedReports++;updatedAt=Instant.now();}
+ public String getSubjectId(){return subjectId;}public void setSubjectId(String v){subjectId=v;}public int getScore(){return score;}public void setScore(int v){score=v;}public int getApprovedReports(){return approvedReports;}public void setApprovedReports(int v){approvedReports=v;}public int getRejectedReports(){return rejectedReports;}public void setRejectedReports(int v){rejectedReports=v;}public Instant getUpdatedAt(){return updatedAt;}public void setUpdatedAt(Instant v){updatedAt=v;}public long getVersion(){return version;}public void setVersion(long v){version=v;}}

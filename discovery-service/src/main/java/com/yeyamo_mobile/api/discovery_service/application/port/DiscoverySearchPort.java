@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.discovery_service.application.port;import java.util.*;import com.yeyamo_mobile.api.discovery_service.application.*;import com.yeyamo_mobile.api.discovery_service.domain.model.DiscoveryDocument;
+public interface DiscoverySearchPort{void upsert(DiscoveryDocument document);Optional<DiscoveryDocument>findBySourceId(String sourceId);void adjustTrend(String sourceId,double delta);List<DiscoveryDocument>search(DiscoverySearch search,int fetchSize);}

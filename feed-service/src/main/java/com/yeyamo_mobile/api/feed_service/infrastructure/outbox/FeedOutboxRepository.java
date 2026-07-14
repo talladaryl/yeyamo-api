@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.feed_service.infrastructure.outbox;import java.util.*;import org.springframework.data.jpa.repository.JpaRepository;public interface FeedOutboxRepository extends JpaRepository<FeedOutboxEvent,UUID>{List<FeedOutboxEvent>findTop100ByPublishedAtIsNullOrderByOccurredAtAsc();}

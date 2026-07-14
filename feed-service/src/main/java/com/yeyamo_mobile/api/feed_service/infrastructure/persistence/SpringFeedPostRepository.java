@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.feed_service.infrastructure.persistence;import java.util.*;import org.springframework.data.domain.Pageable;import org.springframework.data.jpa.repository.JpaRepository;public interface SpringFeedPostRepository extends JpaRepository<FeedPostEntity,UUID>{List<FeedPostEntity>findByAvailableTrueOrderByPublishedAtDesc(Pageable p);}
