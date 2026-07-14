@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.recommendation_service.application.port;import java.util.Map;public interface RecommendationOutboxPort{void append(String type,String userId,String correlationId,Map<String,Object>payload);}

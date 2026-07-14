@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.gamification_service.infrastructure.persistence;import java.util.*;import org.springframework.data.jpa.repository.JpaRepository;public interface StampRepository extends JpaRepository<StampEntity,UUID>{boolean existsByUserIdAndDestinationId(String user,String destination);List<StampEntity>findByUserIdOrderByStampedAtDesc(String user);}

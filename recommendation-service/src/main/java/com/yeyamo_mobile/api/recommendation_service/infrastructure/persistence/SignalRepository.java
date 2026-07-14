@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.recommendation_service.infrastructure.persistence;import java.util.*;import org.springframework.data.jpa.repository.JpaRepository;public interface SignalRepository extends JpaRepository<SignalEntity,SignalId>{List<SignalEntity>findByIdUserId(String userId);}

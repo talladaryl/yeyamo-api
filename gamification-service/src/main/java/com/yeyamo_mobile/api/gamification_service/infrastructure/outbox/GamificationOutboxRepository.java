@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.gamification_service.infrastructure.outbox;import java.util.*;import org.springframework.data.jpa.repository.JpaRepository;public interface GamificationOutboxRepository extends JpaRepository<GamificationOutboxEvent,UUID>{List<GamificationOutboxEvent>findTop100ByPublishedAtIsNullOrderByOccurredAtAsc();}

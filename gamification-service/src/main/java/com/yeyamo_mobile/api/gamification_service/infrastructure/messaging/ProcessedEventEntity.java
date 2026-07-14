@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.gamification_service.infrastructure.messaging;import java.time.Instant;import java.util.UUID;import jakarta.persistence.*;
+@Entity@Table(name="gamification_processed_events")public class ProcessedEventEntity{@Id UUID eventId;@Column(name="event_type",nullable=false,length=120)String eventType;@Column(name="processed_at",nullable=false)Instant processedAt;public ProcessedEventEntity(){}public ProcessedEventEntity(UUID id,String type){eventId=id;eventType=type;processedAt=Instant.now();}}

@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.gamification_service.domain;import java.time.Instant;import java.util.UUID;
+public record XpActivity(UUID eventId,String userId,int points,String reason,String sourceId,String counterType,String destinationId,Instant occurredAt){public XpActivity{if(eventId==null||userId==null||userId.isBlank()||reason==null||sourceId==null)throw new IllegalArgumentException("activity identity is required");if(points<=0)throw new IllegalArgumentException("points must be positive");occurredAt=occurredAt==null?Instant.now():occurredAt;}}

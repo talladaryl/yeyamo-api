@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.recommendation_service.infrastructure.persistence;import org.springframework.data.jpa.repository.JpaRepository;public interface PendingPopularityRepository extends JpaRepository<PendingPopularityEntity,String>{}

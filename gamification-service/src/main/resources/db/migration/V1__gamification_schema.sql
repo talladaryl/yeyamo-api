@@ -1,0 +1,15 @@
+CREATE TABLE gamification_profiles(user_id VARCHAR(120) PRIMARY KEY,total_xp BIGINT NOT NULL DEFAULT 0 CHECK(total_xp>=0),level INTEGER NOT NULL DEFAULT 1 CHECK(level>=1),current_streak INTEGER NOT NULL DEFAULT 0,longest_streak INTEGER NOT NULL DEFAULT 0,last_activity_date DATE,updated_at TIMESTAMPTZ NOT NULL,version BIGINT NOT NULL DEFAULT 0);
+CREATE TABLE xp_ledger(id UUID PRIMARY KEY,event_id UUID NOT NULL UNIQUE,user_id VARCHAR(120) NOT NULL,points INTEGER NOT NULL,reason VARCHAR(80) NOT NULL,source_id VARCHAR(160) NOT NULL,occurred_at TIMESTAMPTZ NOT NULL,created_at TIMESTAMPTZ NOT NULL,CONSTRAINT uk_xp_business UNIQUE(user_id,reason,source_id));
+CREATE INDEX idx_xp_ledger_user ON xp_ledger(user_id,created_at DESC);
+CREATE OR REPLACE FUNCTION prevent_xp_ledger_mutation() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'xp_ledger is append-only'; END; $$ LANGUAGE plpgsql;
+CREATE TRIGGER trg_xp_ledger_no_update BEFORE UPDATE OR DELETE ON xp_ledger FOR EACH ROW EXECUTE FUNCTION prevent_xp_ledger_mutation();
+CREATE TABLE gamification_counters(user_id VARCHAR(120) NOT NULL,counter_type VARCHAR(50) NOT NULL,value BIGINT NOT NULL DEFAULT 0,updated_at TIMESTAMPTZ NOT NULL,version BIGINT NOT NULL DEFAULT 0,PRIMARY KEY(user_id,counter_type));
+CREATE TABLE user_badges(id UUID PRIMARY KEY,user_id VARCHAR(120) NOT NULL,badge_code VARCHAR(80) NOT NULL,name VARCHAR(160) NOT NULL,description VARCHAR(500) NOT NULL,earned_at TIMESTAMPTZ NOT NULL,source_event_id UUID NOT NULL,CONSTRAINT uk_user_badge UNIQUE(user_id,badge_code));
+CREATE INDEX idx_user_badges ON user_badges(user_id,earned_at DESC);
+CREATE TABLE passport_stamps(id UUID PRIMARY KEY,user_id VARCHAR(120) NOT NULL,destination_id VARCHAR(120) NOT NULL,stamped_at TIMESTAMPTZ NOT NULL,source_event_id UUID NOT NULL,CONSTRAINT uk_passport_stamp UNIQUE(user_id,destination_id));
+CREATE INDEX idx_passport_user ON passport_stamps(user_id,stamped_at DESC);
+CREATE TABLE gamification_rewards(id UUID PRIMARY KEY,user_id VARCHAR(120) NOT NULL,reward_code VARCHAR(100) NOT NULL,title VARCHAR(200) NOT NULL,status VARCHAR(30) NOT NULL,granted_at TIMESTAMPTZ NOT NULL,claimed_at TIMESTAMPTZ,source VARCHAR(120) NOT NULL,version BIGINT NOT NULL DEFAULT 0,CONSTRAINT uk_user_reward_source UNIQUE(user_id,reward_code,source));
+CREATE INDEX idx_reward_user ON gamification_rewards(user_id,granted_at DESC);
+CREATE TABLE gamification_processed_events(event_id UUID PRIMARY KEY,event_type VARCHAR(120) NOT NULL,processed_at TIMESTAMPTZ NOT NULL);
+CREATE TABLE gamification_outbox(id UUID PRIMARY KEY,aggregate_id VARCHAR(120) NOT NULL,event_type VARCHAR(120) NOT NULL,payload TEXT NOT NULL,occurred_at TIMESTAMPTZ NOT NULL,published_at TIMESTAMPTZ,attempts INTEGER NOT NULL DEFAULT 0,last_error VARCHAR(1000));
+CREATE INDEX idx_gamification_outbox_pending ON gamification_outbox(occurred_at) WHERE published_at IS NULL;

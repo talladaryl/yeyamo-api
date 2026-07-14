@@ -1,6 +1,7 @@
 package com.yeyamo_mobile.api.user_service.application;
 
 import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -93,8 +94,11 @@ public class UserProfileService {
     }
 
     private void append(String type, UserProfile p, String actor, String correlationId) {
-        outbox.append(type, p.getId(), actor, correlationId, Map.of(
-                "profileId", p.getId().toString(), "authUserId", p.getAuthUserId(),
-                "displayName", p.getDisplayName(), "status", p.getStatus().name()));
+        Map<String,Object> payload = new LinkedHashMap<>();
+        payload.put("profileId", p.getId().toString()); payload.put("authUserId", p.getAuthUserId());
+        payload.put("displayName", p.getDisplayName()); payload.put("status", p.getStatus().name());
+        payload.put("language", p.getLanguage().name()); payload.put("notificationsEnabled", p.isNotificationsEnabled());
+        payload.put("locationSharingEnabled", p.isLocationSharingEnabled()); payload.put("preferredRegionId", p.getPreferredRegionId());
+        outbox.append(type, p.getId(), actor, correlationId, payload);
     }
 }

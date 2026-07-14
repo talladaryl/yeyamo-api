@@ -1,0 +1,3 @@
+package com.yeyamo_mobile.api.notification_service.infrastructure.persistence;
+import java.time.Instant;import java.util.*;import jakarta.persistence.LockModeType;import org.springframework.data.domain.Pageable;import org.springframework.data.jpa.repository.*;import com.yeyamo_mobile.api.notification_service.domain.DeliveryStatus;
+public interface SpringDeliveryRepository extends JpaRepository<DeliveryEntity,UUID>{@Lock(LockModeType.PESSIMISTIC_WRITE)List<DeliveryEntity>findByStatusInAndNextAttemptAtLessThanEqualOrderByNextAttemptAtAsc(Collection<DeliveryStatus>statuses,Instant now,Pageable page);}

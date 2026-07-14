@@ -1,0 +1,10 @@
+CREATE TABLE recommendation_candidates(source_id VARCHAR(160) PRIMARY KEY,target_id VARCHAR(120) NOT NULL,kind VARCHAR(30) NOT NULL,title VARCHAR(300) NOT NULL,category_code VARCHAR(100),region_code VARCHAR(100),latitude DOUBLE PRECISION CHECK(latitude BETWEEN -90 AND 90),longitude DOUBLE PRECISION CHECK(longitude BETWEEN -180 AND 180),popularity DOUBLE PRECISION NOT NULL DEFAULT 0 CHECK(popularity>=0),active BOOLEAN NOT NULL DEFAULT TRUE,published_at TIMESTAMPTZ,updated_at TIMESTAMPTZ NOT NULL,version BIGINT NOT NULL DEFAULT 0);
+CREATE INDEX idx_recommendation_candidate_active ON recommendation_candidates(active,popularity DESC,published_at DESC);
+CREATE INDEX idx_recommendation_candidate_category ON recommendation_candidates(category_code,region_code) WHERE active=TRUE;
+CREATE TABLE recommendation_user_preferences(user_id VARCHAR(120) PRIMARY KEY,preferred_region VARCHAR(100),language VARCHAR(20),location_sharing_enabled BOOLEAN NOT NULL DEFAULT FALSE,updated_at TIMESTAMPTZ NOT NULL,version BIGINT NOT NULL DEFAULT 0);
+CREATE TABLE recommendation_user_signals(user_id VARCHAR(120) NOT NULL,source_id VARCHAR(160) NOT NULL,weight DOUBLE PRECISION NOT NULL DEFAULT 0,last_interaction_at TIMESTAMPTZ NOT NULL,version BIGINT NOT NULL DEFAULT 0,PRIMARY KEY(user_id,source_id));
+CREATE INDEX idx_recommendation_signal_user ON recommendation_user_signals(user_id,last_interaction_at DESC);
+CREATE TABLE recommendation_pending_popularity(source_id VARCHAR(160) PRIMARY KEY,score DOUBLE PRECISION NOT NULL DEFAULT 0,updated_at TIMESTAMPTZ NOT NULL,version BIGINT NOT NULL DEFAULT 0);
+CREATE TABLE recommendation_processed_events(event_id UUID PRIMARY KEY,event_type VARCHAR(120) NOT NULL,processed_at TIMESTAMPTZ NOT NULL);
+CREATE TABLE recommendation_outbox(id UUID PRIMARY KEY,aggregate_id VARCHAR(120) NOT NULL,event_type VARCHAR(120) NOT NULL,payload TEXT NOT NULL,occurred_at TIMESTAMPTZ NOT NULL,published_at TIMESTAMPTZ,attempts INTEGER NOT NULL DEFAULT 0,last_error VARCHAR(1000));
+CREATE INDEX idx_recommendation_outbox_pending ON recommendation_outbox(occurred_at) WHERE published_at IS NULL;

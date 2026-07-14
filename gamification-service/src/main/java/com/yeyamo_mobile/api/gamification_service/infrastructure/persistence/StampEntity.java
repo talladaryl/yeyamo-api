@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.gamification_service.infrastructure.persistence;import java.time.Instant;import java.util.UUID;import jakarta.persistence.*;
+@Entity@Table(name="passport_stamps")public class StampEntity{@Id UUID id;@Column(name="user_id",nullable=false,length=120)String userId;@Column(name="destination_id",nullable=false,length=120)String destinationId;@Column(name="stamped_at",nullable=false)Instant stampedAt;@Column(name="source_event_id",nullable=false)UUID sourceEventId;}

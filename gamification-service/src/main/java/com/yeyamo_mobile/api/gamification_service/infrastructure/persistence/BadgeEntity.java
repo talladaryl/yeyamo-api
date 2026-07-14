@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.gamification_service.infrastructure.persistence;import java.time.Instant;import java.util.UUID;import jakarta.persistence.*;
+@Entity@Table(name="user_badges")public class BadgeEntity{@Id UUID id;@Column(name="user_id",nullable=false,length=120)String userId;@Column(name="badge_code",nullable=false,length=80)String badgeCode;@Column(nullable=false,length=160)String name;@Column(nullable=false,length=500)String description;@Column(name="earned_at",nullable=false)Instant earnedAt;@Column(name="source_event_id",nullable=false)UUID sourceEventId;}

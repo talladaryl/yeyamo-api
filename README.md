@@ -101,7 +101,7 @@ complet et de validation des interactions entre services.
 | `graph-service` | 1 classe | Squelette | Non implémenté |
 | `search-service` | 1 classe | Squelette | Non implémenté |
 | `messaging-service` | 1 classe | Squelette | Non implémenté |
-| `notification-service` | 1 classe | Squelette | Non implémenté |
+| `notification-service` | Architecture hexagonale complète | In-app, email, push, préférences, Kafka idempotent, retry/DLQ, JWT et OpenAPI | Prêt V1 |
 | `booking-service` | 1 classe | Squelette | Non implémenté |
 | `payment-service` | 1 classe | Squelette | Non implémenté |
 
@@ -528,7 +528,7 @@ présent rapport ne certifie donc pas que tous les services compilent ou démarr
 2. Implémenter `partner-service`.
 3. Implémenter un `social-service` minimal.
 4. Relier les validations admin aux partenaires et aux lieux.
-5. Implémenter `notification-service` selon les événements du MVP.
+5. `notification-service` : **achevé V1**, à raccorder aux fournisseurs SMTP et push de l'environnement cible.
 
 ### P3 — Introduire les composants avancés selon le besoin
 
@@ -555,8 +555,8 @@ implémenter.
 | `interaction-service` | 8091 | PostgreSQL + Redis | Likes, commentaires, sauvegardes et check-ins |
 | `feed-service` | 8092 | PostgreSQL + Redis | Construction des fils personnalisés |
 | `discovery-service` | 8093 | PostgreSQL + Redis | Recherche et découverte |
-| `recommendation-service` | 8094 | PostgreSQL + Redis | Recommandations personnalisées |
-| `gamification-service` | 8097 | PostgreSQL + Redis | XP, badges, passeport et séries |
+| `recommendation-service` | 8095 | PostgreSQL + Redis | Recommandations personnalisées |
+| `gamification-service` | 8096 | PostgreSQL + Redis | XP, badges, passeport et séries |
 | `mission-reward-service` | 8098 | PostgreSQL | Missions, règles et récompenses |
 | `referral-service` | 8099 | PostgreSQL + Redis | Parrainage et attribution |
 | `moderation-trust-service` | 8100 | PostgreSQL | Signalements, modération et confiance |
@@ -625,13 +625,13 @@ Les statuts employés sont :
 | `moderation-trust-service` | **Prêt V1** | Signalements, workflow de modération, scores de confiance, audit append-only, Flyway, JWT, Outbox et consumers idempotents | Migrer progressivement les anciens signalements de `admin-service` |
 | `feed-service` | **Prêt V1** | Fil personnalisé, CQRS léger, projections PostgreSQL, ranking Strategy, Redis cache-aside, Outbox et consumers idempotents | Enrichir ultérieurement avec les préférences explicites de `user-service` |
 | `discovery-service` | **Prêt V1** | Recherche textuelle et PostGIS, tendances, projections Kafka idempotentes, Redis cache-aside, JWT, OpenAPI et adaptateur OpenSearch sélectionnable | Brancher `catalog.events`, `content.events` et `interaction.events` puis valider sur l'infrastructure locale |
-| `recommendation-service` | **Initialisé V2** | Socle PostgreSQL/Redis/Kafka/Flyway | Dépend des signaux catalog, user et interaction |
-| `gamification-service` | **Initialisé V2** | Socle PostgreSQL/Redis/Kafka/Flyway | XP, badges, passeport et séries |
+| `recommendation-service` | **Prêt V1** | Scoring explicable popularité/proximité/préférences/historique, projections Kafka, PostgreSQL, Redis, Outbox, JWT et OpenAPI | Ajuster les pondérations avec des données métier réelles puis mesurer la qualité du ranking |
+| `gamification-service` | **Prêt V1** | Ledger XP append-only, niveaux, badges, séries, passeport, récompenses, PostgreSQL/Flyway, Redis, Outbox, consommateurs Kafka idempotents, JWT et OpenAPI | Valider les flux réels avec Kafka/Redis/PostgreSQL et raccorder le futur producteur `booking-service` |
 | `mission-reward-service` | **Initialisé V2** | Socle PostgreSQL/Kafka/Flyway | Dépend de gamification et des événements d'activité |
 | `referral-service` | **Initialisé V2** | Socle PostgreSQL/Redis/Kafka/Flyway | À lancer après identité, récompenses et attribution |
 | `booking-service` | **Squelette historique** | Classe principale et dépendances seulement | À implémenter après catalogue et partenaires |
 | `payment-service` | **Squelette historique** | Classe principale et dépendances seulement | À implémenter uniquement après booking |
-| `notification-service` | **Squelette historique utile** | Classe principale et dépendances mail/Kafka | À réinitialiser sur le socle V2 puis implémenter |
+| `notification-service` | **Prêt V1** | Notifications in-app, email et push, préférences, templates, Flyway, consommation Kafka idempotente, retry/backoff, DLQ, JWT et OpenAPI | Configurer SMTP et le fournisseur push pour les livraisons externes |
 | `messaging-service` | **Squelette historique** | Classe principale, dépendances Cassandra/WebSocket | Différer jusqu'à validation du besoin conversationnel |
 | `social-service` | **Squelette historique à retirer du plan** | Aucune logique métier | Ne pas implémenter : responsabilité répartie entre content, interaction et feed |
 | `search-service` | **Squelette historique à retirer du plan** | Aucune logique métier | Ne pas implémenter en parallèle : absorber dans discovery |
@@ -1226,6 +1226,166 @@ INTERACTION_EVENTS_TOPIC=interaction.events
 FEED_EVENTS_TOPIC=feed.events
 FEED_CACHE_TTL_SECONDS=60
 ```
+
+### Implémentation de notification-service
+
+`notification-service` matérialise localement les notifications issues des
+événements métier et ne dépend d'aucun appel synchrone vers les producteurs.
+
+Architecture et fiabilité :
+
+- architecture hexagonale avec ports de persistance, templates et canaux ;
+- canaux `IN_APP`, `EMAIL` et `PUSH` sélectionnés par les préférences utilisateur ;
+- templates PostgreSQL par type d'événement, canal et langue, avec fallback ;
+- consommation de `auth.events`, `partner-events` et `moderation.events` ;
+- idempotence persistante par `eventId` et contrainte source/destinataire ;
+- retry Kafka avec backoff exponentiel et publication dans `<topic>.DLT` ;
+- livraisons email/push persistées avec backoff exponentiel, nombre maximal de
+  tentatives et état final `DEAD_LETTER` ;
+- verrou pessimiste sur les livraisons pour empêcher deux instances de traiter
+  simultanément la même tentative ;
+- SMTP via `JavaMailSender` et push via un adapter HTTP configurable ;
+- Flyway, JWT Resource Server, OpenAPI et route API Gateway.
+
+Endpoints :
+
+```text
+GET  /api/v1/notifications?page=0&size=20
+POST /api/v1/notifications/{id}/read
+POST /api/v1/notifications/read-all
+GET  /api/v1/notifications/preferences
+PUT  /api/v1/notifications/preferences
+GET  /v3/api-docs
+GET  /swagger-ui.html
+```
+
+Variables principales :
+
+```text
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/yeyamo_notification
+JWT_SECRET=... # au moins 32 octets
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+SMTP_HOST=localhost
+SMTP_PORT=1025
+NOTIFICATION_EMAIL_FROM=no-reply@yeyamo.app
+PUSH_PROVIDER_ENDPOINT=https://provider.example/send
+PUSH_PROVIDER_API_KEY=...
+NOTIFICATION_MAX_ATTEMPTS=5
+NOTIFICATION_BASE_DELAY_SECONDS=30
+```
+
+### Implémentation de recommendation-service
+
+`recommendation-service` construit ses recommandations depuis ses propres
+projections PostgreSQL, sans appel synchrone aux services producteurs.
+
+Architecture et comportement :
+
+- architecture hexagonale avec ports de projection, cache et Outbox ;
+- consommation de `catalog.events`, `content.events`, `interaction.events`,
+  `feed.events` et `user.events` ;
+- compatibilité transitoire avec le topic historique `user-events` ;
+- candidats unifiés pour destinations, lieux, expériences, événements et contenus ;
+- quatre stratégies de scoring composables : popularité, proximité,
+  préférences et historique ;
+- détail des composantes du score retourné pour rendre le ranking explicable ;
+- respect du consentement de partage de localisation avant tout calcul de proximité ;
+- affinités de catégorie apprises depuis l'historique d'interaction ;
+- conservation des signaux de popularité reçus avant le candidat ;
+- consommateurs Kafka idempotents avec reçus PostgreSQL, trois retries et DLT ;
+- cache-aside Redis versionné avec fallback PostgreSQL ;
+- Outbox transactionnelle vers `recommendation.events` ;
+- Flyway, JWT Resource Server, OpenAPI et route API Gateway.
+
+Endpoint :
+
+```text
+GET /api/v1/recommendations?lat=4.05&lng=9.70&page=0&size=20
+GET /v3/api-docs
+GET /swagger-ui.html
+```
+
+Variables principales :
+
+```text
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/yeyamo_recommendation
+JWT_SECRET=... # au moins 32 octets
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+REDIS_HOST=localhost
+REDIS_PORT=6379
+CATALOG_EVENTS_TOPIC=catalog.events
+CONTENT_EVENTS_TOPIC=content.events
+INTERACTION_EVENTS_TOPIC=interaction.events
+FEED_EVENTS_TOPIC=feed.events
+USER_V2_EVENTS_TOPIC=user.events
+RECOMMENDATION_EVENTS_TOPIC=recommendation.events
+RECOMMENDATION_CACHE_TTL_SECONDS=120
+```
+
+## Implémentation de `gamification-service` — 14 juillet 2026
+
+Le service de gamification est désormais **prêt V1** sur le port `8096`. Il
+utilise une architecture hexagonale : le domaine de progression ne dépend ni
+de Spring, ni de PostgreSQL, ni de Kafka. Les adapters JPA, Redis, Kafka et HTTP
+implémentent les ports définis par la couche application.
+
+Fonctionnalités livrées :
+
+- ledger XP append-only, protégé dans PostgreSQL contre les mises à jour et les
+  suppressions par trigger ;
+- calcul déterministe des niveaux et du prochain seuil XP ;
+- badges attribués par règles indépendantes (`Strategy`) ;
+- séries journalières calculées en UTC ;
+- passeport voyageur alimenté par les check-ins, avec unicité par lieu ;
+- récompenses de niveau et de badge, réclamables une seule fois ;
+- lectures mises en cache dans Redis selon le pattern cache-aside ;
+- publication fiable sur `gamification.events` par Transactional Outbox ;
+- consommation idempotente de `user.events`, `user-events`, `content.events`,
+  `interaction.events` et `booking.events`, avec retry puis DLT ;
+- sécurité JWT Resource Server, OpenAPI et migrations Flyway.
+
+Les événements reconnus dans cette première version sont `profile.created`,
+`content.post.published`, `interaction.like.added`,
+`interaction.favorite.added`, `interaction.comment.created`,
+`interaction.post.shared`, `interaction.checkin.created`,
+`booking.confirmed` et `booking.completed`. Pour une réservation, la clé
+fonctionnelle empêche `confirmed` et `completed` de créditer deux fois le même
+gain.
+
+Endpoints authentifiés :
+
+```text
+GET  /api/v1/me/xp
+GET  /api/v1/me/badges
+GET  /api/v1/me/passport
+GET  /api/v1/me/streaks
+GET  /api/v1/me/rewards
+POST /api/v1/me/rewards/{rewardId}/claim
+GET  /v3/api-docs
+GET  /swagger-ui.html
+```
+
+Variables principales :
+
+```text
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/yeyamo_gamification
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=postgres
+JWT_SECRET=... # au moins 32 octets, identique à l'émetteur des JWT
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+REDIS_HOST=localhost
+REDIS_PORT=6379
+GAMIFICATION_EVENTS_TOPIC=gamification.events
+GAMIFICATION_CACHE_TTL_SECONDS=120
+```
+
+La suite automatisée contient 14 tests et couvre le calcul de progression, les
+règles de badges, l'orchestration métier, la politique XP, l'idempotence du
+consumer et le démarrage du contexte Spring. Elle passe sous Java 21. Les
+intégrations réelles PostgreSQL/Kafka/Redis restent à valider dans
+l'environnement d'exécution. `booking-service` étant encore un squelette, le
+consumer est prêt pour ses contrats V2, mais aucun producteur de réservation
+n'est encore disponible dans le dépôt.
 
 ## Conclusion
 

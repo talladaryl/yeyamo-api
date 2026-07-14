@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.gamification_service.infrastructure.persistence;import java.util.*;import org.springframework.data.jpa.repository.JpaRepository;public interface CounterRepository extends JpaRepository<CounterEntity,CounterId>{List<CounterEntity>findByIdUserId(String userId);}

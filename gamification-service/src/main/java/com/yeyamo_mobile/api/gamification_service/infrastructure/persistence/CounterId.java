@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.gamification_service.infrastructure.persistence;import java.io.Serializable;import java.util.Objects;import jakarta.persistence.*;
+@Embeddable public class CounterId implements Serializable{@Column(name="user_id",length=120)String userId;@Column(name="counter_type",length=50)String type;public CounterId(){}public CounterId(String u,String t){userId=u;type=t;}public boolean equals(Object o){return o instanceof CounterId i&&Objects.equals(userId,i.userId)&&Objects.equals(type,i.type);}public int hashCode(){return Objects.hash(userId,type);}}

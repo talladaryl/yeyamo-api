@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.gamification_service.infrastructure.persistence;import java.util.Optional;import jakarta.persistence.LockModeType;import org.springframework.data.jpa.repository.*;public interface ProfileRepository extends JpaRepository<ProfileEntity,String>{@Lock(LockModeType.PESSIMISTIC_WRITE)Optional<ProfileEntity>findLockedByUserId(String userId);}

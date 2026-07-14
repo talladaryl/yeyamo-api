@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.recommendation_service.application.scoring;import org.springframework.stereotype.Component;import com.yeyamo_mobile.api.recommendation_service.domain.*;
+@Component public class HistoryScoringStrategy implements ScoringStrategy{public String name(){return"history";}public double score(Candidate c,RecommendationProfile p,RecommendationContext x){return p.seenSources().contains(c.sourceId())?-30:8;}}
