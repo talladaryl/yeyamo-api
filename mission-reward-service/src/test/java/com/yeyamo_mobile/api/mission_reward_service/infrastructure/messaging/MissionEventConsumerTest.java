@@ -1,0 +1,5 @@
+package com.yeyamo_mobile.api.mission_reward_service.infrastructure.messaging;
+import static org.mockito.ArgumentMatchers.*;import static org.mockito.Mockito.*;import java.util.*;import org.junit.jupiter.api.Test;import com.fasterxml.jackson.databind.ObjectMapper;import com.yeyamo_mobile.api.mission_reward_service.application.MissionApplicationService;
+class MissionEventConsumerTest{
+ @Test void processesAnEventOnlyOnce()throws Exception{var mapper=new ObjectMapper();var service=mock(MissionApplicationService.class);var processed=mock(ProcessedEventRepository.class);var consumer=new MissionEventConsumer(mapper,new MissionEventMapper(mapper),service,processed);String raw="{\"eventId\":\"11111111-1111-1111-1111-111111111111\",\"eventType\":\"gamification.xp.awarded\",\"eventVersion\":1,\"occurredAt\":\"2026-07-14T10:00:00Z\",\"payload\":{\"userId\":\"u1\",\"points\":20}}";when(processed.existsById(any())).thenReturn(false,true);consumer.consume(raw);consumer.consume(raw);verify(service,times(1)).apply(any());verify(processed,times(1)).save(any());}
+}

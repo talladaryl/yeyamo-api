@@ -1,0 +1,7 @@
+package com.yeyamo_mobile.api.mission_reward_service.infrastructure.messaging;
+import java.time.Instant;import java.util.*;import org.springframework.stereotype.Component;import com.fasterxml.jackson.core.type.TypeReference;import com.fasterxml.jackson.databind.*;import com.yeyamo_mobile.api.mission_reward_service.domain.MissionEvent;
+@Component public class MissionEventMapper{
+ private final ObjectMapper mapper;public MissionEventMapper(ObjectMapper m){mapper=m;}
+ public MissionEvent map(JsonNode event){UUID id=UUID.fromString(required(event,"eventId"));String type=required(event,"eventType");JsonNode node=event.path("payload");Map<String,Object>payload=mapper.convertValue(node,new TypeReference<>(){});String user=first(text(node,"userId"),text(node,"authorId"),text(event,"actorId"));if(user==null||user.isBlank())throw new IllegalArgumentException("Event user is required");return new MissionEvent(id,type,user,payload,instant(event,"occurredAt"),text(event,"correlationId"));}
+ private String first(String...values){return Arrays.stream(values).filter(Objects::nonNull).filter(v->!v.isBlank()).findFirst().orElse(null);}private String required(JsonNode n,String f){String v=text(n,f);if(v==null||v.isBlank())throw new IllegalArgumentException(f+" is required");return v;}private String text(JsonNode n,String f){JsonNode v=n.get(f);return v==null||v.isNull()?null:v.asText();}private Instant instant(JsonNode n,String f){try{return Instant.parse(required(n,f));}catch(Exception e){throw new IllegalArgumentException("occurredAt must be ISO-8601",e);}}
+}

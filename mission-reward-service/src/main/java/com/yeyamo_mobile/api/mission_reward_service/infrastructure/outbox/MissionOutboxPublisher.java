@@ -1,0 +1,9 @@
+package com.yeyamo_mobile.api.mission_reward_service.infrastructure.outbox;
+import java.time.Instant;import java.util.UUID;import java.util.concurrent.TimeUnit;import org.springframework.beans.factory.annotation.Value;import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;import org.springframework.kafka.core.KafkaTemplate;import org.springframework.scheduling.annotation.Scheduled;import org.springframework.stereotype.Component;import org.springframework.transaction.annotation.Transactional;import com.yeyamo_mobile.api.mission_reward_service.application.MissionApplicationService;
+@Component@ConditionalOnProperty(name="mission.outbox.enabled",havingValue="true",matchIfMissing=true)
+public class MissionOutboxPublisher{
+ private final MissionOutboxRepository repo;private final KafkaTemplate<String,String>kafka;private final MissionApplicationService service;private final String topic;
+ public MissionOutboxPublisher(MissionOutboxRepository r,KafkaTemplate<String,String>k,MissionApplicationService s,@Value("${yeyamo.kafka.topics.mission-events:mission.events}")String t){repo=r;kafka=k;service=s;topic=t;}
+ @Scheduled(fixedDelayString="${mission.outbox.delay-ms:1000}")@Transactional public void publish(){for(var e:repo.findTop100ByPublishedAtIsNullOrderByOccurredAtAsc()){try{kafka.send(topic,e.aggregateId,e.payload).get(5,TimeUnit.SECONDS);e.publishedAt=Instant.now();e.lastError=null;if("mission.reward.granted".equals(e.eventType))service.confirmGrant(UUID.fromString(e.aggregateId));}catch(Exception x){e.attempts++;e.lastError=shorten(x.getMessage());if(e.attempts>=10&&"mission.reward.granted".equals(e.eventType))service.failGrant(UUID.fromString(e.aggregateId),e.lastError);}repo.save(e);}}
+ private String shorten(String value){if(value==null)return"Kafka publication failed";return value.length()>1000?value.substring(0,1000):value;}
+}

@@ -627,7 +627,7 @@ Les statuts employés sont :
 | `discovery-service` | **Prêt V1** | Recherche textuelle et PostGIS, tendances, projections Kafka idempotentes, Redis cache-aside, JWT, OpenAPI et adaptateur OpenSearch sélectionnable | Brancher `catalog.events`, `content.events` et `interaction.events` puis valider sur l'infrastructure locale |
 | `recommendation-service` | **Prêt V1** | Scoring explicable popularité/proximité/préférences/historique, projections Kafka, PostgreSQL, Redis, Outbox, JWT et OpenAPI | Ajuster les pondérations avec des données métier réelles puis mesurer la qualité du ranking |
 | `gamification-service` | **Prêt V1** | Ledger XP append-only, niveaux, badges, séries, passeport, récompenses, PostgreSQL/Flyway, Redis, Outbox, consommateurs Kafka idempotents, JWT et OpenAPI | Valider les flux réels avec Kafka/Redis/PostgreSQL et raccorder le futur producteur `booking-service` |
-| `mission-reward-service` | **Initialisé V2** | Socle PostgreSQL/Kafka/Flyway | Dépend de gamification et des événements d'activité |
+| `mission-reward-service` | **Prêt V1** | Missions et objectifs configurables, règles COUNT/SUM/MAX, progression automatique, saga légère de récompense, PostgreSQL/Flyway, Outbox, consumers idempotents, JWT et OpenAPI | Valider les flux réels avec PostgreSQL/Kafka et brancher les futurs consommateurs de `mission.events` |
 | `referral-service` | **Initialisé V2** | Socle PostgreSQL/Redis/Kafka/Flyway | À lancer après identité, récompenses et attribution |
 | `booking-service` | **Squelette historique** | Classe principale et dépendances seulement | À implémenter après catalogue et partenaires |
 | `payment-service` | **Squelette historique** | Classe principale et dépendances seulement | À implémenter uniquement après booking |
@@ -1386,6 +1386,83 @@ intégrations réelles PostgreSQL/Kafka/Redis restent à valider dans
 l'environnement d'exécution. `booking-service` étant encore un squelette, le
 consumer est prêt pour ses contrats V2, mais aucun producteur de réservation
 n'est encore disponible dans le dépôt.
+
+## Implémentation de `mission-reward-service` — 14 juillet 2026
+
+Le service est désormais **prêt V1** sur le port `8098`. Il gère le cycle de
+vie des définitions de mission (`DRAFT`, `ACTIVE`, `PAUSED`, `ENDED`),
+l'inscription automatique d'un utilisateur au premier événement éligible, la
+progression de chaque objectif, la validation automatique de la mission et
+l'attribution d'une récompense.
+
+Le moteur de règles utilise une Strategy déterministe par métrique :
+
+- `COUNT` compte les événements correspondants ;
+- `SUM` additionne un champ numérique du payload, par exemple `points` ;
+- `MAX` conserve la plus grande valeur observée, par exemple `level` ;
+- `ruleKey` et `ruleValue` permettent de filtrer un objectif sur une propriété
+  métier sans coder une classe spécifique pour chaque mission.
+
+La saga légère de récompense suit les états `PENDING`, `GRANTED` et `FAILED`.
+La complétion, la création du grant et les messages Outbox sont enregistrés
+atomiquement. Après publication réussie de `mission.reward.granted`, le grant
+et la mission utilisateur passent à l'état final. Après dix échecs de
+publication, le grant est marqué `FAILED` en conservant la cause. Les
+publications restent rejouables et les consumers utilisent une table de reçus
+persistante pour l'idempotence.
+
+Événements consommés :
+
+```text
+gamification.events
+interaction.events
+```
+
+Les objectifs peuvent notamment cibler `gamification.xp.awarded`,
+`gamification.level.changed`, `gamification.badge.earned`,
+`interaction.like.added`, `interaction.favorite.added`,
+`interaction.comment.created`, `interaction.post.shared` et
+`interaction.checkin.created`. Le service publie ses événements versionnés sur
+`mission.events`, notamment `mission.created`, `mission.activated`,
+`mission.completed` et `mission.reward.granted`.
+
+Endpoints JWT :
+
+```text
+GET  /api/v1/missions
+GET  /api/v1/me/missions
+GET  /api/v1/me/mission-rewards
+POST /api/v1/mission-management/missions
+POST /api/v1/mission-management/missions/{id}/activate
+POST /api/v1/mission-management/missions/{id}/pause
+GET  /v3/api-docs
+GET  /swagger-ui.html
+```
+
+Les routes `/api/v1/mission-management/**` exigent le rôle `ADMIN`. Cette
+frontière évite également tout conflit avec `/api/v1/admin/**`, déjà attribué à
+`admin-service` dans la Gateway.
+
+Variables principales :
+
+```text
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/yeyamo_missions
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=postgres
+JWT_SECRET=... # au moins 32 octets, identique à l'émetteur des JWT
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+GAMIFICATION_EVENTS_TOPIC=gamification.events
+INTERACTION_EVENTS_TOPIC=interaction.events
+MISSION_EVENTS_TOPIC=mission.events
+MISSION_OUTBOX_DELAY_MS=1000
+```
+
+La suite contient 14 tests : moteur de règles, filtres, orchestration de
+mission, complétion automatique, démarrage de saga, mapping des contrats,
+consumer idempotent et chargement complet du contexte Spring. Tous passent
+sous Java 21. Les tests automatisés utilisent H2 ou des doubles ; une
+validation d'intégration avec PostgreSQL et Kafka réels reste nécessaire avant
+la production.
 
 ## Conclusion
 
