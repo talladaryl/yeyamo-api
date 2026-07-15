@@ -27,7 +27,7 @@ grille est adaptée à leur responsabilité réelle.
 | `ingestion-service` | 88 % |
 | `interaction-service` | 90 % |
 | `media-service` | 85 % |
-| `messaging-service` | 5 % |
+| `messaging-service` | 85 % |
 | `mission-reward-service` | 88 % |
 | `moderation-trust-service` | 88 % |
 | `notification-service` | 85 % |
@@ -43,9 +43,9 @@ grille est adaptée à leur responsabilité réelle.
 
 ## Synthèse précise
 
-- Avancement moyen des 26 modules actifs : **83 %**. Moyenne des 29 dossiers,
-  anciens squelettes inclus : **75 %**.
-- **24 services** ont un socle V1 ou infrastructure substantiel (80 % et plus).
+- Avancement moyen des 26 modules actifs : **86 %**. Moyenne des 29 dossiers,
+  anciens squelettes inclus : **78 %**.
+- **25 services** ont un socle V1 ou infrastructure substantiel (80 % et plus).
 - `analytics-service` utilise OpenSearch pour ses projections, avec consommation
   idempotente, retry exponentiel et DLT. `event-service` utilise désormais
   Flyway, JWT et une Outbox transactionnelle.
@@ -55,10 +55,15 @@ grille est adaptée à leur responsabilité réelle.
 - `payment-service` couvre maintenant la Saga de réservation, les autorisations,
   annulations, remboursements, webhooks signés, Inbox/Outbox et l'idempotence.
   L'adaptateur simulé doit être remplacé par un fournisseur réel en production.
-- `messaging-service` reste un squelette. `social-service` et `search-service`
-  ne doivent pas être développés séparément : leurs responsabilités sont déjà
-  couvertes par content/interaction/feed et discovery. `graph-service` reste
-  expérimental et hors du plan V2 actuel.
+- `messaging-service` couvre les conversations directes et de groupe, les membres,
+  messages, références de médias, réponses, édition/suppression logique, lecture,
+  pagination, idempotence, Cassandra, Kafka et WebSocket privé. Les notifications
+  sont déléguées à `notification-service` et les signalements à
+  `moderation-trust-service`. Il reste à réaliser les tests d'intégration réels
+  Cassandra/Kafka et le routage WebSocket par l'ingress de production.
+- `social-service` et `search-service` ne doivent pas être développés séparément :
+  leurs responsabilités sont déjà couvertes par content/interaction/feed et
+  discovery. `graph-service` reste expérimental et hors du plan V2 actuel.
 - Une collision de ports par défaut reste à corriger avant un lancement global :
   `admin-service`/`gamification-service` sur `8096`. `analytics-service` utilise
   maintenant `8097`.
@@ -70,8 +75,7 @@ grille est adaptée à leur responsabilité réelle.
 
 | Priorité | Service | Travail restant |
 |---:|---|---|
-| 1 | `messaging-service` | Implémentation de la messagerie privée si elle reste dans le périmètre produit V2 : conversations, messages, pièces jointes, statuts de lecture et modération. |
-| 2 | `analytics-service` | Finaliser les agrégations métier, les projections par période, les contrôles d'accès par propriétaire et les tests avec OpenSearch/Kafka réels. |
+| 1 | `analytics-service` | Finaliser les agrégations métier, les projections par période, les contrôles d'accès par propriétaire et les tests avec OpenSearch/Kafka réels. |
 
 `place-service` ne doit plus recevoir de nouvelles fonctionnalités. Il reste à
 migrer ses données historiques vers `catalog-service`, basculer ses consommateurs,

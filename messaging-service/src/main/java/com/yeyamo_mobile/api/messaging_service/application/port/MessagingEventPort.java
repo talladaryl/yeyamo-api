@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.messaging_service.application.port;import java.util.*;public interface MessagingEventPort{void publish(String type,String aggregate,String actor,String correlation,Collection<String>recipients,Map<String,Object>payload,Object realtimePayload);}

@@ -1,0 +1,26 @@
+services:
+  cassandra:
+    image: cassandra:5.0
+    environment:
+      CASSANDRA_CLUSTER_NAME: yeyamo
+      CASSANDRA_DC: datacenter1
+    ports:
+      - "9042:9042"
+    volumes:
+      - messaging-cassandra:/var/lib/cassandra
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'DESCRIBE CLUSTER' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 40s
+  cassandra-init:
+    image: cassandra:5.0
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./src/main/resources/cassandra/schema.cql:/schema.cql:ro
+    entrypoint: ["cqlsh", "cassandra", "9042", "-f", "/schema.cql"]
+volumes:
+  messaging-cassandra:

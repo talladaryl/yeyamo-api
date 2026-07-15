@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.messaging_service.domain;public class MessagingException extends RuntimeException{private final String code;public MessagingException(String code,String message){super(message);this.code=code;}public String getCode(){return code;}}
