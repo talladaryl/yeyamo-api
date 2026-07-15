@@ -3,6 +3,7 @@ package com.yeyamo_mobile.api.auth_service.service;
 import java.util.List;
 import java.util.Locale;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -21,6 +22,7 @@ public class OAuthTokenVerifier {
     private final JwtDecoder googleDecoder;
     private final JwtDecoder appleDecoder;
 
+    @Autowired
     public OAuthTokenVerifier(
             @Value("${oauth.google.client-id}") String googleClientId,
             @Value("${oauth.apple.client-id}") String appleClientId
