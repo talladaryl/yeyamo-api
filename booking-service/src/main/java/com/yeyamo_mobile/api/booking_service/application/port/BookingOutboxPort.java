@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.booking_service.application.port;import java.util.Map;public interface BookingOutboxPort{void append(String topic,String type,String aggregate,String correlation,Map<String,Object>payload);}

@@ -52,7 +52,8 @@ public class AnalyticsIngestionService {
             eventType = text(event, "eventType", eventType);
             correlationId = text(event, "correlationId", null);
             validateEnvelope(event, eventId, eventType);
-            if (eventLogRepository.existsByEventId(eventId)) {
+            if (eventLogRepository.findByEventId(eventId)
+                    .filter(log -> log.getStatus() == AnalyticsEventStatus.SUCCESS).isPresent()) {
                 return;
             }
 
@@ -61,6 +62,7 @@ public class AnalyticsIngestionService {
         } catch (Exception exception) {
             saveEventLog(eventId, eventType, AnalyticsEventStatus.FAILED);
             publishAuditFailure(eventType, correlationId, exception.getMessage());
+            throw new AnalyticsIngestionException("Analytics event processing failed", exception);
         }
     }
 
@@ -78,6 +80,7 @@ public class AnalyticsIngestionService {
 
     private void saveKpiSnapshot(UUID eventId, String eventType, JsonNode event) {
         KpiHistory kpi = new KpiHistory();
+        kpi.setId(eventId);
         kpi.setKpiName(resolveKpiName(eventType));
         kpi.setEventType(eventType);
         kpi.setCalculatedAt(LocalDateTime.now());
@@ -94,12 +97,17 @@ public class AnalyticsIngestionService {
     }
 
     private void saveEventLog(UUID eventId, String eventType, AnalyticsEventStatus status) {
-        AnalyticsEventLog log = new AnalyticsEventLog();
+        AnalyticsEventLog log = eventLogRepository.findByEventId(eventId).orElseGet(AnalyticsEventLog::new);
+        log.setId(eventId);
         log.setEventId(eventId);
         log.setEventType(eventType);
         log.setProcessedAt(LocalDateTime.now());
         log.setStatus(status);
         eventLogRepository.save(log);
+    }
+
+    static final class AnalyticsIngestionException extends RuntimeException {
+        AnalyticsIngestionException(String message, Throwable cause) { super(message, cause); }
     }
 
     private void publishAuditFailure(String eventType, String correlationId, String errorMessage) {

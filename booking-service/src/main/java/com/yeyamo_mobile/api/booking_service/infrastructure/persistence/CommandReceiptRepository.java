@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.booking_service.infrastructure.persistence;import java.util.*;import org.springframework.data.jpa.repository.JpaRepository;public interface CommandReceiptRepository extends JpaRepository<CommandReceiptEntity,UUID>{Optional<CommandReceiptEntity>findByKeyAndUserIdAndOperation(String key,String user,String operation);}

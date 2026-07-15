@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.booking_service.infrastructure.persistence;import java.util.*;import org.springframework.data.jpa.repository.JpaRepository;public interface PaymentSagaRepository extends JpaRepository<PaymentSagaEntity,UUID>{Optional<PaymentSagaEntity>findByBookingId(UUID booking);}

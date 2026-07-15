@@ -1,33 +1,28 @@
 package com.yeyamo_mobile.api.place_service.event;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.kafka.core.KafkaTemplate;
+import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.slf4j.MDC;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yeyamo_mobile.api.place_service.models.Place;
+import com.yeyamo_mobile.api.place_service.outbox.PlaceOutboxMessage;
+import com.yeyamo_mobile.api.place_service.outbox.PlaceOutboxRepository;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @Component
 public class PlaceEventPublisher {
 
-    private static final Logger log = LoggerFactory.getLogger(PlaceEventPublisher.class);
-
-    private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
-    private final String topic;
+    private final PlaceOutboxRepository repository;
 
     public PlaceEventPublisher(
-            KafkaTemplate<String, String> kafkaTemplate,
             ObjectMapper objectMapper,
-            @Value("${yeyamo.kafka.topics.place-events:place.events}") String topic
+            PlaceOutboxRepository repository
     ) {
-        this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
-        this.topic = topic;
+        this.repository = repository;
     }
 
     public void publishCreated(Place place) {
@@ -59,10 +54,12 @@ public class PlaceEventPublisher {
 
     private void publish(PlaceEvent event) {
         try {
-            String payload = objectMapper.writeValueAsString(event);
-            kafkaTemplate.send(topic, event.payload().placeId().toString(), payload);
+            PlaceOutboxMessage message=new PlaceOutboxMessage();message.setId(event.eventId());
+            message.setAggregateId(event.aggregateId());message.setEventType(event.eventType());
+            message.setPayload(objectMapper.writeValueAsString(event));message.setOccurredAt(event.occurredAt());
+            repository.save(message);
         } catch (JsonProcessingException exception) {
-            log.error("Impossible de serialiser l'evenement Kafka pour le lieu {}", event.payload().placeId(), exception);
+            throw new IllegalStateException("Impossible de serialiser l'evenement du lieu "+event.payload().placeId(),exception);
         }
     }
 
@@ -72,7 +69,7 @@ public class PlaceEventPublisher {
     }
 
     private String actorId() {
-        String value = MDC.get("actorId");
-        return value == null || value.isBlank() ? "system" : value;
+        var authentication=SecurityContextHolder.getContext().getAuthentication();
+        return authentication==null||!authentication.isAuthenticated()?"system":authentication.getName();
     }
 }

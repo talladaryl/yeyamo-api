@@ -1,0 +1,13 @@
+package com.yeyamo_mobile.api.referral_service.infrastructure.persistence;
+import java.time.Instant;import java.util.UUID;import com.yeyamo_mobile.api.referral_service.domain.*;import jakarta.persistence.*;
+@Entity@Table(name="referral_attributions")public class ReferralAttributionEntity{
+ @Id private UUID id;@ManyToOne(fetch=FetchType.EAGER,optional=false)@JoinColumn(name="code_id")private ReferralCodeEntity code;
+ @ManyToOne(fetch=FetchType.EAGER)@JoinColumn(name="invitation_id")private ReferralInvitationEntity invitation;
+ @Column(name="referrer_user_id",nullable=false,length=120)private String referrerUserId;@Column(name="referred_user_id",nullable=false,unique=true,length=120)private String referredUserId;
+ @Enumerated(EnumType.STRING)@Column(nullable=false,length=30)private AttributionSource source;@Enumerated(EnumType.STRING)@Column(nullable=false,length=40)private AttributionStatus status;
+ @Column(name="device_hash",length=64)private String deviceHash;@Column(name="qualifying_event_id")private UUID qualifyingEventId;
+ @Column(name="attributed_at",nullable=false)private Instant attributedAt;@Column(name="qualified_at")private Instant qualifiedAt;@Column(name="rewarded_at")private Instant rewardedAt;@Column(name="updated_at",nullable=false)private Instant updatedAt;@Version private long version;
+ public static ReferralAttributionEntity create(ReferralCodeEntity code,ReferralInvitationEntity invitation,String referred,AttributionSource source,String deviceHash){var e=new ReferralAttributionEntity();e.id=UUID.randomUUID();e.code=code;e.invitation=invitation;e.referrerUserId=code.getOwnerUserId();e.referredUserId=referred;e.source=source;e.deviceHash=deviceHash;e.status=AttributionStatus.PENDING_QUALIFICATION;e.attributedAt=Instant.now();e.updatedAt=e.attributedAt;return e;}
+ public void qualify(UUID event){if(status==AttributionStatus.PENDING_QUALIFICATION){status=AttributionStatus.QUALIFIED;qualifyingEventId=event;qualifiedAt=Instant.now();updatedAt=qualifiedAt;}}public void rewarded(){status=AttributionStatus.REWARDED;rewardedAt=Instant.now();updatedAt=rewardedAt;}
+ public UUID getId(){return id;}public ReferralCodeEntity getCode(){return code;}public ReferralInvitationEntity getInvitation(){return invitation;}public String getReferrerUserId(){return referrerUserId;}public String getReferredUserId(){return referredUserId;}public AttributionSource getSource(){return source;}public AttributionStatus getStatus(){return status;}public String getDeviceHash(){return deviceHash;}public Instant getAttributedAt(){return attributedAt;}public Instant getQualifiedAt(){return qualifiedAt;}public Instant getRewardedAt(){return rewardedAt;}
+}

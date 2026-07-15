@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.referral_service.application;import java.security.SecureRandom;import org.springframework.stereotype.Component;
+@Component public class ReferralCodeGenerator{private static final char[]ALPHABET="ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();private final SecureRandom random=new SecureRandom();public String next(){char[]value=new char[10];for(int i=0;i<value.length;i++)value[i]=ALPHABET[random.nextInt(ALPHABET.length)];return new String(value);}}
