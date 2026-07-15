@@ -27,7 +27,6 @@ import com.yeyamo_mobile.api.auth_service.enums.UserStatus;
 import com.yeyamo_mobile.api.auth_service.exception.ApiException;
 import com.yeyamo_mobile.api.auth_service.event.AuthEventOutbox;
 import com.yeyamo_mobile.api.auth_service.models.OAuthAccount;
-import com.yeyamo_mobile.api.auth_service.models.RefreshToken;
 import com.yeyamo_mobile.api.auth_service.models.Role;
 import com.yeyamo_mobile.api.auth_service.models.User;
 import com.yeyamo_mobile.api.auth_service.repository.OAuthAccountRepository;
@@ -161,9 +160,9 @@ public class AuthService {
             throw new ApiException("INVALID_REFRESH_TOKEN", "Refresh token requis", HttpStatus.UNAUTHORIZED);
         }
 
-        RefreshToken existing = refreshTokenService.verify(request.refreshToken());
-        User user = existing.getUser();
-        String newRefreshToken = refreshTokenService.rotate(request.refreshToken());
+        RefreshTokenService.Rotation rotation = refreshTokenService.rotate(request.refreshToken());
+        User user = rotation.user();
+        String newRefreshToken = rotation.rawToken();
         String accessToken = jwtService.generateAccessToken(user);
         return new AuthResponse(accessToken, newRefreshToken, jwtService.accessTokenExpirationMs() / 1000, toResponse(user));
     }
