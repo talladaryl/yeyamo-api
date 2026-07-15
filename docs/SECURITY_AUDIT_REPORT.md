@@ -87,7 +87,12 @@ experimental.
    de configuration.
 3. **Regressions JWT et quotas** : tests explicites de `alg:none`, HS512 inattendu,
    secret court, configuration de confiance incomplete et reponse `429` sans
-   fuite d'adresse IP. Le socle de correction provient du commit `ad76278`.
+   fuite d'adresse IP. Le socle de correction provient du commit `ad76278` et les
+   nouveaux tests du commit `b8237dd`.
+
+Verification finale : les 16 tests de `security-hardening-starter` et
+`auth-service` passent sans echec, puis les 26 modules actifs du reacteur Maven
+compilent et sont packages avec Java 21 (`-DskipTests package`).
 
 ## Authentification et mots de passe
 
