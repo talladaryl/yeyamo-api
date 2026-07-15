@@ -64,6 +64,31 @@ class SecurityHardeningFilterTests {
         assertEquals(403, response.getStatus());
     }
 
+    @Test
+    void rateLimitsAuthenticationBurstsWithoutLeakingClientAddress() throws Exception {
+        HardeningProperties properties = properties();
+        properties.setAuthenticationRequestsPerMinute(1);
+        properties.setAuthenticationBurstCapacity(1);
+        SecurityHardeningFilter filter = new SecurityHardeningFilter(properties);
+
+        MockHttpServletRequest first = new MockHttpServletRequest("POST", "/api/v1/auth/login");
+        first.setContentType("application/json");
+        first.setContent("{}".getBytes());
+        first.setRemoteAddr("203.0.113.42");
+        filter.doFilter(first, new MockHttpServletResponse(), new MockFilterChain());
+
+        MockHttpServletRequest second = new MockHttpServletRequest("POST", "/api/v1/auth/login");
+        second.setContentType("application/json");
+        second.setContent("{}".getBytes());
+        second.setRemoteAddr("203.0.113.42");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(second, response, new MockFilterChain());
+
+        assertEquals(429, response.getStatus());
+        assertEquals("60", response.getHeader("Retry-After"));
+        assertEquals(false, response.getContentAsString().contains("203.0.113.42"));
+    }
+
     private HardeningProperties properties() {
         HardeningProperties properties = new HardeningProperties();
         properties.setAllowedOrigins(List.of("https://app.yeyamo.example"));
