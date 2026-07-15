@@ -12,7 +12,7 @@ grille est adaptée à leur responsabilité réelle.
 | Service | Pourcentage effectué |
 |---|---:|
 | `admin-service` | 82 % |
-| `analytics-service` | 78 % |
+| `analytics-service` | 90 % |
 | `api-gateway` | 88 % |
 | `auth-service` | 85 % |
 | `booking-service` | 88 % |
@@ -43,12 +43,16 @@ grille est adaptée à leur responsabilité réelle.
 
 ## Synthèse précise
 
-- Avancement moyen des 26 modules actifs : **86 %**. Moyenne des 29 dossiers,
+- Avancement moyen des 26 modules actifs : **87 %**. Moyenne des 29 dossiers,
   anciens squelettes inclus : **78 %**.
-- **25 services** ont un socle V1 ou infrastructure substantiel (80 % et plus).
-- `analytics-service` utilise OpenSearch pour ses projections, avec consommation
-  idempotente, retry exponentiel et DLT. `event-service` utilise désormais
-  Flyway, JWT et une Outbox transactionnelle.
+- **26 services** ont un socle V1 ou infrastructure substantiel (80 % et plus).
+- `analytics-service` utilise OpenSearch avec des projections quotidiennes
+  idempotentes pour l'engagement utilisateur, l'activité régionale, la popularité
+  des lieux, les partenaires et les KPI. Le pipeline Strategy consomme les topics
+  V2, enrichit les événements via des dimensions catalogue/contenu/partenaire,
+  applique retry exponentiel et DLT, et limite les tableaux de bord aux
+  propriétaires ou administrateurs. `event-service` utilise désormais Flyway,
+  JWT et une Outbox transactionnelle.
 - `place-service` est une façade legacy dépréciée : ses écritures sont relayées
   par Outbox vers `catalog-service`, qui devient la source cible. Les anciens
   contrats restent disponibles pendant la transition.
@@ -73,9 +77,9 @@ grille est adaptée à leur responsabilité réelle.
 
 ## Services restant à implémenter
 
-| Priorité | Service | Travail restant |
-|---:|---|---|
-| 1 | `analytics-service` | Finaliser les agrégations métier, les projections par période, les contrôles d'accès par propriétaire et les tests avec OpenSearch/Kafka réels. |
+Aucun nouveau microservice autonome prévu par le périmètre V2 ne reste à créer.
+`analytics-service` nécessite encore une validation d'intégration avec un cluster
+OpenSearch et un broker Kafka réels, mais son socle fonctionnel est implémenté.
 
 `place-service` ne doit plus recevoir de nouvelles fonctionnalités. Il reste à
 migrer ses données historiques vers `catalog-service`, basculer ses consommateurs,
@@ -86,6 +90,6 @@ comme microservices autonomes dans l'architecture V2 actuelle : leurs fonctions
 sont respectivement couvertes par les projections sociales/recommandations,
 `discovery-service`, puis `content-service` + `interaction-service` + `feed-service`.
 
-Après ces services, le chantier restant est transversal : Docker Compose global,
+Le chantier restant est transversal : Docker Compose global,
 tests contractuels et bout en bout, observabilité distribuée, gestion centralisée
 des secrets, résilience des dépendances externes et tests de charge.

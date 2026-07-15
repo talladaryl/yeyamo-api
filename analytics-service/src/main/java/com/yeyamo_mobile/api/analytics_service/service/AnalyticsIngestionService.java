@@ -1,8 +1,9 @@
 package com.yeyamo_mobile.api.analytics_service.service;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -15,29 +16,29 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yeyamo_mobile.api.analytics_service.enums.AnalyticsEventStatus;
 import com.yeyamo_mobile.api.analytics_service.event.AuditEvent;
 import com.yeyamo_mobile.api.analytics_service.models.AnalyticsEventLog;
-import com.yeyamo_mobile.api.analytics_service.models.KpiHistory;
+import com.yeyamo_mobile.api.analytics_service.event.AnalyticsDomainEvent;
 import com.yeyamo_mobile.api.analytics_service.repository.AnalyticsEventLogRepository;
-import com.yeyamo_mobile.api.analytics_service.repository.KpiHistoryRepository;
+import com.yeyamo_mobile.api.analytics_service.service.projection.AnalyticsProjection;
 
 @Service
 public class AnalyticsIngestionService {
 
     private final ObjectMapper objectMapper;
     private final AnalyticsEventLogRepository eventLogRepository;
-    private final KpiHistoryRepository kpiHistoryRepository;
+    private final List<AnalyticsProjection> projections;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final String auditTopic;
 
     public AnalyticsIngestionService(
             ObjectMapper objectMapper,
             AnalyticsEventLogRepository eventLogRepository,
-            KpiHistoryRepository kpiHistoryRepository,
+            List<AnalyticsProjection> projections,
             KafkaTemplate<String, String> kafkaTemplate,
             @Value("${yeyamo.kafka.topics.audit-events:audit-events}") String auditTopic
     ) {
         this.objectMapper = objectMapper;
         this.eventLogRepository = eventLogRepository;
-        this.kpiHistoryRepository = kpiHistoryRepository;
+        this.projections = projections.stream().sorted(Comparator.comparingInt(AnalyticsProjection::order)).toList();
         this.kafkaTemplate = kafkaTemplate;
         this.auditTopic = auditTopic;
     }
@@ -47,17 +48,21 @@ public class AnalyticsIngestionService {
         String correlationId = null;
         UUID eventId = UUID.randomUUID();
         try {
-            JsonNode event = objectMapper.readTree(rawPayload);
-            eventId = uuid(event, "eventId", eventId);
-            eventType = text(event, "eventType", eventType);
-            correlationId = text(event, "correlationId", null);
-            validateEnvelope(event, eventId, eventType);
+            JsonNode rawEvent = objectMapper.readTree(rawPayload);
+            eventId = requiredUuid(rawEvent, "eventId");
+            eventType = requiredText(rawEvent, "eventType");
+            correlationId = text(rawEvent, "correlationId", eventId.toString());
+            AnalyticsDomainEvent event = envelope(rawEvent, eventId, eventType, correlationId);
             if (eventLogRepository.findByEventId(eventId)
                     .filter(log -> log.getStatus() == AnalyticsEventStatus.SUCCESS).isPresent()) {
                 return;
             }
 
-            saveKpiSnapshot(eventId, eventType, event);
+            for (AnalyticsProjection projection : projections) {
+                if (projection.supports(event)) {
+                    projection.project(event);
+                }
+            }
             saveEventLog(eventId, eventType, AnalyticsEventStatus.SUCCESS);
         } catch (Exception exception) {
             saveEventLog(eventId, eventType, AnalyticsEventStatus.FAILED);
@@ -66,34 +71,24 @@ public class AnalyticsIngestionService {
         }
     }
 
-    private void validateEnvelope(JsonNode event, UUID eventId, String eventType) {
-        if (eventId == null || eventType == null || "unknown".equals(eventType)) {
-            throw new IllegalArgumentException("Invalid domain event identity");
-        }
-        if (event.path("eventVersion").asInt(0) < 1) {
+    private AnalyticsDomainEvent envelope(JsonNode event, UUID eventId, String eventType, String correlationId) {
+        int version = event.path("eventVersion").asInt(0);
+        if (version != 1) {
             throw new IllegalArgumentException("Unsupported domain event version");
         }
-        if (text(event, "producer", null) == null || event.path("payload").isMissingNode()) {
+        String producer = requiredText(event, "producer");
+        JsonNode payload = event.path("payload");
+        if (!payload.isObject()) {
             throw new IllegalArgumentException("Incomplete domain event envelope");
         }
-    }
-
-    private void saveKpiSnapshot(UUID eventId, String eventType, JsonNode event) {
-        KpiHistory kpi = new KpiHistory();
-        kpi.setId(eventId);
-        kpi.setKpiName(resolveKpiName(eventType));
-        kpi.setEventType(eventType);
-        kpi.setCalculatedAt(LocalDateTime.now());
-        kpi.setEntityId(uuid(event.path("payload"), "id",
-                uuid(event.path("payload"), "placeId",
-                        uuid(event.path("payload"), "eventId", eventId))));
-        kpi.setEntityType(resolveEntityType(eventType));
-        kpi.setKpiValue(Map.of(
-                "count", 1,
-                "sourceEventId", eventId.toString(),
-                "eventType", eventType
-        ));
-        kpiHistoryRepository.save(kpi);
+        Instant occurredAt;
+        try {
+            occurredAt = Instant.parse(requiredText(event, "occurredAt"));
+        } catch (RuntimeException exception) {
+            throw new IllegalArgumentException("occurredAt must be an ISO-8601 instant", exception);
+        }
+        return new AnalyticsDomainEvent(eventId, eventType, version, occurredAt, producer,
+                correlationId, text(event, "actorId", null), payload);
     }
 
     private void saveEventLog(UUID eventId, String eventType, AnalyticsEventStatus status) {
@@ -119,42 +114,20 @@ public class AnalyticsIngestionService {
         }
     }
 
-    private String resolveKpiName(String eventType) {
-        if (eventType == null) {
-            return "events_processed";
-        }
-        if (eventType.contains("user")) {
-            return "users_activity";
-        }
-        if (eventType.contains("place")) {
-            return "places_activity";
-        }
-        if (eventType.contains("booking")) {
-            return "bookings_activity";
-        }
-        if (eventType.contains("partner")) {
-            return "partners_activity";
-        }
-        return "events_processed";
-    }
-
-    private String resolveEntityType(String eventType) {
-        if (eventType == null || !eventType.contains(".")) {
-            return "EVENT";
-        }
-        return eventType.substring(0, eventType.indexOf('.')).toUpperCase();
-    }
-
-    private UUID uuid(JsonNode node, String field, UUID defaultValue) {
-        String value = text(node, field, null);
-        if (value == null) {
-            return defaultValue;
-        }
+    private UUID requiredUuid(JsonNode node, String field) {
         try {
-            return UUID.fromString(value);
+            return UUID.fromString(requiredText(node, field));
         } catch (IllegalArgumentException exception) {
-            return defaultValue;
+            throw new IllegalArgumentException(field + " must be a UUID", exception);
         }
+    }
+
+    private String requiredText(JsonNode node, String field) {
+        String value = text(node, field, null);
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " is required");
+        }
+        return value;
     }
 
     private String text(JsonNode node, String field, String defaultValue) {

@@ -7,6 +7,7 @@ import java.util.UUID;
 public record AuditEvent(
         UUID eventId,
         String eventType,
+        int eventVersion,
         Instant occurredAt,
         String producer,
         String correlationId,
@@ -16,6 +17,7 @@ public record AuditEvent(
         return new AuditEvent(
                 UUID.randomUUID(),
                 "analytics.event.failed",
+                1,
                 Instant.now(),
                 "analytics-service",
                 correlationId,

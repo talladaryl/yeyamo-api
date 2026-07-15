@@ -1,10 +1,11 @@
 package com.yeyamo_mobile.api.analytics_service.config;
 import java.nio.charset.StandardCharsets;import java.util.*;import javax.crypto.SecretKey;import javax.crypto.spec.SecretKeySpec;import org.springframework.beans.factory.annotation.Value;import org.springframework.context.annotation.*;import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;import org.springframework.security.config.annotation.web.builders.HttpSecurity;import org.springframework.security.config.http.SessionCreationPolicy;import org.springframework.security.core.*;import org.springframework.security.core.authority.SimpleGrantedAuthority;import org.springframework.security.oauth2.jwt.*;import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;import org.springframework.security.web.SecurityFilterChain;
-@Configuration public class SecurityConfig{
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+@Configuration @EnableMethodSecurity public class SecurityConfig{
  @Bean SecurityFilterChain security(HttpSecurity http,JwtRolesConverter converter)throws Exception{return http.csrf(c->c.disable()).sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS)).authorizeHttpRequests(a->a
   .requestMatchers("/actuator/health/**","/actuator/info","/v3/api-docs/**","/swagger-ui/**","/swagger-ui.html").permitAll()
-  .requestMatchers("/api/v1/analytics/admin/**","/api/v1/analytics/event-logs").hasAnyRole("ADMIN","SUPER_ADMIN")
+  .requestMatchers("/api/v1/analytics/admin/**","/api/v1/analytics/event-logs","/api/v1/analytics/kpis/**").hasAnyRole("ADMIN","SUPER_ADMIN")
   .requestMatchers("/api/v1/analytics/partners/**").hasAnyRole("PARTNER","ADMIN","SUPER_ADMIN")
   .requestMatchers("/api/v1/analytics/**").authenticated().anyRequest().authenticated()).oauth2ResourceServer(o->o.jwt(j->j.jwtAuthenticationConverter(converter))).build();}
  @Bean JwtDecoder decoder(@Value("${jwt.secret}")String secret){if(secret==null||secret.getBytes(StandardCharsets.UTF_8).length<32)throw new IllegalArgumentException("JWT_SECRET must contain at least 32 bytes");SecretKey key=new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8),"HmacSHA256");return NimbusJwtDecoder.withSecretKey(key).build();}
