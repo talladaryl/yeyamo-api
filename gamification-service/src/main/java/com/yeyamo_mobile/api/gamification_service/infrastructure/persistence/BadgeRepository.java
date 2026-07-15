@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.gamification_service.infrastructure.persistence;import java.util.*;import org.springframework.data.jpa.repository.JpaRepository;public interface BadgeRepository extends JpaRepository<BadgeEntity,UUID>{boolean existsByUserIdAndBadgeCode(String user,String code);List<BadgeEntity>findByUserIdOrderByEarnedAtDesc(String user);}

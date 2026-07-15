@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.recommendation_service.infrastructure.persistence;import org.springframework.data.jpa.repository.JpaRepository;public interface PreferenceRepository extends JpaRepository<PreferenceEntity,String>{}

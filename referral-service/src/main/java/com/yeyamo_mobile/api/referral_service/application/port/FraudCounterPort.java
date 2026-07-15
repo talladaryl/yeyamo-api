@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.referral_service.application.port;import java.util.OptionalLong;public interface FraudCounterPort{OptionalLong incrementDaily(String referrer);void evictCode(String code);}

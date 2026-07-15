@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.gamification_service.infrastructure.persistence;import java.util.UUID;import org.springframework.data.jpa.repository.JpaRepository;public interface XpLedgerRepository extends JpaRepository<XpLedgerEntity,UUID>{boolean existsByEventId(UUID id);boolean existsByUserIdAndReasonAndSourceId(String user,String reason,String source);}

@@ -1,0 +1,3 @@
+package com.yeyamo_mobile.api.notification_service.infrastructure.persistence;
+import java.time.Instant;import jakarta.persistence.*;
+@Entity@Table(name="notification_preferences")public class PreferenceEntity{@Id@Column(name="user_id",length=120)String userId;@Column(name="in_app_enabled",nullable=false)boolean inAppEnabled;@Column(name="email_enabled",nullable=false)boolean emailEnabled;@Column(name="push_enabled",nullable=false)boolean pushEnabled;@Column(name="email_address",length=320)String emailAddress;@Column(name="push_token",length=500)String pushToken;@Column(nullable=false,length=10)String locale;@Column(name="updated_at",nullable=false)Instant updatedAt;@Version long version;}

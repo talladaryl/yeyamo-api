@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.gamification_service.application;import java.util.List;import com.yeyamo_mobile.api.gamification_service.domain.*;public record GamificationView(Progress progress,List<Badge>badges,List<PassportStamp>passport,List<Reward>rewards){}

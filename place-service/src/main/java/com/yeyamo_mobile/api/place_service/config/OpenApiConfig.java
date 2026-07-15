@@ -1,0 +1,3 @@
+package com.yeyamo_mobile.api.place_service.config;
+import org.springframework.context.annotation.*;import io.swagger.v3.oas.models.OpenAPI;import io.swagger.v3.oas.models.info.Info;import io.swagger.v3.oas.models.security.*;
+@Configuration public class OpenApiConfig{@Bean OpenAPI legacyPlaceOpenApi(){return new OpenAPI().info(new Info().title("YeYamo Legacy Place API").description("Deprecated compatibility API. Use catalog-service.").version("v1-deprecated")).addSecurityItem(new SecurityRequirement().addList("bearerAuth")).schemaRequirement("bearerAuth",new SecurityScheme().type(SecurityScheme.Type.HTTP).scheme("bearer").bearerFormat("JWT"));}}

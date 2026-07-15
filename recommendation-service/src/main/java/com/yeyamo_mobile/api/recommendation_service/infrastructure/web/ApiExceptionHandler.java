@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.recommendation_service.infrastructure.web;import java.time.Instant;import java.util.Map;import org.springframework.http.*;import org.springframework.web.bind.annotation.*;
+@RestControllerAdvice public class ApiExceptionHandler{@ExceptionHandler(IllegalArgumentException.class)ResponseEntity<Map<String,Object>>bad(IllegalArgumentException e){return ResponseEntity.badRequest().body(Map.of("timestamp",Instant.now(),"status",400,"code","INVALID_REQUEST","message",e.getMessage()));}}

@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.gamification_service.application.badge;import java.util.*;import com.yeyamo_mobile.api.gamification_service.domain.*;public interface BadgeRule{List<BadgeDefinition>evaluate(Progress progress,Map<String,Long>counters);}

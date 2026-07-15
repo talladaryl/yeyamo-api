@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.recommendation_service.infrastructure.persistence;import java.time.Instant;import jakarta.persistence.*;
+@Entity@Table(name="recommendation_user_preferences")public class PreferenceEntity{@Id@Column(name="user_id",length=120)String userId;@Column(name="preferred_region",length=100)String preferredRegion;@Column(length=20)String language;@Column(name="location_sharing_enabled",nullable=false)boolean locationSharingEnabled;@Column(name="updated_at",nullable=false)Instant updatedAt;@Version long version;}

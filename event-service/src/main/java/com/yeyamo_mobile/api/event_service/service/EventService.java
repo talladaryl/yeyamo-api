@@ -125,7 +125,7 @@ public class EventService {
     }
 
     public EventResponse register(UUID eventId, UUID userId) {
-        Event event = findEventOrThrow(eventId);
+        Event event = findEventForUpdateOrThrow(eventId);
         ensureRegisterable(event);
 
         EventRegistration registration = registrationRepository.findByEventIdAndUserId(eventId, userId)
@@ -148,7 +148,7 @@ public class EventService {
     }
 
     public EventResponse unregister(UUID eventId, UUID userId) {
-        Event event = findEventOrThrow(eventId);
+        Event event = findEventForUpdateOrThrow(eventId);
 
         EventRegistration registration = registrationRepository.findByEventIdAndUserId(eventId, userId)
                 .orElseThrow(() -> new ApiException(
@@ -170,6 +170,11 @@ public class EventService {
 
     private Event findEventOrThrow(UUID id) {
         return eventRepository.findById(id)
+                .orElseThrow(() -> new ApiException("EVENT_NOT_FOUND", "Evenement introuvable", HttpStatus.NOT_FOUND));
+    }
+
+    private Event findEventForUpdateOrThrow(UUID id) {
+        return eventRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ApiException("EVENT_NOT_FOUND", "Evenement introuvable", HttpStatus.NOT_FOUND));
     }
 

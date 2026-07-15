@@ -1,0 +1,3 @@
+package com.yeyamo_mobile.api.notification_service.infrastructure.persistence;
+import java.time.Instant;import java.util.UUID;import jakarta.persistence.*;
+@Entity@Table(name="notifications")public class NotificationEntity{@Id UUID id;@Column(name="source_event_id",nullable=false)UUID sourceEventId;@Column(name="event_type",nullable=false,length=120)String eventType;@Column(name="recipient_id",nullable=false,length=120)String recipientId;@Column(nullable=false,length=300)String title;@Column(nullable=false,columnDefinition="TEXT")String body;@Column(name="data_json",nullable=false,columnDefinition="TEXT")String dataJson;@Column(name="created_at",nullable=false)Instant createdAt;@Column(name="read_at")Instant readAt;}

@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.referral_service.infrastructure.outbox;import java.util.*;import org.springframework.data.jpa.repository.JpaRepository;public interface ReferralOutboxRepository extends JpaRepository<ReferralOutboxEvent,UUID>{List<ReferralOutboxEvent>findTop100ByPublishedAtIsNullOrderByOccurredAtAsc();}

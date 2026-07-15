@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.gamification_service.domain;import java.time.Instant;import java.util.UUID;public record Reward(UUID id,String userId,String code,String title,RewardStatus status,Instant grantedAt,Instant claimedAt,String source){}

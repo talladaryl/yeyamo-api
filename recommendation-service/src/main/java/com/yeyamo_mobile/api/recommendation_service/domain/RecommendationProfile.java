@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.recommendation_service.domain;import java.util.*;
+public record RecommendationProfile(String userId,String preferredRegion,boolean locationSharingEnabled,Map<String,Double>categoryAffinity,Set<String>seenSources){public RecommendationProfile{categoryAffinity=categoryAffinity==null?Map.of():Map.copyOf(categoryAffinity);seenSources=seenSources==null?Set.of():Set.copyOf(seenSources);}}

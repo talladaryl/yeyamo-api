@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.recommendation_service.infrastructure.outbox;import java.util.*;import org.springframework.data.jpa.repository.JpaRepository;public interface RecommendationOutboxRepository extends JpaRepository<RecommendationOutboxEvent,UUID>{List<RecommendationOutboxEvent>findTop100ByPublishedAtIsNullOrderByOccurredAtAsc();}

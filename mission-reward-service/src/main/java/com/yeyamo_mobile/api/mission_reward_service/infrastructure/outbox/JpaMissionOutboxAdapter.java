@@ -1,0 +1,6 @@
+package com.yeyamo_mobile.api.mission_reward_service.infrastructure.outbox;
+import java.time.Instant;import java.util.*;import org.springframework.stereotype.Component;import com.fasterxml.jackson.databind.ObjectMapper;import com.yeyamo_mobile.api.mission_reward_service.application.port.MissionOutboxPort;
+@Component public class JpaMissionOutboxAdapter implements MissionOutboxPort{
+ private final MissionOutboxRepository repo;private final ObjectMapper mapper;public JpaMissionOutboxAdapter(MissionOutboxRepository r,ObjectMapper m){repo=r;mapper=m;}
+ public void append(String type,String aggregateId,String correlation,Map<String,Object>payload){try{UUID id=UUID.randomUUID();Instant now=Instant.now();Map<String,Object>envelope=new LinkedHashMap<>();envelope.put("eventId",id);envelope.put("eventType",type);envelope.put("eventVersion",1);envelope.put("occurredAt",now);envelope.put("producer","mission-reward-service");envelope.put("aggregateId",aggregateId);envelope.put("correlationId",correlation==null?id.toString():correlation);envelope.put("payload",payload);var e=new MissionOutboxEvent();e.id=id;e.aggregateId=aggregateId;e.eventType=type;e.payload=mapper.writeValueAsString(envelope);e.occurredAt=now;repo.save(e);}catch(Exception e){throw new IllegalStateException("Cannot create mission outbox event",e);}}
+}

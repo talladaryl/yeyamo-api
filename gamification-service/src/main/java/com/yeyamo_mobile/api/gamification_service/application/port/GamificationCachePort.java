@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.gamification_service.application.port;import java.util.Optional;import com.yeyamo_mobile.api.gamification_service.application.GamificationView;public interface GamificationCachePort{Optional<GamificationView>get(String user);void put(String user,GamificationView view);void evict(String user);}

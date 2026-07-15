@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.booking_service.infrastructure.outbox;import java.util.*;import org.springframework.data.jpa.repository.JpaRepository;public interface BookingOutboxRepository extends JpaRepository<BookingOutboxEvent,UUID>{List<BookingOutboxEvent>findTop100ByPublishedAtIsNullOrderByOccurredAtAsc();}

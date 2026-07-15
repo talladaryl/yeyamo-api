@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.referral_service.infrastructure.persistence;import java.util.*;import org.springframework.data.jpa.repository.JpaRepository;import com.yeyamo_mobile.api.referral_service.domain.BeneficiaryType;
+public interface ReferralRewardRepository extends JpaRepository<ReferralRewardEntity,UUID>{boolean existsByAttributionIdAndBeneficiaryType(UUID attribution,BeneficiaryType type);List<ReferralRewardEntity>findByBeneficiaryUserIdOrderByCreatedAtDesc(String user);}

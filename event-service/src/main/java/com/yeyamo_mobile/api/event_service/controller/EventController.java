@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.Authentication;
 
 import com.yeyamo_mobile.api.event_service.dto.EventRequest;
 import com.yeyamo_mobile.api.event_service.dto.EventResponse;
@@ -43,9 +44,9 @@ public class EventController {
     public EventResponse create(
             @Valid @RequestBody EventRequest request,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
-            @RequestHeader(value = "X-User-Id", required = false) String actorId
+            Authentication authentication
     ) {
-        return eventService.create(request, correlationId, actorId);
+        return eventService.create(request, correlationId, authentication.getName());
     }
 
     @GetMapping("/upcoming")
@@ -63,9 +64,9 @@ public class EventController {
             @PathVariable UUID id,
             @Valid @RequestBody EventUpdateRequest request,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
-            @RequestHeader(value = "X-User-Id", required = false) String actorId
+            Authentication authentication
     ) {
-        return eventService.update(id, request, correlationId, actorId);
+        return eventService.update(id, request, correlationId, authentication.getName());
     }
 
     @PatchMapping("/{id}/status")
@@ -73,26 +74,26 @@ public class EventController {
             @PathVariable UUID id,
             @Valid @RequestBody EventStatusRequest request,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
-            @RequestHeader(value = "X-User-Id", required = false) String actorId
+            Authentication authentication
     ) {
-        return eventService.updateStatus(id, request, correlationId, actorId);
+        return eventService.updateStatus(id, request, correlationId, authentication.getName());
     }
 
     @PostMapping("/{id}/register")
     @ResponseStatus(HttpStatus.OK)
     public EventResponse register(
             @PathVariable UUID id,
-            @RequestHeader("X-User-Id") String userIdHeader
+            Authentication authentication
     ) {
-        return eventService.register(id, parseUserId(userIdHeader));
+        return eventService.register(id, parseUserId(authentication.getName()));
     }
 
     @DeleteMapping("/{id}/unregister")
     public EventResponse unregister(
             @PathVariable UUID id,
-            @RequestHeader("X-User-Id") String userIdHeader
+            Authentication authentication
     ) {
-        return eventService.unregister(id, parseUserId(userIdHeader));
+        return eventService.unregister(id, parseUserId(authentication.getName()));
     }
 
     private UUID parseUserId(String userIdHeader) {

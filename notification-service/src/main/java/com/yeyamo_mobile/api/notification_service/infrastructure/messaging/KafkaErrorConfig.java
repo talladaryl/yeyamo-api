@@ -1,0 +1,3 @@
+package com.yeyamo_mobile.api.notification_service.infrastructure.messaging;
+import org.apache.kafka.common.TopicPartition;import org.springframework.context.annotation.*;import org.springframework.kafka.core.KafkaTemplate;import org.springframework.kafka.listener.*;import org.springframework.util.backoff.ExponentialBackOff;
+@Configuration public class KafkaErrorConfig{@Bean DefaultErrorHandler notificationKafkaErrorHandler(KafkaTemplate<String,String>kafka){var backoff=new ExponentialBackOff(1000,2);backoff.setMaxElapsedTime(7000);return new DefaultErrorHandler(new DeadLetterPublishingRecoverer(kafka,(record,error)->new TopicPartition(record.topic()+".DLT",record.partition())),backoff);}}

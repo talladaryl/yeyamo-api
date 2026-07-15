@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.recommendation_service.application.port;import java.util.Optional;import com.yeyamo_mobile.api.recommendation_service.application.RecommendationPage;import com.yeyamo_mobile.api.recommendation_service.domain.RecommendationContext;
+public interface RecommendationCachePort{Optional<RecommendationPage>get(String user,RecommendationContext context,int page,int size);void put(String user,RecommendationContext context,int page,int size,RecommendationPage result);void invalidate();}

@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.gamification_service.infrastructure.persistence;import java.util.*;import org.springframework.data.jpa.repository.JpaRepository;public interface RewardRepository extends JpaRepository<RewardEntity,UUID>{boolean existsByUserIdAndRewardCodeAndSource(String user,String code,String source);List<RewardEntity>findByUserIdOrderByGrantedAtDesc(String user);}

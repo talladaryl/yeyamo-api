@@ -1,32 +1,25 @@
 package com.yeyamo_mobile.api.event_service.event;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yeyamo_mobile.api.event_service.models.Event;
+import com.yeyamo_mobile.api.event_service.outbox.EventOutboxMessage;
+import com.yeyamo_mobile.api.event_service.outbox.EventOutboxRepository;
 
 @Component
 public class EventPublisher {
 
-    private static final Logger log = LoggerFactory.getLogger(EventPublisher.class);
-
-    private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
-    private final String topic;
+    private final EventOutboxRepository repository;
 
     public EventPublisher(
-            KafkaTemplate<String, String> kafkaTemplate,
             ObjectMapper objectMapper,
-            @Value("${yeyamo.kafka.topics.event-events:event.events}") String topic
+            EventOutboxRepository repository
     ) {
-        this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
-        this.topic = topic;
+        this.repository = repository;
     }
 
     public void publishCreated(Event event, String correlationId, String actorId) {
@@ -48,10 +41,15 @@ public class EventPublisher {
     private void publish(String eventType, Event event, String correlationId, String actorId) {
         DomainEvent domainEvent = DomainEvent.of(eventType, toPayload(event), correlationId, actorId);
         try {
-            String payload = objectMapper.writeValueAsString(domainEvent);
-            kafkaTemplate.send(topic, event.getId().toString(), payload);
+            EventOutboxMessage message = new EventOutboxMessage();
+            message.setId(domainEvent.eventId());
+            message.setAggregateId(event.getId().toString());
+            message.setEventType(domainEvent.eventType());
+            message.setPayload(objectMapper.writeValueAsString(domainEvent));
+            message.setOccurredAt(domainEvent.occurredAt());
+            repository.save(message);
         } catch (JsonProcessingException exception) {
-            log.error("Impossible de serialiser l'evenement Kafka pour l'evenement {}", event.getId(), exception);
+            throw new IllegalStateException("Impossible de serialiser l'evenement " + event.getId(), exception);
         }
     }
 

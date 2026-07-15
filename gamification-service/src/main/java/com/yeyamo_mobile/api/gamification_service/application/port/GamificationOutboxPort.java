@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.gamification_service.application.port;import java.util.Map;public interface GamificationOutboxPort{void append(String type,String user,String correlation,Map<String,Object>payload);}

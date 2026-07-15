@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.recommendation_service.application.port;import java.util.*;import com.yeyamo_mobile.api.recommendation_service.domain.*;
+public interface RecommendationProjectionPort{void upsertCandidate(Candidate candidate);void adjustPopularity(String sourceId,double delta);void adjustSignal(String userId,String sourceId,double delta);void updatePreference(String userId,String preferredRegion,String language,boolean locationSharing);List<Candidate>activeCandidates(int limit);RecommendationProfile profile(String userId);}

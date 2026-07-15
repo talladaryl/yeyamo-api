@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.recommendation_service.application.scoring;import org.springframework.stereotype.Component;import com.yeyamo_mobile.api.recommendation_service.domain.*;
+@Component public class PopularityScoringStrategy implements ScoringStrategy{public String name(){return"popularity";}public double score(Candidate c,RecommendationProfile p,RecommendationContext x){return Math.min(30,Math.log1p(c.popularity())*6);}}

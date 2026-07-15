@@ -1,0 +1,9 @@
+package com.yeyamo_mobile.api.referral_service.application;import static org.junit.jupiter.api.Assertions.*;import static org.mockito.Mockito.*;import java.util.*;import org.junit.jupiter.api.*;import com.yeyamo_mobile.api.referral_service.application.port.FraudCounterPort;import com.yeyamo_mobile.api.referral_service.domain.ReferralException;import com.yeyamo_mobile.api.referral_service.infrastructure.persistence.*;
+class AntiFraudServiceTest{ReferralAttributionRepository repo=mock(ReferralAttributionRepository.class);FraudCounterPort counter=mock(FraudCounterPort.class);AntiFraudService service=new AntiFraudService(repo,counter,2,1);ReferralCodeEntity code=ReferralCodeEntity.create("CODE","owner",10,null);
+ @BeforeEach void defaults(){when(counter.incrementDaily(any())).thenReturn(OptionalLong.of(1));}
+ @Test void rejectsSelfReferral(){assertEquals("SELF_REFERRAL",assertThrows(ReferralException.class,()->service.validate(code,"owner",null)).code());}
+ @Test void rejectsAlreadyAttributedUser(){when(repo.findByReferredUserId("u1")).thenReturn(Optional.of(mock(ReferralAttributionEntity.class)));assertEquals("ALREADY_ATTRIBUTED",assertThrows(ReferralException.class,()->service.validate(code,"u1",null)).code());}
+ @Test void rejectsReusedDevice(){when(repo.countByDeviceHash("hash")).thenReturn(1L);assertEquals("DEVICE_LIMIT",assertThrows(ReferralException.class,()->service.validate(code,"u1","hash")).code());}
+ @Test void rejectsDailyVelocity(){when(counter.incrementDaily("owner")).thenReturn(OptionalLong.of(3));assertEquals("DAILY_LIMIT",assertThrows(ReferralException.class,()->service.validate(code,"u1",null)).code());}
+ @Test void fallsBackToPostgresWhenRedisFails(){when(counter.incrementDaily("owner")).thenReturn(OptionalLong.empty());when(repo.countByReferrerUserIdAndAttributedAtAfter(eq("owner"),any())).thenReturn(0L);assertDoesNotThrow(()->service.validate(code,"u1",null));}
+}

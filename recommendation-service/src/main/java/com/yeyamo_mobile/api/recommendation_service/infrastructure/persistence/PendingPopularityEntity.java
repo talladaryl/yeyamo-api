@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.recommendation_service.infrastructure.persistence;import java.time.Instant;import jakarta.persistence.*;
+@Entity@Table(name="recommendation_pending_popularity")public class PendingPopularityEntity{@Id@Column(name="source_id",length=160)String sourceId;@Column(nullable=false)double score;@Column(name="updated_at",nullable=false)Instant updatedAt;@Version long version;}

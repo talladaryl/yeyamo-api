@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.notification_service.infrastructure.messaging;
+import java.util.UUID;import org.springframework.data.jpa.repository.JpaRepository;public interface ProcessedEventRepository extends JpaRepository<ProcessedEventEntity,UUID>{}

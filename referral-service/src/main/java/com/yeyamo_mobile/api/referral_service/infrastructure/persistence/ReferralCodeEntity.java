@@ -1,0 +1,10 @@
+package com.yeyamo_mobile.api.referral_service.infrastructure.persistence;
+import java.time.Instant;import java.util.*;import com.yeyamo_mobile.api.referral_service.domain.*;import jakarta.persistence.*;
+@Entity@Table(name="referral_codes")public class ReferralCodeEntity{
+ @Id private UUID id;@Column(nullable=false,unique=true,length=24)private String code;@Column(name="owner_user_id",nullable=false,length=120)private String ownerUserId;
+ @Enumerated(EnumType.STRING)@Column(nullable=false,length=20)private ReferralCodeStatus status;@Column(name="max_uses",nullable=false)private int maxUses;@Column(name="usage_count",nullable=false)private int usageCount;
+ @Column(name="expires_at")private Instant expiresAt;@Column(name="created_at",nullable=false)private Instant createdAt;@Column(name="updated_at",nullable=false)private Instant updatedAt;@Version private long version;
+ public static ReferralCodeEntity create(String code,String owner,int maxUses,Instant expiresAt){if(code==null||code.isBlank()||owner==null||owner.isBlank()||maxUses<1)throw new IllegalArgumentException("Invalid referral code");var e=new ReferralCodeEntity();e.id=UUID.randomUUID();e.code=code.toUpperCase(Locale.ROOT);e.ownerUserId=owner;e.maxUses=maxUses;e.expiresAt=expiresAt;e.status=ReferralCodeStatus.ACTIVE;e.createdAt=Instant.now();e.updatedAt=e.createdAt;return e;}
+ public boolean usableAt(Instant now){return status==ReferralCodeStatus.ACTIVE&&usageCount<maxUses&&(expiresAt==null||now.isBefore(expiresAt));}public void consume(){if(!usableAt(Instant.now()))throw new ReferralException("CODE_UNAVAILABLE","Referral code is expired, disabled or exhausted");usageCount++;updatedAt=Instant.now();}public void disable(){status=ReferralCodeStatus.DISABLED;updatedAt=Instant.now();}
+ public UUID getId(){return id;}public String getCode(){return code;}public String getOwnerUserId(){return ownerUserId;}public ReferralCodeStatus getStatus(){return status;}public int getMaxUses(){return maxUses;}public int getUsageCount(){return usageCount;}public Instant getExpiresAt(){return expiresAt;}public Instant getCreatedAt(){return createdAt;}
+}
