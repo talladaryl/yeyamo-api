@@ -1,0 +1,53 @@
+package com.yeyamo_mobile.api.payment_service.application;
+import static com.yeyamo_mobile.api.payment_service.application.PaymentCommands.*;import java.util.*;import org.springframework.stereotype.Service;import org.springframework.transaction.annotation.Transactional;
+import com.yeyamo_mobile.api.payment_service.application.port.*;import com.yeyamo_mobile.api.payment_service.application.port.PaymentProviderPort.*;import com.yeyamo_mobile.api.payment_service.domain.*;import com.yeyamo_mobile.api.payment_service.infrastructure.persistence.*;
+
+@Service @Transactional public class PaymentApplicationService{
+ private final PaymentRepository payments;private final RefundRepository refunds;private final PaymentProviderPort provider;private final PaymentOutboxPort outbox;
+ public PaymentApplicationService(PaymentRepository payments,RefundRepository refunds,PaymentProviderPort provider,PaymentOutboxPort outbox){this.payments=payments;this.refunds=refunds;this.provider=provider;this.outbox=outbox;}
+ public PaymentEntity authorize(Authorize command){
+  var replay=payments.findByIdempotencyKey(required(command.idempotencyKey(),"idempotencyKey"));if(replay.isPresent())return replay.get();
+  var existing=payments.findByBookingId(command.bookingId());if(existing.isPresent()){ensureSame(existing.get(),command);return existing.get();}
+  var payment=payments.save(PaymentEntity.pending(command.bookingId(),command.sagaId(),required(command.userId(),"userId"),command.amount(),command.currency(),provider.name(),command.idempotencyKey()));
+  ProviderResult result=provider.authorize(new AuthorizationRequest(payment.getId(),payment.getBookingId(),payment.getUserId(),payment.getAmount(),payment.getCurrency(),payment.getIdempotencyKey()));
+  if(result.outcome()==Outcome.SUCCEEDED){payment.authorized(required(result.providerOperationId(),"providerPaymentId"));payments.save(payment);authorized(payment,command.correlationId());}
+  else if(result.outcome()==Outcome.FAILED){payment.failed(reason(result));payments.save(payment);failed(payment,reason(result),command.correlationId());}
+  else if(result.providerOperationId()!=null){payment.providerPending(result.providerOperationId());payments.save(payment);}
+  return payment;
+ }
+ public PaymentEntity cancelAuthorization(CancelAuthorization command){
+  PaymentEntity payment=locked(command.bookingId());
+  if(payment.getStatus()==PaymentStatus.CANCELLED||payment.getStatus()==PaymentStatus.FAILED||payment.getStatus()==PaymentStatus.REFUNDED)return payment;
+  if(payment.getStatus()==PaymentStatus.AUTHORIZED)return payment;
+  payment.cancellationPending();payments.save(payment);ProviderResult result=provider.cancel(payment.getProviderPaymentId(),command.idempotencyKey());
+  if(result.outcome()==Outcome.SUCCEEDED){payment.cancelled();payments.save(payment);failed(payment,"Payment authorization cancelled",command.correlationId());}
+  else if(result.outcome()==Outcome.FAILED){payment.failed(reason(result));payments.save(payment);failed(payment,reason(result),command.correlationId());}
+  return payment;
+ }
+ public RefundEntity refund(Refund command){
+  var replay=refunds.findByIdempotencyKey(required(command.idempotencyKey(),"idempotencyKey"));if(replay.isPresent())return replay.get();
+  PaymentEntity payment=locked(command.bookingId());if(payment.getStatus()==PaymentStatus.REFUNDED)return refunds.findByPaymentIdOrderByCreatedAtDesc(payment.getId()).stream().findFirst().orElseThrow();
+  if(command.paymentId()!=null&&!command.paymentId().equals(payment.getProviderPaymentId()))throw new PaymentException("PAYMENT_REFERENCE_MISMATCH","Payment reference does not belong to booking");
+  payment.refundPending();payments.save(payment);RefundEntity refund=refunds.save(RefundEntity.pending(payment,command.amount(),command.idempotencyKey()));
+  ProviderResult result=provider.refund(new RefundRequest(refund.getId(),payment.getProviderPaymentId(),refund.getAmount(),payment.getCurrency(),refund.getIdempotencyKey()));
+  if(result.outcome()==Outcome.SUCCEEDED){refund.succeeded(required(result.providerOperationId(),"providerRefundId"));payment.refunded();refunds.save(refund);payments.save(payment);refunded(payment,refund,command.correlationId());}
+  else if(result.outcome()==Outcome.FAILED){refund.failed(reason(result));payment.refundFailed(reason(result));refunds.save(refund);payments.save(payment);refundFailed(payment,refund,reason(result),command.correlationId());}
+  else if(result.providerOperationId()!=null){refund.providerPending(result.providerOperationId());refunds.save(refund);}
+  return refund;
+ }
+ public void providerAuthorizationSucceeded(String providerPaymentId,String correlation){PaymentEntity payment=payments.findByProviderPaymentId(providerPaymentId).orElseThrow(()->notFound("provider payment"));if(payment.getStatus()==PaymentStatus.AUTHORIZED)return;payment.authorized(providerPaymentId);payments.save(payment);authorized(payment,correlation);}
+ public void providerAuthorizationFailed(String providerPaymentId,String reason,String correlation){PaymentEntity payment=payments.findByProviderPaymentId(providerPaymentId).orElseThrow(()->notFound("provider payment"));if(payment.getStatus()==PaymentStatus.FAILED)return;payment.failed(reason);payments.save(payment);failed(payment,reason,correlation);}
+ public void providerRefundSucceeded(String providerRefundId,String correlation){RefundEntity refund=refunds.findByProviderRefundId(providerRefundId).orElseThrow(()->notFound("provider refund"));if(refund.getStatus()==RefundStatus.SUCCEEDED)return;PaymentEntity payment=locked(refund.getPayment().getBookingId());refund.succeeded(providerRefundId);payment.refunded();refunds.save(refund);payments.save(payment);refunded(payment,refund,correlation);}
+ public void providerRefundFailed(String providerRefundId,String reason,String correlation){RefundEntity refund=refunds.findByProviderRefundId(providerRefundId).orElseThrow(()->notFound("provider refund"));if(refund.getStatus()==RefundStatus.FAILED)return;PaymentEntity payment=locked(refund.getPayment().getBookingId());refund.failed(reason);payment.refundFailed(reason);refunds.save(refund);payments.save(payment);refundFailed(payment,refund,reason,correlation);}
+ @Transactional(readOnly=true)public PaymentEntity get(UUID id){return payments.findById(id).orElseThrow(()->notFound("payment"));}
+ @Transactional(readOnly=true)public List<PaymentEntity> byUser(String user){return payments.findByUserIdOrderByCreatedAtDesc(user);}
+ @Transactional(readOnly=true)public List<RefundEntity> refunds(UUID payment){return refunds.findByPaymentIdOrderByCreatedAtDesc(payment);}
+ private PaymentEntity locked(UUID booking){return payments.findByBookingIdLocked(booking).orElseThrow(()->notFound("booking payment"));}
+ private void ensureSame(PaymentEntity p,Authorize c){if(!p.getUserId().equals(c.userId())||p.getAmount().compareTo(c.amount())!=0||!p.getCurrency().equalsIgnoreCase(c.currency()))throw new PaymentException("IDEMPOTENCY_CONFLICT","Booking already has a different payment");}
+ private void authorized(PaymentEntity p,String c){outbox.append("payment.authorized",p.getId().toString(),c,payload(p,Map.of("paymentId",p.getProviderPaymentId())));}
+ private void failed(PaymentEntity p,String reason,String c){outbox.append("payment.failed",p.getId().toString(),c,payload(p,Map.of("reason",reason)));}
+ private void refunded(PaymentEntity p,RefundEntity r,String c){outbox.append("payment.refunded",p.getId().toString(),c,payload(p,Map.of("paymentId",p.getProviderPaymentId(),"refundId",value(r.getProviderRefundId()))));}
+ private void refundFailed(PaymentEntity p,RefundEntity r,String reason,String c){outbox.append("payment.refund.failed",p.getId().toString(),c,payload(p,Map.of("refundId",r.getId().toString(),"reason",reason)));}
+ private Map<String,Object>payload(PaymentEntity p,Map<String,Object>extra){Map<String,Object>m=new LinkedHashMap<>();m.put("bookingId",p.getBookingId());m.put("sagaId",p.getSagaId());m.put("userId",p.getUserId());m.put("amount",p.getAmount());m.put("currency",p.getCurrency());m.putAll(extra);return m;}
+ private String reason(ProviderResult r){return r.reason()==null||r.reason().isBlank()?"Provider operation failed":r.reason();}private String required(String v,String n){if(v==null||v.isBlank())throw new PaymentException("INVALID_COMMAND",n+" is required");return v;}private String value(String v){return v==null?"":v;}private PaymentException notFound(String what){return new PaymentException("PAYMENT_NOT_FOUND",what+" not found");}
+}

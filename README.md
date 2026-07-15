@@ -32,7 +32,7 @@ grille est adaptée à leur responsabilité réelle.
 | `moderation-trust-service` | 88 % |
 | `notification-service` | 85 % |
 | `partner-service` | 85 % |
-| `payment-service` | 5 % |
+| `payment-service` | 88 % |
 | `place-service` | 80 % |
 | `recommendation-service` | 88 % |
 | `referral-service` | 88 % |
@@ -43,17 +43,18 @@ grille est adaptée à leur responsabilité réelle.
 
 ## Synthèse précise
 
-- Avancement moyen des 26 modules actifs : **80 %**. Moyenne des 29 dossiers,
-  anciens squelettes inclus : **72 %**.
-- **23 services** ont un socle V1 ou infrastructure substantiel (80 % et plus).
+- Avancement moyen des 26 modules actifs : **83 %**. Moyenne des 29 dossiers,
+  anciens squelettes inclus : **75 %**.
+- **24 services** ont un socle V1 ou infrastructure substantiel (80 % et plus).
 - `analytics-service` utilise OpenSearch pour ses projections, avec consommation
   idempotente, retry exponentiel et DLT. `event-service` utilise désormais
   Flyway, JWT et une Outbox transactionnelle.
 - `place-service` est une façade legacy dépréciée : ses écritures sont relayées
   par Outbox vers `catalog-service`, qui devient la source cible. Les anciens
   contrats restent disponibles pendant la transition.
-- `payment-service` est le blocage fonctionnel principal : sans lui, la Saga de
-  `booking-service` ne peut pas confirmer les réservations payantes en réel.
+- `payment-service` couvre maintenant la Saga de réservation, les autorisations,
+  annulations, remboursements, webhooks signés, Inbox/Outbox et l'idempotence.
+  L'adaptateur simulé doit être remplacé par un fournisseur réel en production.
 - `messaging-service` reste un squelette. `social-service` et `search-service`
   ne doivent pas être développés séparément : leurs responsabilités sont déjà
   couvertes par content/interaction/feed et discovery. `graph-service` reste
@@ -64,3 +65,23 @@ grille est adaptée à leur responsabilité réelle.
 - Il manque encore une validation bout en bout commune avec PostgreSQL, Kafka,
   Redis, PostGIS, stockage objet et fournisseurs externes, ainsi qu'un Docker
   Compose global, du tracing distribué et des tests de charge.
+
+## Services restant à implémenter
+
+| Priorité | Service | Travail restant |
+|---:|---|---|
+| 1 | `messaging-service` | Implémentation de la messagerie privée si elle reste dans le périmètre produit V2 : conversations, messages, pièces jointes, statuts de lecture et modération. |
+| 2 | `analytics-service` | Finaliser les agrégations métier, les projections par période, les contrôles d'accès par propriétaire et les tests avec OpenSearch/Kafka réels. |
+
+`place-service` ne doit plus recevoir de nouvelles fonctionnalités. Il reste à
+migrer ses données historiques vers `catalog-service`, basculer ses consommateurs,
+puis retirer progressivement ses routes legacy.
+
+`graph-service`, `search-service` et `social-service` ne sont pas à implémenter
+comme microservices autonomes dans l'architecture V2 actuelle : leurs fonctions
+sont respectivement couvertes par les projections sociales/recommandations,
+`discovery-service`, puis `content-service` + `interaction-service` + `feed-service`.
+
+Après ces services, le chantier restant est transversal : Docker Compose global,
+tests contractuels et bout en bout, observabilité distribuée, gestion centralisée
+des secrets, résilience des dépendances externes et tests de charge.

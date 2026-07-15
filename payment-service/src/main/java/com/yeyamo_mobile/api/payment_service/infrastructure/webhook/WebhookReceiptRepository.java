@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.payment_service.infrastructure.webhook;import java.util.*;import org.springframework.data.jpa.repository.JpaRepository;public interface WebhookReceiptRepository extends JpaRepository<WebhookReceiptEntity,UUID>{Optional<WebhookReceiptEntity>findByProviderAndProviderEventId(String provider,String id);}

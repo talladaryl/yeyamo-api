@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.payment_service.infrastructure.outbox;import java.util.*;import org.springframework.data.jpa.repository.JpaRepository;public interface PaymentOutboxRepository extends JpaRepository<PaymentOutboxEvent,UUID>{List<PaymentOutboxEvent>findTop100ByPublishedAtIsNullOrderByOccurredAtAsc();}

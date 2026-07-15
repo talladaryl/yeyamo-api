@@ -1,0 +1,13 @@
+package com.yeyamo_mobile.api.payment_service.infrastructure.persistence;
+import java.math.BigDecimal;import java.time.Instant;import java.util.UUID;import com.yeyamo_mobile.api.payment_service.domain.*;import jakarta.persistence.*;
+@Entity @Table(name="payment_refunds") public class RefundEntity{
+ @Id private UUID id;@ManyToOne(fetch=FetchType.LAZY,optional=false)@JoinColumn(name="payment_id")private PaymentEntity payment;@Column(nullable=false,precision=12,scale=2)private BigDecimal amount;
+ @Enumerated(EnumType.STRING)@Column(nullable=false,length=30)private RefundStatus status;@Column(name="provider_refund_id",unique=true,length=160)private String providerRefundId;
+ @Column(name="idempotency_key",nullable=false,unique=true,length=200)private String idempotencyKey;@Column(name="failure_reason",length=1000)private String failureReason;
+ @Column(name="created_at",nullable=false)private Instant createdAt;@Column(name="updated_at",nullable=false)private Instant updatedAt;@Column(name="completed_at")private Instant completedAt;
+ protected RefundEntity(){}public static RefundEntity pending(PaymentEntity payment,BigDecimal amount,String key){if(amount==null||amount.signum()<=0||amount.compareTo(payment.getAmount())!=0)throw new PaymentException("INVALID_REFUND_AMOUNT","Refund amount must equal the captured amount");var r=new RefundEntity();r.id=UUID.randomUUID();r.payment=payment;r.amount=amount.setScale(2);r.idempotencyKey=key;r.status=RefundStatus.PENDING;r.createdAt=Instant.now();r.updatedAt=r.createdAt;return r;}
+ public void succeeded(String providerId){if(status==RefundStatus.SUCCEEDED)return;status=RefundStatus.SUCCEEDED;providerRefundId=providerId;failureReason=null;completedAt=Instant.now();updatedAt=completedAt;}
+ public void providerPending(String providerId){if(status!=RefundStatus.PENDING)throw new PaymentException("INVALID_REFUND_TRANSITION","Refund is not pending");providerRefundId=providerId;updatedAt=Instant.now();}
+ public void failed(String reason){if(status==RefundStatus.SUCCEEDED)return;status=RefundStatus.FAILED;failureReason=reason;updatedAt=Instant.now();}
+ public UUID getId(){return id;}public PaymentEntity getPayment(){return payment;}public BigDecimal getAmount(){return amount;}public RefundStatus getStatus(){return status;}public String getProviderRefundId(){return providerRefundId;}public String getIdempotencyKey(){return idempotencyKey;}public String getFailureReason(){return failureReason;}public Instant getCreatedAt(){return createdAt;}public Instant getUpdatedAt(){return updatedAt;}public Instant getCompletedAt(){return completedAt;}
+}

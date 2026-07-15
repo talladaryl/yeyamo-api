@@ -1,0 +1,7 @@
+package com.yeyamo_mobile.api.payment_service.infrastructure.outbox;
+import java.time.Instant;import java.util.concurrent.TimeUnit;import org.slf4j.*;import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;import org.springframework.kafka.core.KafkaTemplate;import org.springframework.scheduling.annotation.Scheduled;import org.springframework.stereotype.Component;import org.springframework.transaction.annotation.Transactional;
+@Component @ConditionalOnProperty(name="payment.outbox.enabled",havingValue="true",matchIfMissing=true)public class PaymentOutboxPublisher{
+ private static final Logger log=LoggerFactory.getLogger(PaymentOutboxPublisher.class);private final PaymentOutboxRepository repository;private final KafkaTemplate<String,String> kafka;
+ public PaymentOutboxPublisher(PaymentOutboxRepository r,KafkaTemplate<String,String> k){repository=r;kafka=k;}
+ @Scheduled(fixedDelayString="${payment.outbox.delay-ms:1000}")@Transactional public void publish(){for(var e:repository.findTop100ByPublishedAtIsNullOrderByOccurredAtAsc()){try{kafka.send(e.targetTopic,e.aggregateId,e.payload).get(5,TimeUnit.SECONDS);e.publishedAt=Instant.now();e.lastError=null;}catch(Exception x){e.attempts++;String m=x.getMessage()==null?"Kafka publication failed":x.getMessage();e.lastError=m.substring(0,Math.min(1000,m.length()));log.warn("Payment outbox event {} failed",e.id);}repository.save(e);}}
+}

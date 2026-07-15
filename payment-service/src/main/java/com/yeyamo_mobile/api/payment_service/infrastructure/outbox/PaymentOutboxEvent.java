@@ -1,0 +1,3 @@
+package com.yeyamo_mobile.api.payment_service.infrastructure.outbox;
+import java.time.Instant;import java.util.UUID;import jakarta.persistence.*;
+@Entity @Table(name="payment_outbox")public class PaymentOutboxEvent{@Id UUID id;@Column(name="aggregate_id",nullable=false,length=120)String aggregateId;@Column(name="event_type",nullable=false,length=120)String eventType;@Column(name="target_topic",nullable=false,length=160)String targetTopic;@Column(nullable=false,columnDefinition="TEXT")String payload;@Column(name="occurred_at",nullable=false)Instant occurredAt;@Column(name="published_at")Instant publishedAt;@Column(nullable=false)int attempts;@Column(name="last_error",length=1000)String lastError;}

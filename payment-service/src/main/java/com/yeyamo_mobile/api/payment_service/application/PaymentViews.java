@@ -1,0 +1,6 @@
+package com.yeyamo_mobile.api.payment_service.application;
+import java.math.BigDecimal;import java.time.Instant;import java.util.UUID;import com.yeyamo_mobile.api.payment_service.domain.*;import com.yeyamo_mobile.api.payment_service.infrastructure.persistence.*;
+public final class PaymentViews{private PaymentViews(){}
+ public record PaymentView(UUID id,UUID bookingId,UUID sagaId,String userId,BigDecimal amount,String currency,PaymentStatus status,String provider,String providerPaymentId,String failureReason,Instant createdAt,Instant updatedAt){public static PaymentView from(PaymentEntity p){return new PaymentView(p.getId(),p.getBookingId(),p.getSagaId(),p.getUserId(),p.getAmount(),p.getCurrency(),p.getStatus(),p.getProvider(),p.getProviderPaymentId(),p.getFailureReason(),p.getCreatedAt(),p.getUpdatedAt());}}
+ public record RefundView(UUID id,UUID paymentId,BigDecimal amount,RefundStatus status,String providerRefundId,String failureReason,Instant createdAt,Instant updatedAt){public static RefundView from(RefundEntity r){return new RefundView(r.getId(),r.getPayment().getId(),r.getAmount(),r.getStatus(),r.getProviderRefundId(),r.getFailureReason(),r.getCreatedAt(),r.getUpdatedAt());}}
+}

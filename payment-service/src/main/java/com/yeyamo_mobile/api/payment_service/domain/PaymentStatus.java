@@ -1,0 +1,2 @@
+package com.yeyamo_mobile.api.payment_service.domain;
+public enum PaymentStatus { AUTHORIZATION_PENDING, AUTHORIZED, FAILED, CANCELLATION_PENDING, CANCELLED, REFUND_PENDING, REFUNDED }

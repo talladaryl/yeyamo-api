@@ -1,0 +1,23 @@
+package com.yeyamo_mobile.api.payment_service.infrastructure.persistence;
+import java.math.BigDecimal;import java.time.Instant;import java.util.UUID;import com.yeyamo_mobile.api.payment_service.domain.*;import jakarta.persistence.*;
+@Entity @Table(name="payments")
+public class PaymentEntity{
+ @Id private UUID id;@Column(name="booking_id",nullable=false,unique=true)private UUID bookingId;@Column(name="saga_id")private UUID sagaId;
+ @Column(name="user_id",nullable=false,length=120)private String userId;@Column(nullable=false,precision=12,scale=2)private BigDecimal amount;@Column(nullable=false,length=3)private String currency;
+ @Enumerated(EnumType.STRING)@Column(nullable=false,length=40)private PaymentStatus status;@Column(nullable=false,length=40)private String provider;
+ @Column(name="provider_payment_id",unique=true,length=160)private String providerPaymentId;@Column(name="idempotency_key",nullable=false,unique=true,length=200)private String idempotencyKey;
+ @Column(name="failure_reason",length=1000)private String failureReason;@Column(name="created_at",nullable=false)private Instant createdAt;@Column(name="updated_at",nullable=false)private Instant updatedAt;
+ @Column(name="authorized_at")private Instant authorizedAt;@Column(name="cancelled_at")private Instant cancelledAt;@Column(name="refunded_at")private Instant refundedAt;@Version private long version;
+ protected PaymentEntity(){}
+ public static PaymentEntity pending(UUID booking,UUID saga,String user,BigDecimal amount,String currency,String provider,String key){if(amount==null||amount.signum()<=0)throw new PaymentException("INVALID_AMOUNT","Amount must be positive");if(currency==null||!currency.matches("[A-Za-z]{3}"))throw new PaymentException("INVALID_CURRENCY","Currency must contain three letters");var p=new PaymentEntity();p.id=UUID.randomUUID();p.bookingId=booking;p.sagaId=saga;p.userId=user;p.amount=amount.setScale(2);p.currency=currency.toUpperCase();p.provider=provider;p.idempotencyKey=key;p.status=PaymentStatus.AUTHORIZATION_PENDING;p.createdAt=Instant.now();p.updatedAt=p.createdAt;return p;}
+ public void authorized(String providerId){if(status==PaymentStatus.AUTHORIZED)return;if(status!=PaymentStatus.AUTHORIZATION_PENDING&&status!=PaymentStatus.CANCELLATION_PENDING)throw invalid();providerPaymentId=providerId;status=PaymentStatus.AUTHORIZED;failureReason=null;authorizedAt=Instant.now();updatedAt=authorizedAt;}
+ public void providerPending(String providerId){if(status!=PaymentStatus.AUTHORIZATION_PENDING)throw invalid();providerPaymentId=providerId;updatedAt=Instant.now();}
+ public void failed(String reason){if(status==PaymentStatus.AUTHORIZED||status==PaymentStatus.REFUNDED)throw invalid();status=PaymentStatus.FAILED;failureReason=reason;updatedAt=Instant.now();}
+ public void cancellationPending(){if(status==PaymentStatus.CANCELLED)return;if(status!=PaymentStatus.AUTHORIZATION_PENDING)throw invalid();status=PaymentStatus.CANCELLATION_PENDING;updatedAt=Instant.now();}
+ public void cancelled(){if(status==PaymentStatus.CANCELLED)return;if(status!=PaymentStatus.CANCELLATION_PENDING&&status!=PaymentStatus.AUTHORIZATION_PENDING)throw invalid();status=PaymentStatus.CANCELLED;cancelledAt=Instant.now();updatedAt=cancelledAt;}
+ public void refundPending(){if(status==PaymentStatus.REFUNDED)return;if(status!=PaymentStatus.AUTHORIZED&&status!=PaymentStatus.REFUND_PENDING)throw invalid();status=PaymentStatus.REFUND_PENDING;updatedAt=Instant.now();}
+ public void refunded(){if(status==PaymentStatus.REFUNDED)return;if(status!=PaymentStatus.REFUND_PENDING)throw invalid();status=PaymentStatus.REFUNDED;refundedAt=Instant.now();updatedAt=refundedAt;}
+ public void refundFailed(String reason){if(status!=PaymentStatus.REFUND_PENDING)return;status=PaymentStatus.AUTHORIZED;failureReason=reason;updatedAt=Instant.now();}
+ private PaymentException invalid(){return new PaymentException("INVALID_PAYMENT_TRANSITION","Invalid transition from "+status);}
+ public UUID getId(){return id;}public UUID getBookingId(){return bookingId;}public UUID getSagaId(){return sagaId;}public String getUserId(){return userId;}public BigDecimal getAmount(){return amount;}public String getCurrency(){return currency;}public PaymentStatus getStatus(){return status;}public String getProvider(){return provider;}public String getProviderPaymentId(){return providerPaymentId;}public String getIdempotencyKey(){return idempotencyKey;}public String getFailureReason(){return failureReason;}public Instant getCreatedAt(){return createdAt;}public Instant getUpdatedAt(){return updatedAt;}public Instant getAuthorizedAt(){return authorizedAt;}public Instant getCancelledAt(){return cancelledAt;}public Instant getRefundedAt(){return refundedAt;}
+}

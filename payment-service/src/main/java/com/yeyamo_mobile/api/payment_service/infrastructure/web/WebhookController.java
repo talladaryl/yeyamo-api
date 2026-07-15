@@ -1,0 +1,3 @@
+package com.yeyamo_mobile.api.payment_service.infrastructure.web;
+import org.springframework.http.HttpStatus;import org.springframework.web.bind.annotation.*;import com.yeyamo_mobile.api.payment_service.infrastructure.webhook.PaymentWebhookService;
+@RestController @RequestMapping("/api/v1/payments/webhooks")public class WebhookController{private final PaymentWebhookService service;public WebhookController(PaymentWebhookService s){service=s;}@PostMapping("/{provider}")@ResponseStatus(HttpStatus.NO_CONTENT)public void receive(@PathVariable String provider,@RequestHeader("X-Payment-Timestamp")String timestamp,@RequestHeader("X-Payment-Signature")String signature,@RequestBody String payload)throws Exception{service.process(provider,timestamp,signature,payload);}}

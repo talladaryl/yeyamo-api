@@ -1,0 +1,8 @@
+package com.yeyamo_mobile.api.payment_service.infrastructure.web;
+import java.time.Instant;import java.util.*;import org.springframework.http.*;import org.springframework.web.bind.MethodArgumentNotValidException;import org.springframework.web.bind.annotation.*;import com.yeyamo_mobile.api.payment_service.domain.PaymentException;
+@RestControllerAdvice public class ApiExceptionHandler{
+ @ExceptionHandler(PaymentException.class)ResponseEntity<Map<String,Object>>payment(PaymentException e){HttpStatus status=switch(e.getCode()){case"PAYMENT_NOT_FOUND"->HttpStatus.NOT_FOUND;case"FORBIDDEN"->HttpStatus.FORBIDDEN;case"IDEMPOTENCY_CONFLICT","INVALID_PAYMENT_TRANSITION"->HttpStatus.CONFLICT;case"INVALID_WEBHOOK_SIGNATURE"->HttpStatus.UNAUTHORIZED;default->HttpStatus.BAD_REQUEST;};return response(status,e.getCode(),e.getMessage());}
+ @ExceptionHandler(MethodArgumentNotValidException.class)ResponseEntity<Map<String,Object>>validation(MethodArgumentNotValidException e){return response(HttpStatus.BAD_REQUEST,"VALIDATION_ERROR",e.getBindingResult().getFieldErrors().stream().map(x->x.getField()+": "+x.getDefaultMessage()).toList().toString());}
+ @ExceptionHandler(IllegalArgumentException.class)ResponseEntity<Map<String,Object>>invalid(IllegalArgumentException e){return response(HttpStatus.BAD_REQUEST,"INVALID_REQUEST",e.getMessage());}
+ private ResponseEntity<Map<String,Object>>response(HttpStatus status,String code,String message){Map<String,Object>body=new LinkedHashMap<>();body.put("timestamp",Instant.now());body.put("status",status.value());body.put("code",code);body.put("message",message);return ResponseEntity.status(status).body(body);}
+}
