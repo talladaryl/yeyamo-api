@@ -1,4 +1,7 @@
 package com.yeyamo_mobile.api.auth_service.dto;
 
-public record OAuthLoginRequest(String idToken) {
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record OAuthLoginRequest(@NotBlank @Size(max = 8192) String idToken) {
 }

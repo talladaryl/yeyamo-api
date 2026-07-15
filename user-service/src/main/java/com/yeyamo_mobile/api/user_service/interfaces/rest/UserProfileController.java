@@ -48,7 +48,7 @@ public class UserProfileController {
     }
 
     @PatchMapping("/me/preferences")
-    public MyProfileResponse preferences(@RequestBody UpdatePreferencesRequest request, Authentication authentication,
+    public MyProfileResponse preferences(@Valid @RequestBody UpdatePreferencesRequest request, Authentication authentication,
             @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
         return MyProfileResponse.from(service.updatePreferences(authentication.getName(),
                 request.notificationsEnabled(), request.locationSharingEnabled(), request.preferredRegionId(),

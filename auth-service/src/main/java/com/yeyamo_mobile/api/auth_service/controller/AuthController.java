@@ -22,6 +22,8 @@ import com.yeyamo_mobile.api.auth_service.dto.UserResponse;
 import com.yeyamo_mobile.api.auth_service.security.UserPrincipal;
 import com.yeyamo_mobile.api.auth_service.service.AuthService;
 
+import jakarta.validation.Valid;
+
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
@@ -34,50 +36,50 @@ public class AuthController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public AuthResponse register(@RequestBody RegisterRequest request) {
+    public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
         return authService.register(request);
     }
 
     @PostMapping("/login")
-    public AuthResponse login(@RequestBody LoginRequest request) {
+    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
     }
 
     @PostMapping("/oauth/google")
-    public AuthResponse google(@RequestBody OAuthLoginRequest request) {
+    public AuthResponse google(@Valid @RequestBody OAuthLoginRequest request) {
         return authService.oauthLogin("google", request);
     }
 
     @PostMapping("/oauth/apple")
-    public AuthResponse apple(@RequestBody OAuthLoginRequest request) {
+    public AuthResponse apple(@Valid @RequestBody OAuthLoginRequest request) {
         return authService.oauthLogin("apple", request);
     }
 
     @PostMapping("/refresh")
-    public AuthResponse refresh(@RequestBody RefreshTokenRequest request) {
+    public AuthResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
         return authService.refresh(request);
     }
 
     @PostMapping("/email/verification/request")
-    public MessageResponse requestEmailVerification(@RequestBody EmailRequest request) {
+    public MessageResponse requestEmailVerification(@Valid @RequestBody EmailRequest request) {
         authService.requestEmailVerification(request);
         return new MessageResponse("Code de verification envoye");
     }
 
     @PostMapping("/email/verification/confirm")
-    public MessageResponse confirmEmailVerification(@RequestBody OtpVerificationRequest request) {
+    public MessageResponse confirmEmailVerification(@Valid @RequestBody OtpVerificationRequest request) {
         authService.confirmEmailVerification(request);
         return new MessageResponse("Email verifie avec succes");
     }
 
     @PostMapping("/password/forgot")
-    public MessageResponse requestPasswordReset(@RequestBody EmailRequest request) {
+    public MessageResponse requestPasswordReset(@Valid @RequestBody EmailRequest request) {
         authService.requestPasswordReset(request);
         return new MessageResponse("Code de reinitialisation envoye");
     }
 
     @PostMapping("/password/reset")
-    public MessageResponse resetPassword(@RequestBody PasswordResetRequest request) {
+    public MessageResponse resetPassword(@Valid @RequestBody PasswordResetRequest request) {
         authService.resetPassword(request);
         return new MessageResponse("Mot de passe reinitialise avec succes");
     }

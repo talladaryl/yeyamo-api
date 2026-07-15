@@ -1,5 +1,7 @@
 # YeYamo API — état d'avancement
 
+> Sécurité : voir [l'audit et le guide de durcissement](docs/SECURITY_HARDENING.md) pour les contrôles communs, la rotation JWT, le chiffrement des secrets, la matrice OWASP ASVS et les risques résiduels de déploiement.
+
 Évaluation mise à jour le 15 juillet 2026 à partir du code présent, des
 configurations centralisées et des architectures V1/V2.
 

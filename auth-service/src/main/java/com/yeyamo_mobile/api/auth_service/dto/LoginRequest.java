@@ -1,7 +1,10 @@
 package com.yeyamo_mobile.api.auth_service.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 public record LoginRequest(
-        String identifier,
-        String password
+        @NotBlank @Size(max = 254) String identifier,
+        @NotBlank @Size(min = 8, max = 128) String password
 ) {
 }

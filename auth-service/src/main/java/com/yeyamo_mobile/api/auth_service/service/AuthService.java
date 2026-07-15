@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +49,7 @@ public class AuthService {
     private final OAuthTokenVerifier oAuthTokenVerifier;
     private final OtpService otpService;
     private final EmailService emailService;
+    private final LoginAttemptService loginAttemptService;
     private final AuthEventOutbox eventOutbox;
 
     public AuthService(
@@ -61,6 +63,7 @@ public class AuthService {
             OAuthTokenVerifier oAuthTokenVerifier,
             OtpService otpService,
             EmailService emailService,
+            LoginAttemptService loginAttemptService,
             AuthEventOutbox eventOutbox
     ) {
         this.userRepository = userRepository;
@@ -73,6 +76,7 @@ public class AuthService {
         this.oAuthTokenVerifier = oAuthTokenVerifier;
         this.otpService = otpService;
         this.emailService = emailService;
+        this.loginAttemptService = loginAttemptService;
         this.eventOutbox = eventOutbox;
     }
 
@@ -108,17 +112,27 @@ public class AuthService {
             throw new ApiException("INVALID_CREDENTIALS", "Identifiant ou mot de passe invalide", HttpStatus.UNAUTHORIZED);
         }
 
-        User user = userRepository.findByEmail(clean(request.identifier()))
-                .or(() -> userRepository.findByPhone(clean(request.identifier())))
-                .orElseThrow(() -> new ApiException("INVALID_CREDENTIALS", "Identifiant ou mot de passe invalide", HttpStatus.UNAUTHORIZED));
+        String identifier = clean(request.identifier());
+        loginAttemptService.assertAllowed(identifier);
+        User user = userRepository.findByEmail(identifier)
+                .or(() -> userRepository.findByPhone(identifier))
+                .orElse(null);
+        if (user == null) {
+            loginAttemptService.failed(identifier);
+            throw invalidCredentials();
+        }
+
+        try {
+            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(identifier, request.password()));
+        } catch (AuthenticationException failure) {
+            loginAttemptService.failed(identifier);
+            throw invalidCredentials();
+        }
 
         if (user.getStatus() == UserStatus.PENDING) {
             throw new ApiException("EMAIL_NOT_VERIFIED", "Veuillez verifier votre email avant de vous connecter", HttpStatus.FORBIDDEN);
         }
-
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(clean(request.identifier()), request.password())
-        );
+        loginAttemptService.succeeded(identifier);
 
         user.setLastLoginAt(Instant.now());
         userRepository.save(user);
@@ -164,7 +178,10 @@ public class AuthService {
     }
 
     public void requestEmailVerification(EmailRequest request) {
-        User user = requireUserByEmail(request == null ? null : request.email());
+        User user = findUserByEmail(request == null ? null : request.email());
+        if (user == null) {
+            return;
+        }
         if (user.getEmailVerifiedAt() != null) {
             return;
         }
@@ -186,7 +203,10 @@ public class AuthService {
     }
 
     public void requestPasswordReset(EmailRequest request) {
-        User user = requireUserByEmail(request == null ? null : request.email());
+        User user = findUserByEmail(request == null ? null : request.email());
+        if (user == null) {
+            return;
+        }
         String otp = otpService.generate("password-reset", user.getEmail());
         emailService.sendPasswordResetOtp(user.getEmail(), otp, otpService.expirationMinutes());
     }
@@ -197,8 +217,8 @@ public class AuthService {
         if (!hasText(request.otp())) {
             throw new ApiException("OTP_REQUIRED", "Code OTP requis", HttpStatus.BAD_REQUEST);
         }
-        if (!hasText(request.newPassword()) || request.newPassword().length() < 8) {
-            throw new ApiException("WEAK_PASSWORD", "Le mot de passe doit contenir au moins 8 caracteres", HttpStatus.BAD_REQUEST);
+        if (!hasText(request.newPassword()) || request.newPassword().length() < 12) {
+            throw new ApiException("WEAK_PASSWORD", "Le mot de passe doit contenir au moins 12 caracteres", HttpStatus.BAD_REQUEST);
         }
 
         otpService.verify("password-reset", user.getEmail(), request.otp());
@@ -239,6 +259,14 @@ public class AuthService {
                 .orElseThrow(() -> new ApiException("USER_NOT_FOUND", "Utilisateur introuvable", HttpStatus.NOT_FOUND));
     }
 
+    private User findUserByEmail(String email) {
+        return hasText(email) ? userRepository.findByEmail(clean(email)).orElse(null) : null;
+    }
+
+    private ApiException invalidCredentials() {
+        return new ApiException("INVALID_CREDENTIALS", "Identifiant ou mot de passe invalide", HttpStatus.UNAUTHORIZED);
+    }
+
     private User findOrCreateOAuthUser(OAuthUserInfo userInfo) {
         User user = null;
         if (hasText(userInfo.email())) {
@@ -271,7 +299,7 @@ public class AuthService {
         if (request == null || (!hasText(request.email()) && !hasText(request.phone()))) {
             throw new ApiException("IDENTIFIER_REQUIRED", "Email ou téléphone requis", HttpStatus.BAD_REQUEST);
         }
-        if (!hasText(request.password()) || request.password().length() < 8) {
+        if (!hasText(request.password()) || request.password().length() < 12) {
             throw new ApiException("WEAK_PASSWORD", "Le mot de passe doit contenir au moins 8 caractères", HttpStatus.BAD_REQUEST);
         }
     }

@@ -5,6 +5,8 @@ import com.yeyamo_mobile.api.media_service.domain.model.MediaType;
 public class MediaContentPolicy{
  private static final Set<String> IMAGES=Set.of("image/jpeg","image/png","image/webp");private static final Set<String> VIDEOS=Set.of("video/mp4","video/webm","video/quicktime");
  private final long maxImage,maxVideo;public MediaContentPolicy(@Value("${media.upload.max-image-bytes:10485760}")long image,@Value("${media.upload.max-video-bytes:104857600}")long video){maxImage=image;maxVideo=video;}
+ public void validateDeclaredSize(String contentType,long size){String type=contentType==null?"":contentType.toLowerCase(Locale.ROOT);long max=IMAGES.contains(type)?maxImage:VIDEOS.contains(type)?maxVideo:-1;
+  if(max<0)throw new MediaException("UNSUPPORTED_MEDIA_TYPE","Supported types: JPEG, PNG, WEBP, MP4, WEBM, MOV");if(size<=0||size>max)throw new MediaException("INVALID_MEDIA_SIZE","Media size is invalid");}
  public MediaType validate(String contentType,byte[] bytes){String type=contentType==null?"":contentType.toLowerCase(Locale.ROOT);MediaType mediaType=IMAGES.contains(type)?MediaType.IMAGE:VIDEOS.contains(type)?MediaType.VIDEO:null;
   if(mediaType==null)throw new MediaException("UNSUPPORTED_MEDIA_TYPE","Supported types: JPEG, PNG, WEBP, MP4, WEBM, MOV");
   long max=mediaType==MediaType.IMAGE?maxImage:maxVideo;if(bytes.length==0||bytes.length>max)throw new MediaException("INVALID_MEDIA_SIZE","Media size is invalid");
