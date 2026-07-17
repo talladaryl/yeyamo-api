@@ -1,5 +1,6 @@
 package com.yeyamo_mobile.api.user_service.domain.port;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -14,4 +15,5 @@ public interface UserProfileRepository {
     Optional<UserProfile> findByAuthUserId(String authUserId);
     boolean existsByAuthUserId(String authUserId);
     Page<UserProfile> searchPublic(String query, Pageable pageable);
+    List<UserProfile> findByIdIn(List<UUID> ids);
 }

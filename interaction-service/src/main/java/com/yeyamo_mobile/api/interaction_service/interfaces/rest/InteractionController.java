@@ -28,5 +28,62 @@ public class InteractionController{
  public InteractionSummary summary(@PathVariable UUID postId,Authentication auth){return queries.summary(postId,auth==null?null:auth.getName());}
  @GetMapping("/posts/{postId}/comments")@Operation(summary="Read active comments")
  public List<CommentResponse> comments(@PathVariable UUID postId,@RequestParam(defaultValue="50")@Min(1)@Max(100)int limit){return queries.comments(postId,limit).stream().map(CommentResponse::from).toList();}
+ 
+ // ─── REVIEWS ─────────────────────────────────────────────────────────────────
+ 
+ @PostMapping("/places/{placeId}/reviews")
+ @ResponseStatus(HttpStatus.CREATED)
+ @Operation(summary="Create a review for a place",security=@SecurityRequirement(name="bearerAuth"))
+ public com.yeyamo_mobile.api.interaction_service.interfaces.rest.ReviewResponse createReview(
+  @PathVariable UUID placeId,
+  @Valid@RequestBody com.yeyamo_mobile.api.interaction_service.interfaces.rest.ReviewRequest request,
+  @RequestHeader("Idempotency-Key")@NotBlank String key,
+  @RequestHeader(value="X-Correlation-Id",required=false)String correlation,
+  Authentication auth){
+  var review=commands.createReview(placeId,auth.getName(),request.rating().shortValue(),request.comment(),key,correlation);
+  return com.yeyamo_mobile.api.interaction_service.interfaces.rest.ReviewResponse.from(review);
+ }
+ 
+ @PutMapping("/reviews/{id}")
+ @Operation(summary="Update your review",security=@SecurityRequirement(name="bearerAuth"))
+ public com.yeyamo_mobile.api.interaction_service.interfaces.rest.ReviewResponse updateReview(
+  @PathVariable UUID id,
+  @Valid@RequestBody com.yeyamo_mobile.api.interaction_service.interfaces.rest.ReviewRequest request,
+  @RequestHeader("Idempotency-Key")@NotBlank String key,
+  @RequestHeader(value="X-Correlation-Id",required=false)String correlation,
+  Authentication auth){
+  var review=commands.updateReview(id,auth.getName(),request.rating().shortValue(),request.comment(),key,correlation);
+  return com.yeyamo_mobile.api.interaction_service.interfaces.rest.ReviewResponse.from(review);
+ }
+ 
+ @DeleteMapping("/reviews/{id}")
+ @ResponseStatus(HttpStatus.NO_CONTENT)
+ @Operation(summary="Delete a review (author or moderator only)",security=@SecurityRequirement(name="bearerAuth"))
+ public void deleteReview(
+  @PathVariable UUID id,
+  @RequestHeader("Idempotency-Key")@NotBlank String key,
+  @RequestHeader(value="X-Correlation-Id",required=false)String correlation,
+  Authentication auth){
+  commands.deleteReview(id,auth.getName(),admin(auth),key,correlation);
+ }
+ 
+ @GetMapping("/places/{placeId}/reviews")
+ @Operation(summary="Get reviews for a place")
+ public List<com.yeyamo_mobile.api.interaction_service.interfaces.rest.ReviewResponse> placeReviews(
+  @PathVariable UUID placeId,
+  @RequestParam(defaultValue="50")@Min(1)@Max(100)int limit){
+  return queries.reviewsByPlace(placeId,limit).stream()
+   .map(com.yeyamo_mobile.api.interaction_service.interfaces.rest.ReviewResponse::from).toList();
+ }
+ 
+ @GetMapping("/users/{userId}/reviews")
+ @Operation(summary="Get reviews by a user")
+ public List<com.yeyamo_mobile.api.interaction_service.interfaces.rest.ReviewResponse> userReviews(
+  @PathVariable String userId,
+  @RequestParam(defaultValue="50")@Min(1)@Max(100)int limit){
+  return queries.reviewsByUser(userId,limit).stream()
+   .map(com.yeyamo_mobile.api.interaction_service.interfaces.rest.ReviewResponse::from).toList();
+ }
+ 
  private boolean admin(Authentication a){return a.getAuthorities().stream().map(GrantedAuthority::getAuthority).anyMatch(v->v.equals("ROLE_ADMIN")||v.equals("ROLE_SUPER_ADMIN")||v.equals("ROLE_MODERATOR"));}
 }

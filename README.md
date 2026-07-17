@@ -70,9 +70,9 @@ grille est adaptée à leur responsabilité réelle.
 - `social-service` et `search-service` ne doivent pas être développés séparément :
   leurs responsabilités sont déjà couvertes par content/interaction/feed et
   discovery. `graph-service` reste expérimental et hors du plan V2 actuel.
-- Une collision de ports par défaut reste à corriger avant un lancement global :
-  `admin-service`/`gamification-service` sur `8096`. `analytics-service` utilise
-  maintenant `8097`.
+- ✅ **Conflit port résolu:** `gamification-service` déplacé de 8096 → 8105.
+  `admin-service` reste sur 8096, `notification-service` sur 8094, 
+  `messaging-service` sur 8104, `analytics-service` sur 8097.
 - Il manque encore une validation bout en bout commune avec PostgreSQL, Kafka,
   Redis, PostGIS, stockage objet et fournisseurs externes, ainsi qu'un Docker
   Compose global, du tracing distribué et des tests de charge.

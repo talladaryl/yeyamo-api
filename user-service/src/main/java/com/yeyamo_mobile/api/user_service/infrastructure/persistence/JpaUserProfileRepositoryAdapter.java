@@ -1,5 +1,6 @@
 package com.yeyamo_mobile.api.user_service.infrastructure.persistence;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,6 +28,9 @@ public class JpaUserProfileRepositoryAdapter implements UserProfileRepository {
     @Override public Page<UserProfile> searchPublic(String query, Pageable pageable) {
         return repository.searchPublic(query == null ? "" : query.trim(), ProfileStatus.ACTIVE,
                 ProfileVisibility.PUBLIC, pageable).map(this::toDomain);
+    }
+    @Override public List<UserProfile> findByIdIn(List<UUID> ids) {
+        return repository.findAllById(ids).stream().map(this::toDomain).toList();
     }
 
     private UserProfileEntity toEntity(UserProfile p) {

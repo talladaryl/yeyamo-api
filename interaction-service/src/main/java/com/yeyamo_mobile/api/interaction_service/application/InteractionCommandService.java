@@ -4,9 +4,12 @@ import com.yeyamo_mobile.api.interaction_service.application.port.*;import com.y
 @Service
 public class InteractionCommandService{
  private final RelationRepository relations;private final CommentRepository comments;private final ShareRepository shares;private final CheckInRepository checkIns;
+ private final com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.SpringReviewRepository reviews;
  private final CommandReceiptPort receipts;private final InteractionOutboxPort outbox;private final InteractionCachePort cache;
- public InteractionCommandService(RelationRepository r,CommentRepository c,ShareRepository s,CheckInRepository i,CommandReceiptPort p,InteractionOutboxPort o,InteractionCachePort cache){
-  relations=r;comments=c;shares=s;checkIns=i;receipts=p;outbox=o;this.cache=cache;}
+ public InteractionCommandService(RelationRepository r,CommentRepository c,ShareRepository s,CheckInRepository i,
+  com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.SpringReviewRepository rev,
+  CommandReceiptPort p,InteractionOutboxPort o,InteractionCachePort cache){
+  relations=r;comments=c;shares=s;checkIns=i;reviews=rev;receipts=p;outbox=o;this.cache=cache;}
  @Transactional public CommandResult addRelation(UUID postId,String actor,RelationType type,String key,String correlation){String op=type+"_ADD:"+postId;Optional<CommandReceipt> replay=receipts.find(key,actor,op);
   if(replay.isPresent())return result(replay.get(),true);Optional<PostRelation> existing=relations.find(postId,actor,type);PostRelation relation=existing.orElseGet(()->relations.save(PostRelation.create(postId,actor,type)));
   boolean changed=existing.isEmpty();if(changed){outbox.append(event(type,true),"post",postId.toString(),actor,correlation,Map.of("postId",postId,"userId",actor));cache.evict(postId);}
@@ -32,6 +35,91 @@ public class InteractionCommandService{
   if(replay.isPresent())return checkIns.findById(replay.get().resultId()).orElseThrow();CheckIn check=checkIns.save(CheckIn.create(assetId,actor,lat,lng,visible));receipts.save(CommandReceipt.create(key,actor,op,check.id(),true));
   Map<String,Object> payload=new LinkedHashMap<>();payload.put("checkInId",check.id());payload.put("catalogAssetId",assetId);payload.put("userId",actor);payload.put("visible",visible);payload.put("occurredAt",check.occurredAt());
   outbox.append("interaction.checkin.created","checkin",check.id().toString(),actor,correlation,payload);return check;}
+ // ─── REVIEWS ─────────────────────────────────────────────────────────────────
+ 
+ @Transactional 
+ public com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.ReviewEntity createReview(
+   UUID placeId,String actor,short rating,String comment,String key,String correlation){
+  String op="REVIEW_CREATE:"+placeId;
+  Optional<CommandReceipt> replay=receipts.find(key,actor,op);
+  if(replay.isPresent())return reviews.findById(replay.get().resultId()).orElseThrow();
+  
+  // Check for duplicate (409 Conflict)
+  if(reviews.existsByUserIdAndPlaceId(actor,placeId)){
+   throw new InteractionException("REVIEW_ALREADY_EXISTS",
+    "You have already reviewed this place. Use PUT to update your review.");
+  }
+  
+  var review=new com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.ReviewEntity();
+  review.setId(UUID.randomUUID());
+  review.setUserId(actor);
+  review.setPlaceId(placeId);
+  review.setRating(rating);
+  review.setComment(comment);
+  review.setCreatedAt(java.time.Instant.now());
+  review.setUpdatedAt(java.time.Instant.now());
+  
+  review=reviews.save(review);
+  receipts.save(CommandReceipt.create(key,actor,op,review.getId(),true));
+  
+  outbox.append("interaction.review.created","review",review.getId().toString(),actor,correlation,
+   Map.of("reviewId",review.getId(),"placeId",placeId,"userId",actor,"rating",rating));
+  
+  return review;
+ }
+ 
+ @Transactional
+ public com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.ReviewEntity updateReview(
+   UUID id,String actor,short rating,String comment,String key,String correlation){
+  String op="REVIEW_UPDATE:"+id;
+  Optional<CommandReceipt> replay=receipts.find(key,actor,op);
+  if(replay.isPresent())return requiredReview(id);
+  
+  var review=ownedReview(id,actor,false);
+  review.setRating(rating);
+  review.setComment(comment);
+  review.setUpdatedAt(java.time.Instant.now());
+  
+  review=reviews.save(review);
+  receipts.save(CommandReceipt.create(key,actor,op,id,true));
+  
+  outbox.append("interaction.review.updated","review",id.toString(),actor,correlation,
+   Map.of("reviewId",id,"placeId",review.getPlaceId(),"rating",rating));
+  
+  return review;
+ }
+ 
+ @Transactional
+ public void deleteReview(UUID id,String actor,boolean moderator,String key,String correlation){
+  String op="REVIEW_DELETE:"+id;
+  if(receipts.find(key,actor,op).isPresent())return;
+  
+  var review=ownedReview(id,actor,moderator);
+  UUID placeId=review.getPlaceId();
+  
+  reviews.deleteById(id);
+  receipts.save(CommandReceipt.create(key,actor,op,id,true));
+  
+  outbox.append("interaction.review.deleted","review",id.toString(),actor,correlation,
+   Map.of("reviewId",id,"placeId",placeId));
+ }
+ 
+ private com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.ReviewEntity ownedReview(
+   UUID id,String actor,boolean moderator){
+  var review=requiredReview(id);
+  if(!moderator&&!review.getUserId().equals(actor)){
+   throw new InteractionException("INTERACTION_FORBIDDEN","Only the review author or a moderator can modify it");
+  }
+  return review;
+ }
+ 
+ private com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.ReviewEntity requiredReview(UUID id){
+  return reviews.findById(id)
+   .orElseThrow(()->new InteractionException("REVIEW_NOT_FOUND","Review not found"));
+ }
+ 
+ // ─── PRIVATE HELPERS ─────────────────────────────────────────────────────────
+ 
  private Comment ownedComment(UUID id,String actor,boolean admin){Comment c=requiredComment(id);if(!admin&&!c.getAuthorId().equals(actor))throw new InteractionException("INTERACTION_FORBIDDEN","Only the comment author can modify it");return c;}
  private Comment requiredComment(UUID id){return comments.findById(id).orElseThrow(()->new InteractionException("COMMENT_NOT_FOUND","Comment not found"));}
  private CommandResult result(CommandReceipt r,boolean replay){return new CommandResult(r.resultId(),r.changed(),replay);}
