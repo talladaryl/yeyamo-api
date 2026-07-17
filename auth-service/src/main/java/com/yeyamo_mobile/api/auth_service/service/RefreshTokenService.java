@@ -64,11 +64,24 @@ public class RefreshTokenService {
         refreshTokenRepository.deleteByUser(user);
     }
 
-    public String rotate(String rawToken) {
-        RefreshToken existing = verify(rawToken);
+    @Transactional
+    public Rotation rotate(String rawToken) {
+        RefreshToken existing = refreshTokenRepository.findLockedByTokenHash(hash(rawToken))
+                .orElseThrow(() -> invalidToken("Refresh token invalide"));
+        if (existing.getRevokedAt() != null) {
+            refreshTokenRepository.deleteByUser(existing.getUser());
+            throw new ApiException("REFRESH_TOKEN_REUSE_DETECTED",
+                    "Réutilisation de refresh token détectée", HttpStatus.UNAUTHORIZED);
+        }
+        if (existing.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw invalidToken("Refresh token expiré");
+        }
         User user = existing.getUser();
         revoke(existing);
-        return create(user);
+        return new Rotation(user, create(user));
+    }
+
+    public record Rotation(User user, String rawToken) {
     }
 
     private String randomToken() {
@@ -84,5 +97,9 @@ public class RefreshTokenService {
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 indisponible", exception);
         }
+    }
+
+    private ApiException invalidToken(String message) {
+        return new ApiException("INVALID_REFRESH_TOKEN", message, HttpStatus.UNAUTHORIZED);
     }
 }

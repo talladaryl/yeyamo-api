@@ -97,3 +97,11 @@ sont respectivement couvertes par les projections sociales/recommandations,
 Le chantier restant est transversal : Docker Compose global,
 tests contractuels et bout en bout, observabilité distribuée, gestion centralisée
 des secrets, résilience des dépendances externes et tests de charge.
+
+## Audit de sécurité
+
+Le rapport STRIDE/DREAD du 15 juillet 2026, les vulnérabilités corrigées, les
+preuves, les limites de test et les risques résiduels sont documentés dans
+[`docs/SECURITY_AUDIT_REPORT.md`](docs/SECURITY_AUDIT_REPORT.md). Les contrôles et
+la configuration d'exploitation sont détaillés dans
+[`docs/SECURITY_HARDENING.md`](docs/SECURITY_HARDENING.md).
