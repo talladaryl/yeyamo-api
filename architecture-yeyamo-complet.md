@@ -50,20 +50,20 @@
 
 #### config-server (92%)
 - **Rôle:** Centralization de la configuration Spring Cloud Config
-- **Port:** 8888
+- **Port configuré par défaut:** 8080 (`config-server/src/main/resources/application.properties`)
 - **Sécurité:** HTTP Basic Auth (CONFIG_SERVER_USERNAME/PASSWORD)
 - **Config Repo:** cloud-conf-yeyamo (Git repository séparé)
 - **Chiffrement:** Support asymétrique avec keystore (profil prod)
 
 #### registry-service (92%)
 - **Rôle:** Netflix Eureka - Service Discovery
-- **Port:** 8761
+- **Port configuré par défaut:** 8081 (`cloud-conf-yeyamo/registry-service.properties`)
 - **Sécurité:** HTTP Basic Auth (EUREKA_USERNAME/PASSWORD)
 - **Protection:** CSRF désactivé pour /eureka/**, stateless
 
 #### api-gateway (88%)
 - **Rôle:** Spring Cloud Gateway - Routing & Rate Limiting
-- **Port:** 8080
+- **Port configuré par défaut:** 8083 (`cloud-conf-yeyamo/api-gateway.properties`)
 - **Filtres:**
   - `CorrelationIdFilter` (précédence maximale): Génération/normalisation X-Correlation-ID
   - `RedisRateLimitFilter`: Rate limiting distribué avec Redis
@@ -77,7 +77,7 @@
 ### 2. Authentification & Autorisation (1/1 - 85%)
 
 #### auth-service (85%)
-**Port:** 8081  
+**Port configuré par défaut:** 8082
 **Endpoints:**
 ```
 POST   /api/v1/auth/register
@@ -120,7 +120,7 @@ GET    /api/v1/auth/me
 ### 3. Gestion Utilisateurs & Partenaires (3/3 - 88%)
 
 #### user-service (95%)
-**Port:** 8086  
+**Port configuré par défaut:** 8086
 **Endpoints:**
 ```
 # Profile
@@ -172,7 +172,7 @@ GET    /api/v1/users/social/activity
 - Events: UserProfileCreated, UserProfileUpdated, UserFollowed, UserUnfollowed, UserBlocked, UserUnblocked
 
 #### partner-service (85%)
-**Port:** 8083  
+**Port configuré par défaut:** 8087
 **Endpoints:**
 ```
 GET    /api/v1/partners (public list)
@@ -194,7 +194,7 @@ GET    /api/v1/partners/me/verification
 - Anti-traversée: Chemin confiné, UUID randomisé
 
 #### admin-service (82%)
-**Port:** 8084  
+**Port configuré par défaut:** 8096
 **Endpoints:**
 ```
 GET    /api/v1/admin/dashboard
@@ -214,7 +214,7 @@ PUT    /api/v1/admin/moderation/reports/{id}/review
 ### 4. Catalogue & Lieux (2/2 - 88%)
 
 #### catalog-service (95%)
-**Port:** 8088  
+**Port configuré par défaut:** 8088
 **Endpoints:**
 ```
 # Assets
@@ -260,7 +260,7 @@ DELETE /api/v1/collections/{id}/places/{assetId}
 - Events: AssetCreated, AssetUpdated, AssetDeleted, CollectionCreated, CollectionUpdated, CollectionDeleted, CollectionPlaceAdded, CollectionPlaceRemoved
 
 #### place-service (80% - **LEGACY**)
-**Port:** 8086  
+**Port configuré par défaut:** 8084
 **Status:** ⚠️ **En déprécation** - Redirection vers catalog-service prévue  
 **Endpoints:**
 ```
@@ -289,7 +289,7 @@ GET    /api/v1/categories
 ### 5. Contenus & Interactions (3/3 - 93%)
 
 #### content-service (95%)
-**Port:** 8090  
+**Port configuré par défaut:** 8090
 **Endpoints:**
 ```
 # Posts
@@ -323,7 +323,7 @@ DELETE /api/v1/stories/{id}
 - 20+ tests unitaires avec 100% couverture
 
 #### interaction-service (95%)
-**Port:** 8091  
+**Port configuré par défaut:** 8091
 **Endpoints:**
 ```
 # Likes & Favorites
@@ -374,7 +374,7 @@ GET    /api/v1/interactions/posts/{postId}/summary
 - `comments` (id, post_id, user_id, content, parent_id, created_at)
 
 #### feed-service (88%)
-**Port:** 8089  
+**Port configuré par défaut:** 8092
 **Endpoints:**
 ```
 GET    /api/v1/feed?cursor={cursor} (paginated)
@@ -386,7 +386,7 @@ GET    /api/v1/feed?cursor={cursor} (paginated)
 ### 6. Média & Modération (2/2 - 85%)
 
 #### media-service (85%)
-**Port:** 8090  
+**Port configuré par défaut:** 8101
 **Endpoints:**
 ```
 POST   /api/v1/media/upload (multipart/form-data)
@@ -405,7 +405,7 @@ DELETE /api/v1/media/{id}
 - Prod: Object storage (S3, GCS) via adaptateur
 
 #### moderation-trust-service (88%)
-**Port:** 8091  
+**Port configuré par défaut:** 8100
 **Endpoints:**
 ```
 POST   /api/v1/moderation/reports
@@ -421,7 +421,7 @@ GET    /api/v1/moderation/reports/me
 ### 7. Événements & Réservations (3/3 - 87%)
 
 #### event-service (85%)
-**Port:** 8092  
+**Port configuré par défaut:** 8085
 **Endpoints:**
 ```
 GET    /api/v1/events
@@ -439,7 +439,7 @@ GET    /api/v1/events/{id}/participants
 - `event_registrations` (event_id, user_id, status, registered_at)
 
 #### booking-service (88%)
-**Port:** 8093  
+**Port configuré par défaut:** 8102
 **Endpoints:**
 ```
 POST   /api/v1/bookings
@@ -453,7 +453,7 @@ GET    /api/v1/bookings/me
 - Statuts: PENDING, CONFIRMED, CANCELLED
 
 #### payment-service (88%)
-**Port:** 8094  
+**Port configuré par défaut:** 8103
 **Endpoints:**
 ```
 GET    /api/v1/payments/{id}
@@ -477,7 +477,7 @@ POST   /api/v1/payments/webhooks/** (public, signature verification)
 ### 8. Messagerie & Notifications (2/2 - 89%)
 
 #### messaging-service (92%)
-**Port:** 8104  
+**Port configuré par défaut:** 8104
 **Endpoints:**
 ```
 GET    /api/v1/conversations
@@ -528,7 +528,7 @@ direct_conversations (participant_pair PK, conversation_id)
 - **Score sécurité: 4/10 → 9/10** (amélioration majeure)
 
 #### notification-service (85%)
-**Port:** 8094  
+**Port configuré par défaut:** 8094
 **Endpoints:**
 ```
 GET    /api/v1/notifications (slice pagination)
@@ -547,7 +547,7 @@ PATCH  /api/v1/notifications/read-all
 ### 9. Gamification & Recommandations (3/3 - 87%)
 
 #### gamification-service (86%)
-**Port:** 8105 ✅  
+**Port configuré par défaut:** 8105
 **Endpoints:**
 ```
 GET    /api/v1/badges/user
@@ -562,7 +562,7 @@ GET    /api/v1/badges (all available)
 - `xp_actions` (id, action_type, points)
 
 #### mission-reward-service (88%)
-**Port:** 8097  
+**Port configuré par défaut:** 8098
 **Endpoints:**
 ```
 GET    /api/v1/missions
@@ -573,7 +573,7 @@ POST   /api/v1/rewards/{id}/claim
 ```
 
 #### recommendation-service (88%)
-**Port:** 8098  
+**Port configuré par défaut:** 8095
 **Endpoints:**
 ```
 GET    /api/v1/recommendations?context={context}&limit={n}
@@ -592,7 +592,7 @@ GET    /api/v1/recommendations?context={context}&limit={n}
 ### 10. Parrainage & Analytics (2/2 - 88%)
 
 #### referral-service (88%)
-**Port:** 8099  
+**Port configuré par défaut:** 8099
 **Endpoints:**
 ```
 POST   /api/v1/referrals/codes
@@ -616,7 +616,7 @@ GET    /api/v1/referrals/me/history
 **Outbox Pattern:** Events Kafka pour attribution tracking
 
 #### analytics-service (90%)
-**Port:** 8100  
+**Port configuré par défaut:** 8097
 **Endpoints (Admin only):**
 ```
 GET    /api/v1/analytics/admin/dashboard
@@ -640,7 +640,7 @@ GET    /api/v1/analytics/users/{userId}/engagement
 ### 11. Ingestion & Discovery (2/2 - 87%)
 
 #### ingestion-service (88%)
-**Port:** 8101  
+**Port configuré par défaut:** 8089
 **Endpoints:**
 ```
 POST   /api/v1/ingestion/places/bulk (ADMIN)
@@ -653,7 +653,7 @@ POST   /api/v1/ingestion/events/bulk (ADMIN)
 - Retry avec backoff si échec partiel
 
 #### discovery-service (85%)
-**Port:** 8102  
+**Port configuré par défaut:** 8093
 **Endpoints:**
 ```
 GET    /api/v1/discovery/search?q={query}&type={type}
@@ -1060,28 +1060,24 @@ Backend `event-service` est complet (85%) mais frontend n'appelle pas les endpoi
 
 **Solution:** Créer module `features/events/events.api.ts`
 
-### 6. ✅ Conflit de Ports — **RÉSOLU** (2026-07-17)
+### 6. Conflit de ports — **configuration corrigée, démarrage global à valider** (2026-07-17)
 
-**Impact:** ✅ **Corrigé et documenté**
+La configuration centralisée attribue des ports distincts à `payment-service` (`8103`)
+et `notification-service` (`8094`). En revanche, l'image de
+`gamification-service` imposait `SERVER_PORT=8097`, ce qui surchargeait la valeur
+`8105` de Config Server et entrait en conflit avec `analytics-service` (`8097`).
 
-**Analyse Étape 0:**
-Le conflit était **déjà résolu** dans les configurations réelles. Il s'agissait d'un problème de documentation obsolète uniquement.
+**Corrections appliquées:**
+- `gamification-service/Dockerfile`: `ENV`, `EXPOSE` et `HEALTHCHECK` alignés sur `8105`;
+- `admin-service/Dockerfile`: `EXPOSE` aligné de `8080` vers `8096`;
+- `cloud-conf-yeyamo/admin-service.properties`: URL Analytics corrigée de `8095` vers `8097`;
+- toutes les valeurs de ports de ce document alignées sur les fichiers de configuration effectifs.
 
-**État réel (après vérification config-server):**
-```
-admin-service:           Port 8096  ✅ Correct
-notification-service:    Port 8094  ✅ Correct
-gamification-service:    Port 8105  ✅ Correct
-messaging-service:       Port 8104  ✅ Correct
-```
-
-**Actions réalisées:**
-- ✅ Vérification `cloud-conf-yeyamo/*.properties` → Aucun conflit détecté
-- ✅ Mise à jour documentation `architecture-yeyamo-complet.md`
-- ✅ Mise à jour `yeyamo-api/README.md`
-- ✅ Correction matrice des ports (Annexe A)
-
-**Solution:** Mise à jour documentation uniquement (code déjà correct)
+**Niveau de preuve:** inventaire statique complet des fichiers de configuration,
+Dockerfiles et fichiers Compose présents. Le moteur Docker n'était pas disponible
+lors de cette vérification; aucun statut « démarré » ou « validé par Eureka » n'est
+donc revendiqué. La matrice de l'Annexe A distingue explicitement configuration et
+observation d'exécution.
 
 ### 7. ⚠️ OAuth Non Intégré
 
@@ -1467,10 +1463,10 @@ public MessageResponse forgot(@RequestParam String email) {
    ⏳ Forcer SSL PostgreSQL
    ```
 
-4. ✅ **Fix Conflit Port — RÉSOLU** *(Complété 2026-07-17)*
-   - Analyse Étape 0: Conflit déjà résolu dans config
-   - `gamification-service`: Port 8105 (correct)
-   - Documentation mise à jour
+4. ⚠️ **Alignement des ports — CONFIGURATION CORRIGÉE** *(2026-07-17)*
+   - Surcharge Docker de `gamification-service` corrigée de 8097 vers 8105
+   - Référence interne Admin → Analytics corrigée vers 8097
+   - Validation par démarrage global et Eureka encore requise
 
 5. ✅ **WebSocket Authorization** *(Complété 2026-07-17)*
    - Implémenté conversation-level authorization
@@ -1577,7 +1573,7 @@ public MessageResponse forgot(@RequestParam String email) {
 1. ✅ **Social Graph Service manquant** → **RÉSOLU** (user-service, 2026-07-17)
 2. ✅ **Collections Service manquant** → **RÉSOLU** (catalog-service, 2026-07-17)
 3. ✅ **WebSocket authorization** → **RÉSOLU** (messaging-service, 2026-07-17)
-4. ✅ **Conflit port** → **RÉSOLU** (documentation mise à jour, 2026-07-17)
+4. ⚠️ **Conflit port** → configuration alignée; validation d'exécution restante (2026-07-17)
 5. **❌ TLS/mTLS infrastructure** non configuré (Cassandra, Redis, Kafka, PostgreSQL)
 
 ### 🎯 Actions Immédiates
@@ -1586,7 +1582,7 @@ public MessageResponse forgot(@RequestParam String email) {
 SEMAINE 1-2: ✅ COMPLÉTÉES (2026-07-17)
 ✅ Créer social-graph-service (endpoints essentiels) → Implémenté dans user-service
 ✅ Créer collections-service (CRUD basique) → Implémenté dans catalog-service
-✅ Fix conflit port gamification → Documentation corrigée
+⚠️ Fix port gamification → Dockerfile et documentation corrigés; démarrage global à valider
 ✅ Stories implementation → content-service (5 endpoints)
 ✅ Reviews implementation → interaction-service (5 endpoints)
 
@@ -1619,48 +1615,72 @@ MOIS 2: 🔲 À FAIRE
 
 ### ANNEXE A: Matrice des Ports Services
 
-**⚠️ IMPORTANT: Correction de l'analyse initiale**
+Cette matrice provient d'un inventaire des sources, et non des anciennes valeurs de
+ce rapport. « Port effectif prévu » signifie la valeur obtenue sans variable
+`SERVER_PORT` injectée par l'opérateur. Une valeur Docker identique est indiquée
+car elle surcharge techniquement Config Server dans l'image concernée.
 
-Après vérification des configurations réelles, voici la cartographie exacte des ports:
+| Service | Port effectif prévu | Source prioritaire observée | Fichier exact | Preuve d'exécution |
+|---|---:|---|---|---|
+| config-server | 8080 | locale | `config-server/src/main/resources/application.properties` | démarré sur 8080; santé `UP` |
+| registry-service | 8081 | config-server | `cloud-conf-yeyamo/registry-service.properties` | config servie par Config Server; application non démarrée |
+| auth-service | 8082 | config-server | `cloud-conf-yeyamo/auth-service.properties` | non démarré |
+| api-gateway | 8083 | config-server | `cloud-conf-yeyamo/api-gateway.properties` | non démarré |
+| place-service | 8084 | env Docker identique, sinon config-server | `place-service/Dockerfile`; `cloud-conf-yeyamo/place-service.properties` | non démarré |
+| event-service | 8085 | env Docker identique, sinon config-server | `event-service/Dockerfile`; `cloud-conf-yeyamo/event-service.properties` | non démarré |
+| user-service | 8086 | config-server | `cloud-conf-yeyamo/user-service.properties` | non démarré |
+| partner-service | 8087 | config-server | `cloud-conf-yeyamo/partner-service.properties` | non démarré |
+| catalog-service | 8088 | env Docker identique, sinon config-server | `catalog-service/Dockerfile`; `cloud-conf-yeyamo/catalog-service.properties` | non démarré |
+| ingestion-service | 8089 | env Docker identique, sinon config-server | `ingestion-service/Dockerfile`; `cloud-conf-yeyamo/ingestion-service.properties` | non démarré |
+| content-service | 8090 | env Docker identique, sinon config-server | `content-service/Dockerfile`; `cloud-conf-yeyamo/content-service.properties` | non démarré |
+| interaction-service | 8091 | env Docker identique, sinon config-server | `interaction-service/Dockerfile`; `cloud-conf-yeyamo/interaction-service.properties` | non démarré |
+| feed-service | 8092 | env Docker identique, sinon config-server | `feed-service/Dockerfile`; `cloud-conf-yeyamo/feed-service.properties` | non démarré |
+| discovery-service | 8093 | env Docker identique, sinon config-server | `discovery-service/Dockerfile`; `cloud-conf-yeyamo/discovery-service.properties` | non démarré |
+| notification-service | 8094 | config-server | `cloud-conf-yeyamo/notification-service.properties` | config servie par Config Server; application non démarrée |
+| recommendation-service | 8095 | env Docker identique, sinon config-server | `recommendation-service/Dockerfile`; `cloud-conf-yeyamo/recommendation-service.properties` | non démarré |
+| admin-service | 8096 | config-server | `cloud-conf-yeyamo/admin-service.properties` | non démarré |
+| analytics-service | 8097 | env Docker identique, sinon config-server | `analytics-service/Dockerfile`; `cloud-conf-yeyamo/analytics-service.properties` | config servie par Config Server; application non démarrée |
+| mission-reward-service | 8098 | env Docker identique, sinon config-server | `mission-reward-service/Dockerfile`; `cloud-conf-yeyamo/mission-reward-service.properties` | non démarré |
+| referral-service | 8099 | env Docker identique, sinon config-server | `referral-service/Dockerfile`; `cloud-conf-yeyamo/referral-service.properties` | non démarré |
+| moderation-trust-service | 8100 | env Docker identique, sinon config-server | `moderation-trust-service/Dockerfile`; `cloud-conf-yeyamo/moderation-trust-service.properties` | non démarré |
+| media-service | 8101 | env Docker identique, sinon config-server | `media-service/Dockerfile`; `cloud-conf-yeyamo/media-service.properties` | non démarré |
+| booking-service | 8102 | config-server | `cloud-conf-yeyamo/booking-service.properties` | non démarré |
+| payment-service | 8103 | env Docker identique, sinon config-server | `payment-service/Dockerfile`; `cloud-conf-yeyamo/payment-service.properties` | config servie par Config Server; application non démarrée |
+| messaging-service | 8104 | env Docker identique, sinon config-server | `messaging-service/Dockerfile`; `cloud-conf-yeyamo/messaging-service.properties` | non démarré |
+| gamification-service | 8105 | env Docker alignée, sinon config-server | `gamification-service/Dockerfile`; `cloud-conf-yeyamo/gamification-service.properties` | config servie par Config Server; application non démarrée |
+| graph-service (inactif) | 8080 implicite | défaut Spring Boot; aucune config de port ni import Config Server | `graph-service/src/main/resources/application.properties` | non démarré |
+| search-service (inactif) | 8080 implicite | défaut Spring Boot; aucune config de port ni import Config Server | `search-service/src/main/resources/application.properties` | non démarré |
+| social-service (inactif) | 8080 implicite | défaut Spring Boot; aucune config de port ni import Config Server | `social-service/src/main/resources/application.properties` | non démarré |
 
-| Service | Port Configuré | Status | Notes |
-|---|---|---|---|
-| **registry-service** | 8081 | ✅ OK | Eureka |
-| **auth-service** | 8082 | ✅ OK | Fixed (pas de variable) |
-| **api-gateway** | 8083 | ✅ OK | Point d'entrée |
-| **place-service** | 8084 | ✅ OK | LEGACY |
-| **event-service** | 8085 | ✅ OK | |
-| **user-service** | 8086 | ✅ OK | |
-| **partner-service** | 8087 | ✅ OK | |
-| **catalog-service** | 8088 | ✅ OK | |
-| **ingestion-service** | 8089 | ✅ OK | |
-| **content-service** | 8090 | ✅ OK | |
-| **interaction-service** | 8091 | ✅ OK | |
-| **feed-service** | 8092 | ✅ OK | |
-| **discovery-service** | 8093 | ✅ OK | |
-| **notification-service** | 8094 | ✅ OK | |
-| **recommendation-service** | 8095 | ✅ OK | |
-| **admin-service** | 8096 | ✅ OK | |
-| **analytics-service** | 8097 | ✅ OK | |
-| **mission-reward-service** | 8098 | ✅ OK | |
-| **referral-service** | 8099 | ✅ OK | |
-| **moderation-trust-service** | 8100 | ✅ OK | |
-| **media-service** | 8101 | ✅ OK | |
-| **booking-service** | 8102 | ✅ OK | |
-| **payment-service** | 8103 | ✅ OK | |
-| **messaging-service** | 8104 | ✅ OK | |
-| **gamification-service** | 8105 | ✅ **RÉSOLU** | Conflit résolu (était 8096, puis 8104) |
+**Résultat de l'analyse statique:** les 26 services actifs ont des ports par défaut
+uniques après alignement du Dockerfile de `gamification-service`. Les trois dossiers
+inactifs utiliseraient tous le port Spring Boot implicite `8080` s'ils étaient lancés
+simultanément; ils ne font pas partie du reactor Maven racine et ne doivent pas être
+présentés comme déployables sans configuration supplémentaire.
 
-**✅ CONFLIT RÉSOLU:**
-```properties
-# messaging-service.properties
-server.port=${SERVER_PORT:8104}
+**Source de vérité à maintenir:** les ports des clients Config Server sont définis
+dans `cloud-conf-yeyamo/<service>.properties`. `config-server` est l'exception et
+définit son port localement. Toute variable `SERVER_PORT`, instruction `EXPOSE`,
+sonde de santé ou publication Compose doit rester alignée avec cette matrice.
 
-# gamification-service.properties (CORRIGÉ)
-server.port=${SERVER_PORT:8105}
+**Validation réalisée:** Config Server a été démarré localement. Son endpoint de
+santé a répondu `UP`, avec les lignes de démarrage suivantes:
+
+```text
+Tomcat started on port 8080 (http) with context path '/'
+Started ConfigServerApplication in 16.219 seconds
 ```
 
-**Solution Appliquée:** Port `gamification-service` changé à 8105 via config-server.
+Les requêtes `GET /{service}/default` ont renvoyé `8081` pour Registry, `8103`
+pour Payment, `8094` pour Notification, `8097` pour Analytics et `8105` pour
+Gamification (valeurs des expressions `${SERVER_PORT:...}`). Cela valide le port
+de Config Server et la configuration qu'il sert, pas le bind réseau des clients.
+
+**Limite de validation:** Docker Desktop n'était pas démarré pendant l'audit
+(`docker` ne pouvait pas joindre le moteur). Les 25 autres services actifs n'ont
+donc pas été démarrés et aucun enregistrement Eureka n'a pu être produit. Une
+validation d'exécution globale reste requise avant de qualifier leurs ports de
+validés en environnement déployé.
 
 ---
 
@@ -1887,12 +1907,12 @@ V3__create_outbox_events.sql
 # Config Server
 CONFIG_SERVER_USERNAME=admin
 CONFIG_SERVER_PASSWORD=<générer mot de passe fort>
-CONFIG_SERVER_URL=https://config.yeyamo.internal:8888
+CONFIG_SERVER_URL=https://config.yeyamo.internal:8080
 
 # Eureka Registry
 EUREKA_USERNAME=eureka
 EUREKA_PASSWORD=<générer mot de passe fort>
-EUREKA_SERVER_URL=https://eureka:eureka@registry.yeyamo.internal:8761/eureka/
+EUREKA_SERVER_URL=https://eureka:eureka@registry.yeyamo.internal:8081/eureka/
 
 # JWT
 JWT_SECRET=<minimum 32 bytes random - générer avec: openssl rand -base64 32>
@@ -2311,9 +2331,9 @@ Services prioritaires:
    - Extension `catalog-service` (pas nouveau microservice)
    - Impact: Débloqué 4 écrans frontend
 
-3. ✅ **Fix Conflit Port — RÉSOLU** *(Complété 2026-07-17)*
-   - Analyse: Conflit déjà résolu dans configuration réelle
-   - Documentation mise à jour
+3. ⚠️ **Alignement des ports — CONFIGURATION CORRIGÉE** *(2026-07-17)*
+   - Dockerfile `gamification-service` aligné sur 8105
+   - Validation par démarrage global et Eureka encore requise
 
 4. ✅ **WebSocket Channel Authorization** *(Complété 2026-07-17)*
    - Implémenté `WebSocketAuthorizationService`
@@ -2480,6 +2500,7 @@ JUILLET 2026           AOÛT 2026              SEPTEMBRE 2026
 | 2026-07-17 | 1.0 | Expert Architecture | Analyse initiale complète |
 | 2026-07-17 | 1.1 | Expert Architecture | Ajout annexes techniques + découverte Social Graph existant |
 | 2026-07-17 | 1.2 | Expert Architecture | **Mise à jour majeure - Session 2026-07-17:**<br>✅ Social Graph (user-service): 13 endpoints, protection IDOR<br>✅ Collections (catalog-service): 9 endpoints, listes personnalisées<br>✅ Stories (content-service): 5 endpoints, éphémères 24h<br>✅ Reviews (interaction-service): 5 endpoints, avis 1-5★<br>✅ WebSocket Security (messaging-service): autorisation conversation-level, rate limiting<br>✅ Correctif documentation port gamification (8105)<br>📊 Score sécurité: 8.2 → 8.4 (+0.2)<br>📊 Complétude backend: 87% → 89% (+2%)<br>🧪 71+ tests unitaires ajoutés (100% couverture) |
+| 2026-07-17 | 1.2.1 | Codex | Audit sourcé des ports: matrice des 29 dossiers, correction des surcharges Docker de Gamification et de l'exposition Admin, correction de l'URL Admin → Analytics, retrait des affirmations d'exécution non prouvées. |
 | 2026-08-01 | 1.3 | TBD | Révision post-implémentation TLS infrastructure |
 
 ---
