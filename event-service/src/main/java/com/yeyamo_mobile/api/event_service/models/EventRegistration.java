@@ -47,8 +47,8 @@ public class EventRegistration {
     @JoinColumn(name = "event_id", nullable = false)
     private Event event;
 
-    @Column(name = "user_id", nullable = false)
-    private UUID userId;
+    @Column(name = "user_id", nullable = false, length = 120)
+    private String userId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)

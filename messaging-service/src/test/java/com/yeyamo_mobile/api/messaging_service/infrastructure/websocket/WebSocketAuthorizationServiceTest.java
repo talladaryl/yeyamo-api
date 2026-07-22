@@ -164,8 +164,6 @@ class WebSocketAuthorizationServiceTest {
 
     private ConversationMemberEntity createMember(UUID conversationId, String userId, MemberStatus status) {
         ConversationMemberEntity member = mock(ConversationMemberEntity.class);
-        when(member.getConversationId()).thenReturn(conversationId);
-        when(member.getUserId()).thenReturn(userId);
         when(member.getStatus()).thenReturn(status);
         return member;
     }

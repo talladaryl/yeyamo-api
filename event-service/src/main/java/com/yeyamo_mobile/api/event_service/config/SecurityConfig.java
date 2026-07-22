@@ -24,6 +24,7 @@ public class SecurityConfig {
                 .sessionManagement(session->session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth->auth
                     .requestMatchers("/actuator/health/**","/actuator/info","/v3/api-docs/**","/swagger-ui/**","/swagger-ui.html").permitAll()
+                    .requestMatchers(HttpMethod.GET,"/api/v1/events/me").authenticated()
                     .requestMatchers(HttpMethod.GET,"/api/v1/events/**","/api/v1/places/*/events").permitAll()
                     .requestMatchers(HttpMethod.POST,"/api/v1/events/*/register").authenticated()
                     .requestMatchers(HttpMethod.DELETE,"/api/v1/events/*/unregister").authenticated()

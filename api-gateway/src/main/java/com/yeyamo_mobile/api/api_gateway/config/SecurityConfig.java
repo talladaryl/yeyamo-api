@@ -42,10 +42,17 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health/**", "/actuator/info", "/fallback/**").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhooks/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/events/me").authenticated()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/places/**", "/api/v1/regions/**", "/api/v1/cities/**",
-                                "/api/v1/districts/**", "/api/v1/categories/**", "/api/v1/events/**")
+                                "/api/v1/districts/**", "/api/v1/categories/**", "/api/v1/events/**",
+                                "/api/v1/catalog/assets/**", "/api/v1/catalog/regions/**",
+                                "/api/v1/catalog/cities/**", "/api/v1/catalog/categories/**",
+                                "/api/v1/media/**", "/api/v1/posts/hashtags/**", "/api/v1/posts/catalog/**",
+                                "/api/v1/interactions/posts/**")
                         .permitAll()
+                        .requestMatchers(RegexRequestMatcher.regexMatcher(HttpMethod.GET,
+                                "^/api/v1/posts/[0-9a-fA-F-]{36}$")).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users").permitAll()
                         .requestMatchers(RegexRequestMatcher.regexMatcher(HttpMethod.GET,
                                 "^/api/v1/users/[0-9a-fA-F-]{36}$")).permitAll()

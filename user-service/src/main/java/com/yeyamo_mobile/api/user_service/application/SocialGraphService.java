@@ -45,13 +45,12 @@ public class SocialGraphService {
     // ─── FOLLOW OPERATIONS ──────────────────────────────────────────────────────
 
     @Transactional
-    public void follow(String followerAuthId, String followeeAuthId, String correlationId) {
-        if (followerAuthId.equals(followeeAuthId)) {
+    public void follow(String followerAuthId, UUID followeeId, String correlationId) {
+        UUID followerId = getProfileId(followerAuthId);
+        requireProfile(followeeId);
+        if (followerId.equals(followeeId)) {
             throw new UserProfileException("CANNOT_FOLLOW_YOURSELF", "Vous ne pouvez pas vous suivre vous-même", HttpStatus.BAD_REQUEST);
         }
-
-        UUID followerId = getProfileId(followerAuthId);
-        UUID followeeId = getProfileId(followeeAuthId);
 
         // Vérifier qu'il n'y a pas de block
         if (blockRepository.existsBlockInEitherDirection(followerId, followeeId)) {
@@ -72,9 +71,9 @@ public class SocialGraphService {
     }
 
     @Transactional
-    public void unfollow(String followerAuthId, String followeeAuthId, String correlationId) {
+    public void unfollow(String followerAuthId, UUID followeeId, String correlationId) {
         UUID followerId = getProfileId(followerAuthId);
-        UUID followeeId = getProfileId(followeeAuthId);
+        requireProfile(followeeId);
 
         FollowEntity.FollowId id = new FollowEntity.FollowId(followerId, followeeId);
         if (followRepository.existsById(id)) {
@@ -85,9 +84,26 @@ public class SocialGraphService {
         }
     }
 
+    @Transactional
+    public void removeFollower(String ownerAuthId, UUID followerId, String correlationId) {
+        UUID ownerId = getProfileId(ownerAuthId);
+        requireProfile(followerId);
+        FollowEntity.FollowId id = new FollowEntity.FollowId(followerId, ownerId);
+        if (followRepository.existsById(id)) {
+            followRepository.deleteById(id);
+            outbox.append("social.follower_removed", followerId, ownerAuthId, correlationId,
+                    java.util.Map.of("ownerId", ownerId.toString(), "followerId", followerId.toString()));
+        }
+    }
+
     @Transactional(readOnly = true)
     public Page<UserProfile> getFollowing(String authUserId, Pageable pageable) {
-        UUID userId = getProfileId(authUserId);
+        return getFollowing(getProfileId(authUserId), pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<UserProfile> getFollowing(UUID userId, Pageable pageable) {
+        requireProfile(userId);
         Page<FollowEntity> follows = followRepository.findFollowing(userId, pageable);
         
         List<UUID> followeeIds = follows.getContent().stream()
@@ -105,7 +121,12 @@ public class SocialGraphService {
 
     @Transactional(readOnly = true)
     public Page<UserProfile> getFollowers(String authUserId, Pageable pageable) {
-        UUID userId = getProfileId(authUserId);
+        return getFollowers(getProfileId(authUserId), pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<UserProfile> getFollowers(UUID userId, Pageable pageable) {
+        requireProfile(userId);
         Page<FollowEntity> follows = followRepository.findFollowers(userId, pageable);
         
         List<UUID> followerIds = follows.getContent().stream()
@@ -123,33 +144,42 @@ public class SocialGraphService {
 
     @Transactional(readOnly = true)
     public long countFollowing(String authUserId) {
-        UUID userId = getProfileId(authUserId);
-        return followRepository.countFollowing(userId);
+        return countFollowing(getProfileId(authUserId));
+    }
+
+    @Transactional(readOnly = true)
+    public long countFollowing(UUID profileId) {
+        requireProfile(profileId);
+        return followRepository.countFollowing(profileId);
     }
 
     @Transactional(readOnly = true)
     public long countFollowers(String authUserId) {
-        UUID userId = getProfileId(authUserId);
-        return followRepository.countFollowers(userId);
+        return countFollowers(getProfileId(authUserId));
     }
 
     @Transactional(readOnly = true)
-    public boolean isFollowing(String followerAuthId, String followeeAuthId) {
+    public long countFollowers(UUID profileId) {
+        requireProfile(profileId);
+        return followRepository.countFollowers(profileId);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isFollowing(String followerAuthId, UUID followeeId) {
         UUID followerId = getProfileId(followerAuthId);
-        UUID followeeId = getProfileId(followeeAuthId);
+        requireProfile(followeeId);
         return followRepository.existsByIdFollowerIdAndIdFolloweeId(followerId, followeeId);
     }
 
     // ─── BLOCK OPERATIONS ───────────────────────────────────────────────────────
 
     @Transactional
-    public void block(String blockerAuthId, String blockedAuthId, String correlationId) {
-        if (blockerAuthId.equals(blockedAuthId)) {
+    public void block(String blockerAuthId, UUID blockedId, String correlationId) {
+        UUID blockerId = getProfileId(blockerAuthId);
+        requireProfile(blockedId);
+        if (blockerId.equals(blockedId)) {
             throw new UserProfileException("CANNOT_BLOCK_YOURSELF", "Vous ne pouvez pas vous bloquer vous-même", HttpStatus.BAD_REQUEST);
         }
-
-        UUID blockerId = getProfileId(blockerAuthId);
-        UUID blockedId = getProfileId(blockedAuthId);
 
         // Idempotent
         if (blockRepository.existsByIdBlockerIdAndIdBlockedId(blockerId, blockedId)) {
@@ -171,9 +201,9 @@ public class SocialGraphService {
     }
 
     @Transactional
-    public void unblock(String blockerAuthId, String blockedAuthId, String correlationId) {
+    public void unblock(String blockerAuthId, UUID blockedId, String correlationId) {
         UUID blockerId = getProfileId(blockerAuthId);
-        UUID blockedId = getProfileId(blockedAuthId);
+        requireProfile(blockedId);
 
         BlockEntity.BlockId id = new BlockEntity.BlockId(blockerId, blockedId);
         if (blockRepository.existsById(id)) {
@@ -188,6 +218,11 @@ public class SocialGraphService {
     public List<UUID> getBlockedUserIds(String authUserId) {
         UUID userId = getProfileId(authUserId);
         return blockRepository.findBlockedIds(userId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserProfile> getBlockedUsers(String authUserId) {
+        return profileRepository.findByIdIn(getBlockedUserIds(authUserId));
     }
 
     // ─── SUGGESTIONS ────────────────────────────────────────────────────────────
@@ -284,6 +319,12 @@ public class SocialGraphService {
                         "Profil utilisateur introuvable", 
                         HttpStatus.NOT_FOUND))
                 .getId();
+    }
+
+    private UserProfile requireProfile(UUID profileId) {
+        return profileRepository.findById(profileId)
+                .orElseThrow(() -> new UserProfileException(
+                        "PROFILE_NOT_FOUND", "Profil utilisateur introuvable", HttpStatus.NOT_FOUND));
     }
 
     // ─── NESTED CLASSES ─────────────────────────────────────────────────────────

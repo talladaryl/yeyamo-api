@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.security.core.Authentication;
@@ -23,10 +24,11 @@ import com.yeyamo_mobile.api.event_service.dto.EventResponse;
 import com.yeyamo_mobile.api.event_service.dto.EventStatusRequest;
 import com.yeyamo_mobile.api.event_service.dto.EventSummaryResponse;
 import com.yeyamo_mobile.api.event_service.dto.EventUpdateRequest;
-import com.yeyamo_mobile.api.event_service.exception.ApiException;
 import com.yeyamo_mobile.api.event_service.service.EventService;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 
 @RestController
 @RequestMapping("/api/v1/events")
@@ -52,6 +54,13 @@ public class EventController {
     @GetMapping("/upcoming")
     public List<EventSummaryResponse> upcoming() {
         return eventService.findUpcoming();
+    }
+
+    @GetMapping("/me")
+    public List<EventSummaryResponse> mine(
+            Authentication authentication,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(100) int limit) {
+        return eventService.findRegisteredByUser(authentication.getName(), limit);
     }
 
     @GetMapping("/{id}")
@@ -85,7 +94,7 @@ public class EventController {
             @PathVariable UUID id,
             Authentication authentication
     ) {
-        return eventService.register(id, parseUserId(authentication.getName()));
+        return eventService.register(id, authentication.getName());
     }
 
     @DeleteMapping("/{id}/unregister")
@@ -93,14 +102,6 @@ public class EventController {
             @PathVariable UUID id,
             Authentication authentication
     ) {
-        return eventService.unregister(id, parseUserId(authentication.getName()));
-    }
-
-    private UUID parseUserId(String userIdHeader) {
-        try {
-            return UUID.fromString(userIdHeader);
-        } catch (IllegalArgumentException exception) {
-            throw new ApiException("INVALID_USER_ID", "Identifiant utilisateur invalide", HttpStatus.BAD_REQUEST);
-        }
+        return eventService.unregister(id, authentication.getName());
     }
 }

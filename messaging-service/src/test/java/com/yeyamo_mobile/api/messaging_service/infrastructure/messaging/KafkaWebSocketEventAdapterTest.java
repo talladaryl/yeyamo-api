@@ -41,7 +41,14 @@ class KafkaWebSocketEventAdapterTest {
         assertEquals("messaging-service", event.path("producer").asText());
         assertEquals("message-1", event.path("payload").path("messageId").asText());
         assertTrue(event.path("payload").path("recipientIds").isArray());
-        verify(websocket).convertAndSendToUser("bob", "/queue/messaging", Map.of("body", "Bonjour"));
-        verify(websocket).convertAndSendToUser("carol", "/queue/messaging", Map.of("body", "Bonjour"));
+        ArgumentCaptor<KafkaWebSocketEventAdapter.RealtimeEvent> realtime =
+                ArgumentCaptor.forClass(KafkaWebSocketEventAdapter.RealtimeEvent.class);
+        verify(websocket).convertAndSendToUser(eq("bob"), eq("/queue/messaging"), realtime.capture());
+        verify(websocket).convertAndSendToUser(eq("carol"), eq("/queue/messaging"),
+                eq(realtime.getValue()));
+        assertEquals("messaging.message.sent", realtime.getValue().eventType());
+        assertEquals(1, realtime.getValue().eventVersion());
+        assertEquals("corr-1", realtime.getValue().correlationId());
+        assertEquals(Map.of("body", "Bonjour"), realtime.getValue().payload());
     }
 }

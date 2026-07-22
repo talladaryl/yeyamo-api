@@ -1,6 +1,7 @@
 package com.yeyamo_mobile.api.user_service.interfaces.rest;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -47,7 +48,7 @@ public class SocialGraphController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Follow a user")
     public void follow(
-            @PathVariable String userId,
+            @PathVariable UUID userId,
             Authentication authentication,
             @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
         socialGraphService.follow(authentication.getName(), userId, correlationId);
@@ -57,7 +58,7 @@ public class SocialGraphController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Unfollow a user")
     public void unfollow(
-            @PathVariable String userId,
+            @PathVariable UUID userId,
             Authentication authentication,
             @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
         socialGraphService.unfollow(authentication.getName(), userId, correlationId);
@@ -73,8 +74,8 @@ public class SocialGraphController {
         Page<UserProfile> following = socialGraphService.getFollowing(authUserId, pageable);
         
         return following.map(profile -> {
-            long followersCount = socialGraphService.countFollowers(profile.getAuthUserId());
-            long followingCount = socialGraphService.countFollowing(profile.getAuthUserId());
+            long followersCount = socialGraphService.countFollowers(profile.getId());
+            long followingCount = socialGraphService.countFollowing(profile.getId());
             boolean isFollowing = true; // Already in following list
             
             return UserProfileSummaryResponse.from(profile, isFollowing, followersCount, followingCount);
@@ -91,9 +92,9 @@ public class SocialGraphController {
         Page<UserProfile> followers = socialGraphService.getFollowers(authUserId, pageable);
         
         return followers.map(profile -> {
-            long followersCount = socialGraphService.countFollowers(profile.getAuthUserId());
-            long followingCount = socialGraphService.countFollowing(profile.getAuthUserId());
-            boolean isFollowing = socialGraphService.isFollowing(authUserId, profile.getAuthUserId());
+            long followersCount = socialGraphService.countFollowers(profile.getId());
+            long followingCount = socialGraphService.countFollowing(profile.getId());
+            boolean isFollowing = socialGraphService.isFollowing(authUserId, profile.getId());
             
             return UserProfileSummaryResponse.from(profile, isFollowing, followersCount, followingCount);
         });
@@ -102,7 +103,7 @@ public class SocialGraphController {
     @GetMapping("/{userId}/following")
     @Operation(summary = "Get list of users that a specific user is following")
     public Page<UserProfileSummaryResponse> getUserFollowing(
-            @PathVariable String userId,
+            @PathVariable UUID userId,
             Authentication authentication,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         
@@ -110,9 +111,9 @@ public class SocialGraphController {
         Page<UserProfile> following = socialGraphService.getFollowing(userId, pageable);
         
         return following.map(profile -> {
-            long followersCount = socialGraphService.countFollowers(profile.getAuthUserId());
-            long followingCount = socialGraphService.countFollowing(profile.getAuthUserId());
-            boolean isFollowing = socialGraphService.isFollowing(authUserId, profile.getAuthUserId());
+            long followersCount = socialGraphService.countFollowers(profile.getId());
+            long followingCount = socialGraphService.countFollowing(profile.getId());
+            boolean isFollowing = socialGraphService.isFollowing(authUserId, profile.getId());
             
             return UserProfileSummaryResponse.from(profile, isFollowing, followersCount, followingCount);
         });
@@ -121,7 +122,7 @@ public class SocialGraphController {
     @GetMapping("/{userId}/followers")
     @Operation(summary = "Get list of followers of a specific user")
     public Page<UserProfileSummaryResponse> getUserFollowers(
-            @PathVariable String userId,
+            @PathVariable UUID userId,
             Authentication authentication,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         
@@ -129,9 +130,9 @@ public class SocialGraphController {
         Page<UserProfile> followers = socialGraphService.getFollowers(userId, pageable);
         
         return followers.map(profile -> {
-            long followersCount = socialGraphService.countFollowers(profile.getAuthUserId());
-            long followingCount = socialGraphService.countFollowing(profile.getAuthUserId());
-            boolean isFollowing = socialGraphService.isFollowing(authUserId, profile.getAuthUserId());
+            long followersCount = socialGraphService.countFollowers(profile.getId());
+            long followingCount = socialGraphService.countFollowing(profile.getId());
+            boolean isFollowing = socialGraphService.isFollowing(authUserId, profile.getId());
             
             return UserProfileSummaryResponse.from(profile, isFollowing, followersCount, followingCount);
         });
@@ -149,7 +150,7 @@ public class SocialGraphController {
 
     @GetMapping("/{userId}/stats")
     @Operation(summary = "Get social stats of a specific user")
-    public SocialStatsResponse getUserStats(@PathVariable String userId) {
+    public SocialStatsResponse getUserStats(@PathVariable UUID userId) {
         long followersCount = socialGraphService.countFollowers(userId);
         long followingCount = socialGraphService.countFollowing(userId);
         
@@ -162,7 +163,7 @@ public class SocialGraphController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Block a user")
     public void block(
-            @PathVariable String userId,
+            @PathVariable UUID userId,
             Authentication authentication,
             @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
         socialGraphService.block(authentication.getName(), userId, correlationId);
@@ -172,13 +173,31 @@ public class SocialGraphController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Unblock a user")
     public void unblock(
-            @PathVariable String userId,
+            @PathVariable UUID userId,
             Authentication authentication,
             @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
         socialGraphService.unblock(authentication.getName(), userId, correlationId);
     }
 
     // ─── SUGGESTIONS ────────────────────────────────────────────────────────────
+
+    @GetMapping("/blocked")
+    @Operation(summary = "Get the profiles I blocked")
+    public List<UserProfileSummaryResponse> getBlockedUsers(Authentication authentication) {
+        return socialGraphService.getBlockedUsers(authentication.getName()).stream()
+                .map(UserProfileSummaryResponse::fromBasic)
+                .toList();
+    }
+
+    @DeleteMapping("/followers/{userId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Remove one of my followers")
+    public void removeFollower(
+            @PathVariable UUID userId,
+            Authentication authentication,
+            @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
+        socialGraphService.removeFollower(authentication.getName(), userId, correlationId);
+    }
 
     @GetMapping("/suggestions")
     @Operation(summary = "Get friend suggestions (friends of friends)")
@@ -191,8 +210,8 @@ public class SocialGraphController {
         
         return suggestions.stream()
                 .map(profile -> {
-                    long followersCount = socialGraphService.countFollowers(profile.getAuthUserId());
-                    long followingCount = socialGraphService.countFollowing(profile.getAuthUserId());
+                    long followersCount = socialGraphService.countFollowers(profile.getId());
+                    long followingCount = socialGraphService.countFollowing(profile.getId());
                     
                     return UserProfileSummaryResponse.from(profile, false, followersCount, followingCount);
                 })
@@ -214,9 +233,9 @@ public class SocialGraphController {
         return results.map(profile -> {
             if (profile == null) return null; // Filtered blocked user
             
-            long followersCount = socialGraphService.countFollowers(profile.getAuthUserId());
-            long followingCount = socialGraphService.countFollowing(profile.getAuthUserId());
-            boolean isFollowing = socialGraphService.isFollowing(authUserId, profile.getAuthUserId());
+            long followersCount = socialGraphService.countFollowers(profile.getId());
+            long followingCount = socialGraphService.countFollowing(profile.getId());
+            boolean isFollowing = socialGraphService.isFollowing(authUserId, profile.getId());
             
             return UserProfileSummaryResponse.from(profile, isFollowing, followersCount, followingCount);
         });

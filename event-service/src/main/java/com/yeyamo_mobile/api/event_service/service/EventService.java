@@ -124,21 +124,20 @@ public class EventService {
         return EventResponse.from(saved);
     }
 
-    public EventResponse register(UUID eventId, UUID userId) {
+    public EventResponse register(UUID eventId, String userId) {
         Event event = findEventForUpdateOrThrow(eventId);
         ensureRegisterable(event);
 
-        EventRegistration registration = registrationRepository.findByEventIdAndUserId(eventId, userId)
-                .orElseGet(() -> {
+        var existingRegistration = registrationRepository.findByEventIdAndUserId(eventId, userId);
+        if (existingRegistration.filter(r -> r.getStatus() == RegistrationStatus.CONFIRMED).isPresent()) {
+            throw new ApiException("ALREADY_REGISTERED", "Utilisateur deja inscrit a cet evenement", HttpStatus.CONFLICT);
+        }
+        EventRegistration registration = existingRegistration.orElseGet(() -> {
                     EventRegistration created = new EventRegistration();
                     created.setEvent(event);
                     created.setUserId(userId);
                     return created;
                 });
-
-        if (registration.getStatus() == RegistrationStatus.CONFIRMED) {
-            throw new ApiException("ALREADY_REGISTERED", "Utilisateur deja inscrit a cet evenement", HttpStatus.CONFLICT);
-        }
 
         registration.setStatus(RegistrationStatus.CONFIRMED);
         registrationRepository.save(registration);
@@ -147,7 +146,7 @@ public class EventService {
         return EventResponse.from(eventRepository.save(event));
     }
 
-    public EventResponse unregister(UUID eventId, UUID userId) {
+    public EventResponse unregister(UUID eventId, String userId) {
         Event event = findEventForUpdateOrThrow(eventId);
 
         EventRegistration registration = registrationRepository.findByEventIdAndUserId(eventId, userId)
@@ -166,6 +165,17 @@ public class EventService {
 
         event.setRegisteredCount(Math.max(0, event.getRegisteredCount() - 1));
         return EventResponse.from(eventRepository.save(event));
+    }
+
+    @Transactional(readOnly = true)
+    public List<EventSummaryResponse> findRegisteredByUser(String userId, int limit) {
+        return registrationRepository.findByUserIdAndStatusOrderByRegisteredAtDesc(
+                        userId, RegistrationStatus.CONFIRMED,
+                        org.springframework.data.domain.PageRequest.of(0, Math.max(1, Math.min(100, limit))))
+                .stream()
+                .map(EventRegistration::getEvent)
+                .map(EventSummaryResponse::from)
+                .toList();
     }
 
     private Event findEventOrThrow(UUID id) {
