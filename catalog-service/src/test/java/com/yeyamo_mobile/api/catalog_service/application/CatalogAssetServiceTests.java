@@ -28,6 +28,8 @@ class CatalogAssetServiceTests {
         final Map<UUID,CatalogAsset> data=new HashMap<>();
         public CatalogAsset save(CatalogAsset a){data.put(a.getId(),a);return a;}
         public Optional<CatalogAsset> findById(UUID id){return Optional.ofNullable(data.get(id));}
+        public boolean existsById(UUID id){return data.containsKey(id);}
+        public List<CatalogAsset> findAllById(List<UUID> ids){return ids.stream().map(data::get).filter(Objects::nonNull).toList();}
         public Optional<CatalogAsset> findBySlug(String s){return data.values().stream().filter(a->a.getSlug().equals(s)).findFirst();}
         public Optional<CatalogAsset> findBySourceAndExternalId(String s,String e){return data.values().stream().filter(a->s.equals(a.getSource())&&e.equals(a.getExternalId())).findFirst();}
         public boolean existsBySlugAndIdNot(String s,UUID id){return data.values().stream().anyMatch(a->a.getSlug().equals(s)&&!a.getId().equals(id));}

@@ -11,6 +11,8 @@ import com.yeyamo_mobile.api.catalog_service.domain.model.CatalogAsset;
 public interface CatalogAssetRepository {
     CatalogAsset save(CatalogAsset asset);
     Optional<CatalogAsset> findById(UUID id);
+    boolean existsById(UUID id);
+    List<CatalogAsset> findAllById(List<UUID> ids);
     Optional<CatalogAsset> findBySlug(String slug);
     Optional<CatalogAsset> findBySourceAndExternalId(String source, String externalId);
     boolean existsBySlugAndIdNot(String slug, UUID id);

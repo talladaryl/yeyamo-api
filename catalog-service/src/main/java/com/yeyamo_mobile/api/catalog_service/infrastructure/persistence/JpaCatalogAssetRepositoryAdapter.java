@@ -26,6 +26,10 @@ public class JpaCatalogAssetRepositoryAdapter implements CatalogAssetRepository 
 
     @Override public CatalogAsset save(CatalogAsset asset) { return toDomain(repository.save(toEntity(asset))); }
     @Override public Optional<CatalogAsset> findById(UUID id) { return repository.findById(id).map(this::toDomain); }
+    @Override public boolean existsById(UUID id) { return repository.existsById(id); }
+    @Override public List<CatalogAsset> findAllById(List<UUID> ids) { 
+        return repository.findAllById(ids).stream().map(this::toDomain).toList(); 
+    }
     @Override public Optional<CatalogAsset> findBySlug(String slug) { return repository.findBySlug(slug).map(this::toDomain); }
     @Override public Optional<CatalogAsset> findBySourceAndExternalId(String source, String externalId) {
         return repository.findBySourceAndExternalId(source, externalId).map(this::toDomain);

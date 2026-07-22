@@ -1,6 +1,6 @@
 package com.yeyamo_mobile.api.content_service.application;
 import java.util.*;import org.springframework.stereotype.Service;import org.springframework.transaction.annotation.Transactional;
-import com.yeyamo_mobile.api.content_service.application.port.ContentOutboxPort;import com.yeyamo_mobile.api.content_service.domain.model.*;
+import com.yeyamo_mobile.api.content_service.infrastructure.outbox.ContentOutboxPort;import com.yeyamo_mobile.api.content_service.domain.model.*;
 import com.yeyamo_mobile.api.content_service.domain.port.PostRepository;
 @Service
 public class PostApplicationService{

@@ -1,6 +1,5 @@
-target/classes
-target/test-classes
-target/surefire-reports
+target/*
+!target/*.jar
 .git
 .idea
 .vscode

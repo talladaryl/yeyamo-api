@@ -1,0 +1,1027 @@
+x-java-service-env: &java-service-env
+  JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:+UseSerialGC"
+  SPRING_CLOUD_CONFIG_REQUEST_CONNECT_TIMEOUT: "10000"
+  SPRING_CLOUD_CONFIG_REQUEST_READ_TIMEOUT: "30000"
+
+services:
+  # ============================================
+  # INFRASTRUCTURE - Bases de données
+  # ============================================
+  
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_MULTIPLE_DATABASES: |
+        yeyamo_auth,yeyamo_user,yeyamo_partner,yeyamo_admin,yeyamo_catalog,
+        yeyamo_place,yeyamo_content,yeyamo_interaction,yeyamo_event,
+        yeyamo_booking,yeyamo_payment,yeyamo_notification,yeyamo_moderation,
+        yeyamo_referral,yeyamo_gamification,yeyamo_mission,yeyamo_ingestion,
+        yeyamo_feed,yeyamo_media,yeyamo_discovery,yeyamo_recommendation
+    command: 
+      - "postgres"
+      - "-c"
+      - "max_connections=300"
+      - "-c"
+      - "shared_buffers=256MB"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - yeyamo-network
+
+  postgres-init:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: postgres
+      PGPASSWORD: postgres
+      PGHOST: postgres
+      POSTGRES_MULTIPLE_DATABASES: |
+        yeyamo_auth,yeyamo_user,yeyamo_partner,yeyamo_admin,yeyamo_catalog,
+        yeyamo_place,yeyamo_content,yeyamo_interaction,yeyamo_event,
+        yeyamo_booking,yeyamo_payment,yeyamo_notification,yeyamo_moderation,
+        yeyamo_referral,yeyamo_gamification,yeyamo_mission,yeyamo_ingestion,
+        yeyamo_feed,yeyamo_media,yeyamo_discovery,yeyamo_recommendation
+    volumes:
+      - ./scripts/init-multiple-databases.sh:/init-multiple-databases.sh:ro
+    entrypoint: ["bash", "/init-multiple-databases.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  cassandra:
+    image: cassandra:5.0
+    init: true
+    environment:
+      CASSANDRA_CLUSTER_NAME: yeyamo
+      CASSANDRA_DC: datacenter1
+      MAX_HEAP_SIZE: 512M
+      HEAP_NEWSIZE: 100M
+    ports:
+      - "9042:9042"
+    volumes:
+      - cassandra-data:/var/lib/cassandra
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e \"CREATE KEYSPACE IF NOT EXISTS yeyamo_messaging WITH replication = {'class':'SimpleStrategy','replication_factor':1};\" && cqlsh -e 'DESCRIBE CLUSTER'"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 40s
+    networks:
+      - yeyamo-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - yeyamo-network
+
+  opensearch:
+    image: opensearchproject/opensearch:3.2.0
+    container_name: yeyamo-opensearch
+
+    environment:
+      discovery.type: single-node
+      bootstrap.memory_lock: "true"
+
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+
+      DISABLE_SECURITY_PLUGIN: "true"
+
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -f http://localhost:9200/_cluster/health || exit 1"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 10m
+
+    networks:
+      - yeyamo-network
+  # neo4j:
+  #   image: neo4j:5.24-community
+  #   environment:
+  #     NEO4J_AUTH: neo4j/neo4jpassword
+  #     NEO4J_server_memory_heap_initial__size: 512m
+  #     NEO4J_server_memory_heap_max__size: 512m
+  #   ports:
+  #     - "7474:7474"
+  #     - "7687:7687"
+  #   volumes:
+  #     - neo4j-data:/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 20
+  #     start_period: 40s
+  #   networks:
+  #     - yeyamo-network
+
+  kafka:
+    image: redpandadata/redpanda:v24.3.6
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - 512M
+      - --reserve-memory
+      - 0M
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - 0.0.0.0:9092
+      - --advertise-kafka-addr
+      - kafka:9092
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - yeyamo-network
+
+  # ============================================
+  # INFRASTRUCTURE - Services Spring Cloud
+  # ============================================
+
+  config-server:
+    build: ./config-server
+    environment:
+      <<: *java-service-env
+      SPRING_PROFILES_ACTIVE: native
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./cloud-conf-yeyamo:/config:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health/readiness | grep UP || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 90s
+    networks:
+      - yeyamo-network
+
+
+  registry-service:
+    build: ./registry-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_HOSTNAME: registry-service
+      EUREKA_USERNAME: eureka
+      EUREKA_PASSWORD: eureka123
+      SERVER_PORT: 8761
+    ports:
+      - "8761:8761"
+    depends_on:
+      config-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8761/actuator/health/readiness || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+    networks:
+      - yeyamo-network
+
+  api-gateway:
+    build: ./api-gateway
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8083:8083"
+    depends_on:
+      config-server:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  # ============================================
+  # MICROSERVICES - Auth & Users
+  # ============================================
+
+  auth-service:
+    build: ./auth-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_auth
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  user-service:
+    build: ./user-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_user
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8086:8086"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  partner-service:
+    build: ./partner-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_partner
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8087:8087"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  admin-service:
+    build: ./admin-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_admin
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8096:8096"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  # ============================================
+  # MICROSERVICES - Catalog & Places
+  # ============================================
+
+  catalog-service:
+    build: ./catalog-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_catalog
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8088:8088"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  place-service:
+    build: ./place-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_place
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_HOST: redis
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  # ============================================
+  # MICROSERVICES - Content & Interactions
+  # ============================================
+
+  content-service:
+    build: ./content-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_content
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8090:8090"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  interaction-service:
+    build: ./interaction-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_interaction
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_HOST: redis
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8091:8091"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  feed-service:
+    build: ./feed-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_feed
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_HOST: redis
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8092:8092"
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  # ============================================
+  # MICROSERVICES - Media & Moderation
+  # ============================================
+
+  media-service:
+    build: ./media-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_media
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8101:8101"
+    volumes:
+      - media-storage:/app/media
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  moderation-trust-service:
+    build: ./moderation-trust-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_moderation
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8100:8100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  # ============================================
+  # MICROSERVICES - Events & Bookings
+  # ============================================
+
+  event-service:
+    build: ./event-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_event
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  booking-service:
+    build: ./booking-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_booking
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8102:8102"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  payment-service:
+    build: ./payment-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_payment
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+      PAYMENT_WEBHOOK_SECRET: webhook-secret-change-me
+    ports:
+      - "8103:8103"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  # ============================================
+  # MICROSERVICES - Messaging & Notifications
+  # ============================================
+
+  messaging-service:
+    build: ./messaging-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      CASSANDRA_CONTACT_POINTS: cassandra:9042
+      CASSANDRA_KEYSPACE: yeyamo_messaging
+      CASSANDRA_LOCAL_DATACENTER: datacenter1
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8104:8104"
+    depends_on:
+      cassandra:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  notification-service:
+    build: ./notification-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_notification
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8094:8094"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  # ============================================
+  # MICROSERVICES - Gamification & Rewards
+  # ============================================
+
+  gamification-service:
+    build: ./gamification-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_gamification
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_HOST: redis
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8105:8105"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  mission-reward-service:
+    build: ./mission-reward-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_mission
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8098:8098"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  recommendation-service:
+    build: ./recommendation-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_recommendation
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_HOST: redis
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8095:8095"
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  # ============================================
+  # MICROSERVICES - Referral & Analytics
+  # ============================================
+
+  referral-service:
+    build: ./referral-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_referral
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_HOST: redis
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8099:8099"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  analytics-service:
+    build: ./analytics-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      OPENSEARCH_URIS: http://opensearch:9200
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8097:8097"
+    depends_on:
+      opensearch:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  # ============================================
+  # MICROSERVICES - Ingestion & Discovery
+  # ============================================
+
+  ingestion-service:
+    build: ./ingestion-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_ingestion
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8089:8089"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  discovery-service:
+    build: ./discovery-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_discovery
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      OPENSEARCH_URL: http://opensearch:9200
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_HOST: redis
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8093:8093"
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  # ============================================
+  # MICROSERVICES - Search, Graph & Social
+  # ============================================
+  # NOTE: Ces services ne sont pas encore implémentés
+  # Décommentez-les quand ils seront prêts
+
+  # search-service:
+  #   build: ./search-service
+  #   environment:
+  #     CONFIG_SERVER_URL: http://config-server:8080
+        # CONFIG_SERVER_USERNAME: admin
+        # CONFIG_SERVER_PASSWORD: admin123
+  #     EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+  #     OPENSEARCH_HOST: opensearch
+  #     OPENSEARCH_PORT: 9200
+  #     KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  #     JWT_SECRET: local-docker-secret-change-me-1234567890
+  #   depends_on:
+  #     opensearch:
+  #       condition: service_healthy
+  #     kafka:
+  #       condition: service_healthy
+  #     registry-service:
+  #       condition: service_healthy
+  #   networks:
+  #     - yeyamo-network
+
+  # graph-service:
+  #   build: ./graph-service
+  #   environment:
+  #     CONFIG_SERVER_URL: http://config-server:8080
+      # CONFIG_SERVER_USERNAME: admin
+      # CONFIG_SERVER_PASSWORD: admin123
+  #     EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+  #     SPRING_NEO4J_URI: bolt://neo4j:7687
+  #     SPRING_NEO4J_AUTHENTICATION_USERNAME: neo4j
+  #     SPRING_NEO4J_AUTHENTICATION_PASSWORD: neo4jpassword
+  #     KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  #     JWT_SECRET: local-docker-secret-change-me-1234567890
+  #   depends_on:
+  #     neo4j:
+  #       condition: service_healthy
+  #     kafka:
+  #       condition: service_healthy
+  #     registry-service:
+  #       condition: service_healthy
+  #   networks:
+  #     - yeyamo-network
+
+  # social-service:
+  #   build: ./social-service
+  #   environment:
+    # ERVER_PASSWORD: admin123
+  #     EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+  #     SPRING_CASSANDRA_CONTACT_POINTS: cassandra
+  #     SPRING_CASSANDRA_PORT: 9042
+  #     SPRING_CASSANDRA_KEYSPACE: yeyamo_social
+  #     SPRING_CASSANDRA_LOCAL_DATACENTER: datacenter1
+  #     KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  #     JWT_SECRET: local-docker-secret-change-me-1234567890
+  #   depends_on:
+  #     cassandra:
+  #       condition: service_healthy
+  #     kafka:
+  #       condition: service_healthy
+  #     registry-service:
+  #       condition: service_healthy
+  #   networks:
+  #     - yeyamo-network
+
+# ============================================
+# VOLUMES
+# ============================================
+
+volumes:
+  postgres-data:
+  cassandra-data:
+  redis-data:
+  opensearch-data:
+  # neo4j-data:
+  media-storage:
+
+# ============================================
+# NETWORKS
+# ============================================
+
+networks:
+  yeyamo-network:
+    driver: bridge
