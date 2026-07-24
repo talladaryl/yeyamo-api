@@ -42,10 +42,16 @@ class OAuthTokenVerifierSecurityTests {
     }
 
     @Test
-    void refusesToStartWithoutRealClientIds() {
+    void startsWithoutOAuthClientIdsAndRejectsOnlyTheDisabledProviderCall() {
         JwtDecoder decoder = token -> jwt("https://accounts.google.com", List.of("client"), true);
-        assertThrows(IllegalArgumentException.class,
-                () -> new OAuthTokenVerifier("your-google-client-id", "", decoder, decoder));
+        OAuthTokenVerifier verifier = new OAuthTokenVerifier("your-google-client-id", "", decoder, decoder);
+
+        ApiException failure = assertThrows(
+                ApiException.class,
+                () -> verifier.verify("google", "signed-token"));
+
+        assertEquals("OAUTH_PROVIDER_NOT_CONFIGURED", failure.getCode());
+        assertEquals(503, failure.getStatus().value());
     }
 
     private Jwt jwt(String issuer, List<String> audience, boolean verified) {

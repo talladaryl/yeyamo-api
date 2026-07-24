@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.yeyamo_mobile.api.auth_service.dto.AuthResponse;
+import com.yeyamo_mobile.api.auth_service.dto.ChangePasswordRequest;
 import com.yeyamo_mobile.api.auth_service.dto.EmailRequest;
 import com.yeyamo_mobile.api.auth_service.dto.LoginRequest;
 import com.yeyamo_mobile.api.auth_service.dto.OAuthLoginRequest;
@@ -172,6 +173,23 @@ public class AuthService {
         refreshTokenService.revokeAll(user);
     }
 
+    @Transactional
+    public void changePassword(User user, ChangePasswordRequest request, String correlationId) {
+        if (user == null || request == null
+                || !passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new ApiException("INVALID_CURRENT_PASSWORD", "Mot de passe actuel invalide", HttpStatus.BAD_REQUEST);
+        }
+        if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+            throw new ApiException("PASSWORD_UNCHANGED",
+                    "Le nouveau mot de passe doit être différent", HttpStatus.CONFLICT);
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
+        refreshTokenService.revokeAll(user);
+        eventOutbox.passwordChanged(user, correlationId);
+    }
+
     public UserResponse me(User user) {
         return toResponse(user);
     }
@@ -299,7 +317,7 @@ public class AuthService {
             throw new ApiException("IDENTIFIER_REQUIRED", "Email ou téléphone requis", HttpStatus.BAD_REQUEST);
         }
         if (!hasText(request.password()) || request.password().length() < 12) {
-            throw new ApiException("WEAK_PASSWORD", "Le mot de passe doit contenir au moins 8 caractères", HttpStatus.BAD_REQUEST);
+            throw new ApiException("WEAK_PASSWORD", "Le mot de passe doit contenir au moins 12 caractères", HttpStatus.BAD_REQUEST);
         }
     }
 

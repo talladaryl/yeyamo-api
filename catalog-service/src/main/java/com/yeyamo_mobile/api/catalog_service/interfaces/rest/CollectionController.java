@@ -40,7 +40,7 @@ public class CollectionController {
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
             Authentication auth) {
         
-        UUID userId = extractUserId(auth);
+        String userId = auth.getName();
         Page<CollectionEntity> collections = service.getMyCollections(userId, PageRequest.of(page, size));
         return collections.map(CollectionResponse::from);
     }
@@ -62,7 +62,7 @@ public class CollectionController {
     @GetMapping("/{id}")
     @Operation(summary = "Récupérer une collection avec ses lieux", description = "Retourne 404 si la collection est privée et que l'utilisateur n'est pas le propriétaire (pour ne pas révéler l'existence)")
     public CollectionResponse getCollection(@PathVariable UUID id, Authentication auth) {
-        UUID userId = extractUserId(auth);
+        String userId = auth.getName();
         CollectionService.CollectionWithAssets data = service.getCollection(id, userId);
         return CollectionResponse.fromWithAssets(data);
     }
@@ -72,7 +72,7 @@ public class CollectionController {
     @GetMapping("/summaries")
     @Operation(summary = "Résumés de collections", description = "Version allégée des collections (id, titre, nombre de lieux, cover) pour les listes déroulantes 'ajouter à une collection'")
     public List<CollectionSummaryResponse> getSummaries(Authentication auth) {
-        UUID userId = extractUserId(auth);
+        String userId = auth.getName();
         return service.getSummaries(userId).stream()
                 .map(CollectionSummaryResponse::from)
                 .toList();
@@ -88,7 +88,7 @@ public class CollectionController {
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             Authentication auth) {
         
-        UUID userId = extractUserId(auth);
+        String userId = auth.getName();
         boolean isPublic = request.isPublic() != null ? request.isPublic() : false;
         
         CollectionEntity collection = service.create(
@@ -114,7 +114,7 @@ public class CollectionController {
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             Authentication auth) {
         
-        UUID userId = extractUserId(auth);
+        String userId = auth.getName();
         
         CollectionEntity collection = service.update(
                 id,
@@ -140,7 +140,7 @@ public class CollectionController {
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             Authentication auth) {
         
-        UUID userId = extractUserId(auth);
+        String userId = auth.getName();
         service.delete(id, userId, correlationId, auth.getName());
     }
 
@@ -154,8 +154,23 @@ public class CollectionController {
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             Authentication auth) {
         
-        UUID userId = extractUserId(auth);
-        service.addPlace(request.collectionId(), request.assetId(), userId, correlationId, auth.getName());
+        String userId = auth.getName();
+        service.addPlace(request.collectionId(), request.assetId(), userId, request.isPriority(), request.note(),
+                correlationId, auth.getName());
+    }
+
+    @PatchMapping("/{collectionId}/places/{assetId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Modifier la note ou la priorité d'un élément de collection",
+            description = "Propriétaire uniquement. Les champs omis conservent leur valeur actuelle")
+    public void updatePlace(
+            @PathVariable UUID collectionId,
+            @PathVariable UUID assetId,
+            @Valid @RequestBody UpdateCollectionPlaceRequest request,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+            Authentication auth) {
+        service.updatePlace(collectionId, assetId, auth.getName(), request.isPriority(), request.note(),
+                correlationId, auth.getName());
     }
 
     // ─── RETIRER LIEU DE COLLECTION ─────────────────────────────────────────────
@@ -169,20 +184,8 @@ public class CollectionController {
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             Authentication auth) {
         
-        UUID userId = extractUserId(auth);
+        String userId = auth.getName();
         service.removePlace(collectionId, assetId, userId, correlationId, auth.getName());
     }
 
-    // ─── HELPERS ────────────────────────────────────────────────────────────────
-
-    private UUID extractUserId(Authentication auth) {
-        // Supposons que auth.getName() retourne l'ID utilisateur (ou adapter selon le JWT)
-        try {
-            return UUID.fromString(auth.getName());
-        } catch (IllegalArgumentException e) {
-            // Si auth.getName() retourne un username/email, il faudra adapter
-            // Pour l'instant, on suppose que c'est un UUID
-            throw new IllegalStateException("User ID invalide dans le token JWT");
-        }
-    }
 }

@@ -1,0 +1,10 @@
+ALTER TABLE user_profiles
+    ADD COLUMN show_activity BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN show_followers BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN show_following BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN notify_new_followers BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN notify_follow_requests BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN notify_mentions BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN notify_activity_updates BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN allow_suggestions BOOLEAN NOT NULL DEFAULT TRUE,
+    ADD COLUMN allow_messages_from_strangers BOOLEAN NOT NULL DEFAULT TRUE;

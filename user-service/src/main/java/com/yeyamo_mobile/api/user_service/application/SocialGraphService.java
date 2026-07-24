@@ -16,6 +16,7 @@ import com.yeyamo_mobile.api.user_service.application.port.OutboxPort;
 import com.yeyamo_mobile.api.user_service.domain.model.Block;
 import com.yeyamo_mobile.api.user_service.domain.model.Follow;
 import com.yeyamo_mobile.api.user_service.domain.model.ProfileStatus;
+import com.yeyamo_mobile.api.user_service.domain.model.ProfileVisibility;
 import com.yeyamo_mobile.api.user_service.domain.model.UserProfile;
 import com.yeyamo_mobile.api.user_service.domain.port.UserProfileRepository;
 import com.yeyamo_mobile.api.user_service.infrastructure.persistence.BlockEntity;
@@ -225,6 +226,34 @@ public class SocialGraphService {
         return profileRepository.findByIdIn(getBlockedUserIds(authUserId));
     }
 
+    @Transactional(readOnly = true)
+    public UserProfile getSocialSettings(String authUserId) {
+        return getProfile(authUserId);
+    }
+
+    @Transactional
+    public UserProfile updateSocialSettings(
+            String authUserId,
+            SocialSettingsUpdate update,
+            String correlationId) {
+        UserProfile profile = getProfile(authUserId);
+        profile.updateSocialSettings(
+                update.profileVisibility(),
+                update.showActivity(),
+                update.showFollowers(),
+                update.showFollowing(),
+                update.notifyNewFollowers(),
+                update.notifyFollowRequests(),
+                update.notifyMentions(),
+                update.notifyActivityUpdates(),
+                update.allowSuggestions(),
+                update.allowMessagesFromStrangers());
+        UserProfile saved = profileRepository.save(profile);
+        outbox.append("social.settings_updated", saved.getId(), authUserId, correlationId,
+                java.util.Map.of("profileId", saved.getId().toString()));
+        return saved;
+    }
+
     // ─── SUGGESTIONS ────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
@@ -313,12 +342,15 @@ public class SocialGraphService {
     // ─── HELPERS ────────────────────────────────────────────────────────────────
 
     private UUID getProfileId(String authUserId) {
+        return getProfile(authUserId).getId();
+    }
+
+    private UserProfile getProfile(String authUserId) {
         return profileRepository.findByAuthUserId(authUserId)
                 .orElseThrow(() -> new UserProfileException(
                         "PROFILE_NOT_FOUND", 
                         "Profil utilisateur introuvable", 
-                        HttpStatus.NOT_FOUND))
-                .getId();
+                        HttpStatus.NOT_FOUND));
     }
 
     private UserProfile requireProfile(UUID profileId) {
@@ -333,4 +365,17 @@ public class SocialGraphService {
             UserProfile follower,
             UserProfile followee,
             java.time.Instant timestamp) {}
+
+    public record SocialSettingsUpdate(
+            ProfileVisibility profileVisibility,
+            Boolean showActivity,
+            Boolean showFollowers,
+            Boolean showFollowing,
+            Boolean notifyNewFollowers,
+            Boolean notifyFollowRequests,
+            Boolean notifyMentions,
+            Boolean notifyActivityUpdates,
+            Boolean allowSuggestions,
+            Boolean allowMessagesFromStrangers) {
+    }
 }

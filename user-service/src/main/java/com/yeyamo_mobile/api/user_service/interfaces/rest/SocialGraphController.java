@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -24,11 +26,14 @@ import com.yeyamo_mobile.api.user_service.application.SocialGraphService;
 import com.yeyamo_mobile.api.user_service.domain.model.UserProfile;
 import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.NetworkActivityResponse;
 import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.SocialStatsResponse;
+import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.SocialSettingsRequest;
+import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.SocialSettingsResponse;
 import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.UserProfileSummaryResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/users/social")
@@ -197,6 +202,36 @@ public class SocialGraphController {
             Authentication authentication,
             @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
         socialGraphService.removeFollower(authentication.getName(), userId, correlationId);
+    }
+
+    @GetMapping("/settings")
+    @Operation(summary = "Get my social privacy and notification settings")
+    public SocialSettingsResponse getSettings(Authentication authentication) {
+        return SocialSettingsResponse.from(socialGraphService.getSocialSettings(authentication.getName()));
+    }
+
+    @PutMapping("/settings")
+    @Operation(summary = "Partially update my social privacy and notification settings")
+    public SocialSettingsResponse updateSettings(
+            @Valid @RequestBody SocialSettingsRequest request,
+            Authentication authentication,
+            @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
+        var privacy = request.privacy();
+        var notifications = request.notifications();
+        var preferences = request.preferences();
+        var update = new SocialGraphService.SocialSettingsUpdate(
+                privacy == null ? null : privacy.profileVisibility(),
+                privacy == null ? null : privacy.showActivity(),
+                privacy == null ? null : privacy.showFollowers(),
+                privacy == null ? null : privacy.showFollowing(),
+                notifications == null ? null : notifications.newFollowers(),
+                notifications == null ? null : notifications.followRequests(),
+                notifications == null ? null : notifications.mentions(),
+                notifications == null ? null : notifications.activityUpdates(),
+                preferences == null ? null : preferences.allowSuggestions(),
+                preferences == null ? null : preferences.allowMessagesFromStrangers());
+        return SocialSettingsResponse.from(socialGraphService.updateSocialSettings(
+                authentication.getName(), update, correlationId));
     }
 
     @GetMapping("/suggestions")

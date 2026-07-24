@@ -24,8 +24,8 @@ public class OAuthTokenVerifier {
 
     @Autowired
     public OAuthTokenVerifier(
-            @Value("${oauth.google.client-id}") String googleClientId,
-            @Value("${oauth.apple.client-id}") String appleClientId
+            @Value("${oauth.google.client-id:}") String googleClientId,
+            @Value("${oauth.apple.client-id:}") String appleClientId
     ) {
         this(googleClientId, appleClientId,
                 NimbusJwtDecoder.withJwkSetUri("https://www.googleapis.com/oauth2/v3/certs").build(),
@@ -33,8 +33,8 @@ public class OAuthTokenVerifier {
     }
 
     OAuthTokenVerifier(String googleClientId, String appleClientId, JwtDecoder googleDecoder, JwtDecoder appleDecoder) {
-        this.googleClientId = requiredClientId(googleClientId, "oauth.google.client-id");
-        this.appleClientId = requiredClientId(appleClientId, "oauth.apple.client-id");
+        this.googleClientId = normalizeClientId(googleClientId);
+        this.appleClientId = normalizeClientId(appleClientId);
         this.googleDecoder = googleDecoder;
         this.appleDecoder = appleDecoder;
     }
@@ -45,6 +45,7 @@ public class OAuthTokenVerifier {
         }
 
         String normalizedProvider = provider.toLowerCase(Locale.ROOT);
+        requireConfiguredProvider(normalizedProvider);
         Jwt jwt = switch (normalizedProvider) {
             case "google" -> decode(googleDecoder, idToken, "GOOGLE_TOKEN_INVALID");
             case "apple" -> decode(appleDecoder, idToken, "APPLE_TOKEN_INVALID");
@@ -107,9 +108,26 @@ public class OAuthTokenVerifier {
         return Boolean.TRUE.equals(claim) || claim instanceof String value && Boolean.parseBoolean(value);
     }
 
-    private static String requiredClientId(String value, String property) {
+    private void requireConfiguredProvider(String provider) {
+        String clientId = switch (provider) {
+            case "google" -> googleClientId;
+            case "apple" -> appleClientId;
+            default -> throw new ApiException(
+                    "OAUTH_PROVIDER_UNSUPPORTED",
+                    "Provider OAuth non supporte",
+                    HttpStatus.BAD_REQUEST);
+        };
+        if (clientId.isBlank()) {
+            throw new ApiException(
+                    "OAUTH_PROVIDER_NOT_CONFIGURED",
+                    "Provider OAuth non configure sur cet environnement",
+                    HttpStatus.SERVICE_UNAVAILABLE);
+        }
+    }
+
+    private static String normalizeClientId(String value) {
         if (value == null || value.isBlank() || value.startsWith("your-")) {
-            throw new IllegalArgumentException(property + " must be configured with a real OAuth client id");
+            return "";
         }
         return value.trim();
     }

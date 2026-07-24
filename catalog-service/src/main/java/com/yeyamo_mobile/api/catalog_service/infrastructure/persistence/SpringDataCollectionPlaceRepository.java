@@ -1,6 +1,7 @@
 package com.yeyamo_mobile.api.catalog_service.infrastructure.persistence;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,6 +18,8 @@ public interface SpringDataCollectionPlaceRepository extends JpaRepository<Colle
     
     // Vérifier si un lieu est dans une collection (pour idempotence)
     boolean existsByCollectionIdAndAssetId(UUID collectionId, UUID assetId);
+
+    Optional<CollectionPlaceEntity> findByCollectionIdAndAssetId(UUID collectionId, UUID assetId);
     
     // IDs des assets dans une collection (pour récupération en bulk)
     @Query("SELECT cp.assetId FROM CollectionPlaceEntity cp WHERE cp.collectionId = :collectionId ORDER BY cp.addedAt DESC")

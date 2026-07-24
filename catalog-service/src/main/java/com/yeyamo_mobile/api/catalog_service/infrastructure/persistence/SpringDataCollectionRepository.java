@@ -11,13 +11,13 @@ import org.springframework.data.repository.query.Param;
 public interface SpringDataCollectionRepository extends JpaRepository<CollectionEntity, UUID> {
     
     // Mes collections (paginé, trié par updated_at DESC)
-    Page<CollectionEntity> findByUserIdOrderByUpdatedAtDesc(UUID userId, Pageable pageable);
+    Page<CollectionEntity> findByUserIdOrderByUpdatedAtDesc(String userId, Pageable pageable);
     
     // Collections publiques (paginé, trié par updated_at DESC)
     Page<CollectionEntity> findByIsPublicTrueOrderByUpdatedAtDesc(Pageable pageable);
     
     // Vérifier l'existence et la propriété
-    boolean existsByIdAndUserId(UUID id, UUID userId);
+    boolean existsByIdAndUserId(UUID id, String userId);
     
     // Summaries : collections d'un utilisateur avec compteur de lieux
     @Query("""
@@ -28,5 +28,5 @@ public interface SpringDataCollectionRepository extends JpaRepository<Collection
         GROUP BY c.id, c.title, c.coverAssetId, c.updatedAt
         ORDER BY c.updatedAt DESC
         """)
-    List<Object[]> findSummariesByUserId(@Param("userId") UUID userId);
+    List<Object[]> findSummariesByUserId(@Param("userId") String userId);
 }

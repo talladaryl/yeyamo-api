@@ -29,6 +29,15 @@ public class UserProfileEntity {
     @Column(name = "notifications_enabled", nullable = false) private boolean notificationsEnabled;
     @Column(name = "location_sharing_enabled", nullable = false) private boolean locationSharingEnabled;
     @Column(name = "preferred_region_id") private Long preferredRegionId;
+    @Column(name = "show_activity", nullable = false) private boolean showActivity;
+    @Column(name = "show_followers", nullable = false) private boolean showFollowers;
+    @Column(name = "show_following", nullable = false) private boolean showFollowing;
+    @Column(name = "notify_new_followers", nullable = false) private boolean notifyNewFollowers;
+    @Column(name = "notify_follow_requests", nullable = false) private boolean notifyFollowRequests;
+    @Column(name = "notify_mentions", nullable = false) private boolean notifyMentions;
+    @Column(name = "notify_activity_updates", nullable = false) private boolean notifyActivityUpdates;
+    @Column(name = "allow_suggestions", nullable = false) private boolean allowSuggestions;
+    @Column(name = "allow_messages_from_strangers", nullable = false) private boolean allowMessagesFromStrangers;
     @Column(name = "created_at", nullable = false) private Instant createdAt;
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
     @Column(name = "deleted_at") private Instant deletedAt;
@@ -56,6 +65,24 @@ public class UserProfileEntity {
     public void setLocationSharingEnabled(boolean value) { this.locationSharingEnabled = value; }
     public Long getPreferredRegionId() { return preferredRegionId; }
     public void setPreferredRegionId(Long value) { this.preferredRegionId = value; }
+    public boolean isShowActivity() { return showActivity; }
+    public void setShowActivity(boolean value) { this.showActivity = value; }
+    public boolean isShowFollowers() { return showFollowers; }
+    public void setShowFollowers(boolean value) { this.showFollowers = value; }
+    public boolean isShowFollowing() { return showFollowing; }
+    public void setShowFollowing(boolean value) { this.showFollowing = value; }
+    public boolean isNotifyNewFollowers() { return notifyNewFollowers; }
+    public void setNotifyNewFollowers(boolean value) { this.notifyNewFollowers = value; }
+    public boolean isNotifyFollowRequests() { return notifyFollowRequests; }
+    public void setNotifyFollowRequests(boolean value) { this.notifyFollowRequests = value; }
+    public boolean isNotifyMentions() { return notifyMentions; }
+    public void setNotifyMentions(boolean value) { this.notifyMentions = value; }
+    public boolean isNotifyActivityUpdates() { return notifyActivityUpdates; }
+    public void setNotifyActivityUpdates(boolean value) { this.notifyActivityUpdates = value; }
+    public boolean isAllowSuggestions() { return allowSuggestions; }
+    public void setAllowSuggestions(boolean value) { this.allowSuggestions = value; }
+    public boolean isAllowMessagesFromStrangers() { return allowMessagesFromStrangers; }
+    public void setAllowMessagesFromStrangers(boolean value) { this.allowMessagesFromStrangers = value; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant value) { this.createdAt = value; }
     public Instant getUpdatedAt() { return updatedAt; }

@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -12,7 +13,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -23,13 +23,24 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.util.matcher.RegexRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 @Configuration
 public class SecurityConfig {
+    private static final Set<String> PUBLIC_AUTH_PATHS = Set.of(
+            "/api/v1/auth/register",
+            "/api/v1/auth/login",
+            "/api/v1/auth/refresh",
+            "/api/v1/auth/oauth/google",
+            "/api/v1/auth/oauth/apple",
+            "/api/v1/auth/email/verification/request",
+            "/api/v1/auth/email/verification/confirm",
+            "/api/v1/auth/password/forgot",
+            "/api/v1/auth/password/reset");
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, CorsConfigurationSource corsConfigurationSource)
@@ -39,31 +50,38 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/actuator/health/**", "/actuator/info", "/fallback/**").permitAll()
-                        .requestMatchers("/api/v1/auth/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhooks/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/events/me").authenticated()
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/v1/places/**", "/api/v1/regions/**", "/api/v1/cities/**",
-                                "/api/v1/districts/**", "/api/v1/categories/**", "/api/v1/events/**",
-                                "/api/v1/catalog/assets/**", "/api/v1/catalog/regions/**",
-                                "/api/v1/catalog/cities/**", "/api/v1/catalog/categories/**",
-                                "/api/v1/media/**", "/api/v1/posts/hashtags/**", "/api/v1/posts/catalog/**",
-                                "/api/v1/interactions/posts/**")
-                        .permitAll()
-                        .requestMatchers(RegexRequestMatcher.regexMatcher(HttpMethod.GET,
-                                "^/api/v1/posts/[0-9a-fA-F-]{36}$")).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/users").permitAll()
-                        .requestMatchers(RegexRequestMatcher.regexMatcher(HttpMethod.GET,
-                                "^/api/v1/users/[0-9a-fA-F-]{36}$")).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/partners").permitAll()
-                        .requestMatchers(RegexRequestMatcher.regexMatcher(HttpMethod.GET,
-                                "^/api/v1/partners/[0-9a-fA-F-]{36}$")).permitAll()
+                        .requestMatchers("/actuator/health/**", "/actuator/info", "/fallback/**",
+                                "/openapi/**", "/mobile-api/**").permitAll()
+                        .requestMatchers(SecurityConfig::isPublicMobileRequest).permitAll()
                         .requestMatchers("/api/v1/admin/**", "/api/v1/analytics/**")
                         .hasAnyRole("ADMIN", "SUPER_ADMIN", "MODERATOR")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(authoritiesConverter())))
                 .build();
+    }
+
+    static boolean isPublicMobileRequest(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        String method = request.getMethod();
+        if (PUBLIC_AUTH_PATHS.contains(path)) {
+            return true;
+        }
+        if ("POST".equals(method) && path.startsWith("/api/v1/payments/webhooks/")) {
+            return true;
+        }
+        if (!"GET".equals(method)) {
+            return false;
+        }
+        if ("/api/v1/events/me".equals(path)) {
+            return false;
+        }
+        return path.matches("^/api/v1/(places|regions|cities|districts|categories|events|media)(/.*)?$")
+                || path.matches("^/api/v1/catalog/(assets|regions|cities|categories)(/.*)?$")
+                || path.matches("^/api/v1/posts/(hashtags|catalog)/.*$")
+                || path.matches("^/api/v1/interactions/posts/.*$")
+                || path.matches("^/api/v1/posts/[0-9a-fA-F-]{36}$")
+                || path.matches("^/api/v1/users(?:/[0-9a-fA-F-]{36})?$")
+                || path.matches("^/api/v1/partners(?:/[0-9a-fA-F-]{36})?$");
     }
 
     @Bean
@@ -100,12 +118,14 @@ public class SecurityConfig {
 
     @Bean
     CorsConfigurationSource corsConfigurationSource(
-            @Value("${security.cors.allowed-origins:http://localhost:3000}") String allowedOrigins) {
+            @Value("${security.cors.allowed-origins:http://localhost:*,http://127.0.0.1:*}") String allowedOrigins) {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(allowedOrigins.split(",")));
+        configuration.setAllowedOriginPatterns(List.of(allowedOrigins.split(",")));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-ID", "Idempotency-Key"));
-        configuration.setExposedHeaders(List.of("X-Correlation-ID"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-ID",
+                "Idempotency-Key", "X-Requested-With"));
+        configuration.setExposedHeaders(List.of("X-Correlation-ID", "X-RateLimit-Limit",
+                "X-RateLimit-Remaining", "Retry-After"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -1,0 +1,3 @@
+ALTER TABLE collection_places
+    ADD COLUMN is_priority BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN note VARCHAR(1000);

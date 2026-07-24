@@ -8,7 +8,7 @@ import jakarta.persistence.*;
 @Table(name = "collections")
 public class CollectionEntity {
     @Id private UUID id;
-    @Column(name = "user_id", nullable = false) private UUID userId;
+    @Column(name = "user_id", nullable = false, length = 120) private String userId;
     @Column(nullable = false, length = 120) private String title;
     @Column(columnDefinition = "TEXT") private String description;
     @Column(name = "is_public", nullable = false) private boolean isPublic;
@@ -19,8 +19,8 @@ public class CollectionEntity {
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
-    public UUID getUserId() { return userId; }
-    public void setUserId(UUID userId) { this.userId = userId; }
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
     public String getDescription() { return description; }

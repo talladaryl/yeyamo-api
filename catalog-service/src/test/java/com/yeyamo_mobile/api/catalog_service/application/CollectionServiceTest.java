@@ -37,15 +37,15 @@ class CollectionServiceTest {
 
     @InjectMocks private CollectionService service;
 
-    private UUID userId;
-    private UUID otherUserId;
+    private String userId;
+    private String otherUserId;
     private UUID assetId;
     private CollectionEntity collection;
 
     @BeforeEach
     void setUp() {
-        userId = UUID.randomUUID();
-        otherUserId = UUID.randomUUID();
+        userId = "42";
+        otherUserId = "99";
         assetId = UUID.randomUUID();
         
         collection = new CollectionEntity();
@@ -112,7 +112,8 @@ class CollectionServiceTest {
     void shouldGetPublicCollectionAsOwner() {
         collection.setPublic(true);
         when(collectionRepository.findById(collection.getId())).thenReturn(Optional.of(collection));
-        when(collectionPlaceRepository.findAssetIdsByCollectionId(collection.getId())).thenReturn(List.of());
+        when(collectionPlaceRepository.findByCollectionIdOrderByAddedAtDesc(eq(collection.getId()), any()))
+                .thenReturn(Page.empty());
         when(assetRepository.findAllById(anyList())).thenReturn(List.of());
 
         CollectionService.CollectionWithAssets result = service.getCollection(collection.getId(), userId);
@@ -125,7 +126,8 @@ class CollectionServiceTest {
     void shouldGetPublicCollectionAsStranger() {
         collection.setPublic(true);
         when(collectionRepository.findById(collection.getId())).thenReturn(Optional.of(collection));
-        when(collectionPlaceRepository.findAssetIdsByCollectionId(collection.getId())).thenReturn(List.of());
+        when(collectionPlaceRepository.findByCollectionIdOrderByAddedAtDesc(eq(collection.getId()), any()))
+                .thenReturn(Page.empty());
         when(assetRepository.findAllById(anyList())).thenReturn(List.of());
 
         CollectionService.CollectionWithAssets result = service.getCollection(collection.getId(), otherUserId);
@@ -202,10 +204,12 @@ class CollectionServiceTest {
     void shouldAddPlaceToCollection() {
         when(collectionRepository.findById(collection.getId())).thenReturn(Optional.of(collection));
         when(assetRepository.existsById(assetId)).thenReturn(true);
-        when(collectionPlaceRepository.existsByCollectionIdAndAssetId(collection.getId(), assetId)).thenReturn(false);
+        when(collectionPlaceRepository.findByCollectionIdAndAssetId(collection.getId(), assetId))
+                .thenReturn(Optional.empty());
         when(collectionRepository.save(any(CollectionEntity.class))).thenReturn(collection);
 
-        assertDoesNotThrow(() -> service.addPlace(collection.getId(), assetId, userId, "corr-1", "user1"));
+        assertDoesNotThrow(() -> service.addPlace(collection.getId(), assetId, userId, true, "À visiter",
+                "corr-1", "user1"));
 
         verify(collectionPlaceRepository).save(any(CollectionPlaceEntity.class));
         verify(outbox).append(eq("catalog.collection.place_added"), anyString(), anyString(), anyString(), anyMap());
@@ -215,13 +219,18 @@ class CollectionServiceTest {
     void shouldBeIdempotentWhenAddingExistingPlace() {
         when(collectionRepository.findById(collection.getId())).thenReturn(Optional.of(collection));
         when(assetRepository.existsById(assetId)).thenReturn(true);
-        when(collectionPlaceRepository.existsByCollectionIdAndAssetId(collection.getId(), assetId)).thenReturn(true);
+        CollectionPlaceEntity existing = new CollectionPlaceEntity();
+        existing.setCollectionId(collection.getId());
+        existing.setAssetId(assetId);
+        when(collectionPlaceRepository.findByCollectionIdAndAssetId(collection.getId(), assetId))
+                .thenReturn(Optional.of(existing));
 
         // Ne doit pas lever d'exception
-        assertDoesNotThrow(() -> service.addPlace(collection.getId(), assetId, userId, "corr-1", "user1"));
+        assertDoesNotThrow(() -> service.addPlace(collection.getId(), assetId, userId, null, null,
+                "corr-1", "user1"));
 
         // Ne doit pas sauvegarder ni publier d'événement
-        verify(collectionPlaceRepository, never()).save(any());
+        verify(collectionPlaceRepository).save(existing);
         verify(outbox, never()).append(anyString(), anyString(), anyString(), anyString(), anyMap());
     }
 
@@ -230,7 +239,8 @@ class CollectionServiceTest {
         when(collectionRepository.findById(collection.getId())).thenReturn(Optional.of(collection));
 
         CatalogException ex = assertThrows(CatalogException.class,
-            () -> service.addPlace(collection.getId(), assetId, otherUserId, "corr-1", "user2"));
+            () -> service.addPlace(collection.getId(), assetId, otherUserId, null, null,
+                    "corr-1", "user2"));
 
         assertEquals("FORBIDDEN", ex.getCode());
         assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
@@ -243,7 +253,8 @@ class CollectionServiceTest {
         when(assetRepository.existsById(assetId)).thenReturn(false);
 
         CatalogException ex = assertThrows(CatalogException.class,
-            () -> service.addPlace(collection.getId(), assetId, userId, "corr-1", "user1"));
+            () -> service.addPlace(collection.getId(), assetId, userId, null, null,
+                    "corr-1", "user1"));
 
         assertEquals("ASSET_NOT_FOUND", ex.getCode());
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());

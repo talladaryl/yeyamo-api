@@ -3,13 +3,16 @@ package com.yeyamo_mobile.api.auth_service.controller;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import com.yeyamo_mobile.api.auth_service.dto.AuthResponse;
+import com.yeyamo_mobile.api.auth_service.dto.ChangePasswordRequest;
 import com.yeyamo_mobile.api.auth_service.dto.EmailRequest;
 import com.yeyamo_mobile.api.auth_service.dto.LoginRequest;
 import com.yeyamo_mobile.api.auth_service.dto.MessageResponse;
@@ -93,5 +96,14 @@ public class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(@AuthenticationPrincipal UserPrincipal principal) {
         authService.logout(principal.user());
+    }
+
+    @PutMapping("/password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId) {
+        authService.changePassword(principal.user(), request, correlationId);
     }
 }

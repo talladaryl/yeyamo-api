@@ -11,12 +11,12 @@ CREATE TABLE stories (
 );
 
 -- Index pour récupérer les stories actives d'un auteur
-CREATE INDEX idx_stories_author_active ON stories(author_id, created_at DESC) 
-    WHERE expires_at > NOW() AND deleted_at IS NULL;
+CREATE INDEX idx_stories_author_active ON stories(author_id, expires_at, created_at DESC)
+    WHERE deleted_at IS NULL;
 
 -- Index pour le job de nettoyage (stories expirées)
-CREATE INDEX idx_stories_expired ON stories(expires_at) 
-    WHERE deleted_at IS NULL AND expires_at <= NOW();
+CREATE INDEX idx_stories_expired ON stories(expires_at)
+    WHERE deleted_at IS NULL;
 
 -- Vues des stories : qui a vu quelle story
 CREATE TABLE story_views (

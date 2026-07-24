@@ -42,7 +42,7 @@ public class CollectionService {
     // ─── CRUD COLLECTIONS ───────────────────────────────────────────────────────
 
     @Transactional
-    public CollectionEntity create(UUID userId, String title, String description, boolean isPublic, 
+    public CollectionEntity create(String userId, String title, String description, boolean isPublic,
             UUID coverAssetId, String correlationId, String actorId) {
         
         // Vérifier que le cover asset existe si fourni
@@ -63,13 +63,13 @@ public class CollectionService {
         CollectionEntity saved = collectionRepository.save(collection);
         
         outbox.append("catalog.collection.created", saved.getId().toString(), actorId, correlationId,
-                java.util.Map.of("collectionId", saved.getId().toString(), "userId", userId.toString(), "title", title));
+                java.util.Map.of("collectionId", saved.getId().toString(), "userId", userId, "title", title));
         
         return saved;
     }
 
     @Transactional
-    public CollectionEntity update(UUID collectionId, UUID requesterId, String title, String description, 
+    public CollectionEntity update(UUID collectionId, String requesterId, String title, String description,
             Boolean isPublic, UUID coverAssetId, String correlationId, String actorId) {
         
         CollectionEntity collection = getRequired(collectionId);
@@ -99,7 +99,7 @@ public class CollectionService {
     }
 
     @Transactional
-    public void delete(UUID collectionId, UUID requesterId, String correlationId, String actorId) {
+    public void delete(UUID collectionId, String requesterId, String correlationId, String actorId) {
         CollectionEntity collection = getRequired(collectionId);
         
         // IDOR Protection: vérifier la propriété
@@ -116,7 +116,7 @@ public class CollectionService {
     // ─── LECTURE COLLECTIONS ────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public Page<CollectionEntity> getMyCollections(UUID userId, Pageable pageable) {
+    public Page<CollectionEntity> getMyCollections(String userId, Pageable pageable) {
         return collectionRepository.findByUserIdOrderByUpdatedAtDesc(userId, pageable);
     }
 
@@ -126,7 +126,7 @@ public class CollectionService {
     }
 
     @Transactional(readOnly = true)
-    public CollectionWithAssets getCollection(UUID collectionId, UUID requesterId) {
+    public CollectionWithAssets getCollection(UUID collectionId, String requesterId) {
         CollectionEntity collection = getRequired(collectionId);
         
         // Vérification de visibilité : public OU propriétaire
@@ -136,14 +136,17 @@ public class CollectionService {
         }
 
         // Charger les assets de la collection
-        List<UUID> assetIds = collectionPlaceRepository.findAssetIdsByCollectionId(collectionId);
+        List<CollectionPlaceEntity> items =
+                collectionPlaceRepository.findByCollectionIdOrderByAddedAtDesc(collectionId, Pageable.unpaged())
+                        .getContent();
+        List<UUID> assetIds = items.stream().map(CollectionPlaceEntity::getAssetId).toList();
         List<CatalogAsset> assets = assetRepository.findAllById(assetIds);
         
-        return new CollectionWithAssets(collection, assets);
+        return new CollectionWithAssets(collection, assets, items);
     }
 
     @Transactional(readOnly = true)
-    public List<CollectionSummary> getSummaries(UUID userId) {
+    public List<CollectionSummary> getSummaries(String userId) {
         List<Object[]> results = collectionRepository.findSummariesByUserId(userId);
         
         return results.stream()
@@ -159,7 +162,8 @@ public class CollectionService {
     // ─── GESTION LIEUX DANS COLLECTION ─────────────────────────────────────────
 
     @Transactional
-    public void addPlace(UUID collectionId, UUID assetId, UUID requesterId, String correlationId, String actorId) {
+    public void addPlace(UUID collectionId, UUID assetId, String requesterId, Boolean priority, String note,
+            String correlationId, String actorId) {
         CollectionEntity collection = getRequired(collectionId);
         
         // IDOR Protection: vérifier la propriété
@@ -173,14 +177,21 @@ public class CollectionService {
         }
 
         // Idempotence : ne pas échouer si le lieu est déjà dans la collection
-        if (collectionPlaceRepository.existsByCollectionIdAndAssetId(collectionId, assetId)) {
-            return; // Déjà présent, succès silencieux
+        var existing = collectionPlaceRepository.findByCollectionIdAndAssetId(collectionId, assetId);
+        if (existing.isPresent()) {
+            CollectionPlaceEntity item = existing.get();
+            if (priority != null) item.setPriority(priority);
+            if (note != null) item.setNote(normalizeNote(note));
+            collectionPlaceRepository.save(item);
+            return;
         }
 
         CollectionPlaceEntity collectionPlace = new CollectionPlaceEntity();
         collectionPlace.setCollectionId(collectionId);
         collectionPlace.setAssetId(assetId);
         collectionPlace.setAddedAt(Instant.now());
+        collectionPlace.setPriority(Boolean.TRUE.equals(priority));
+        collectionPlace.setNote(normalizeNote(note));
         collectionPlaceRepository.save(collectionPlace);
 
         // Mettre à jour updated_at de la collection
@@ -192,7 +203,28 @@ public class CollectionService {
     }
 
     @Transactional
-    public void removePlace(UUID collectionId, UUID assetId, UUID requesterId, String correlationId, String actorId) {
+    public void updatePlace(UUID collectionId, UUID assetId, String requesterId, Boolean priority, String note,
+            String correlationId, String actorId) {
+        CollectionEntity collection = getRequired(collectionId);
+        if (!collection.getUserId().equals(requesterId)) {
+            throw new CatalogException("FORBIDDEN", "Vous n'êtes pas propriétaire de cette collection",
+                    HttpStatus.FORBIDDEN);
+        }
+        CollectionPlaceEntity item = collectionPlaceRepository
+                .findByCollectionIdAndAssetId(collectionId, assetId)
+                .orElseThrow(() -> new CatalogException(
+                        "COLLECTION_ITEM_NOT_FOUND", "Élément de collection introuvable", HttpStatus.NOT_FOUND));
+        if (priority != null) item.setPriority(priority);
+        if (note != null) item.setNote(normalizeNote(note));
+        collectionPlaceRepository.save(item);
+        collection.setUpdatedAt(Instant.now());
+        collectionRepository.save(collection);
+        outbox.append("catalog.collection.place_updated", collectionId.toString(), actorId, correlationId,
+                java.util.Map.of("collectionId", collectionId.toString(), "assetId", assetId.toString()));
+    }
+
+    @Transactional
+    public void removePlace(UUID collectionId, UUID assetId, String requesterId, String correlationId, String actorId) {
         CollectionEntity collection = getRequired(collectionId);
         
         // IDOR Protection: vérifier la propriété
@@ -221,9 +253,16 @@ public class CollectionService {
                 .orElseThrow(() -> new CatalogException("COLLECTION_NOT_FOUND", "Collection introuvable", HttpStatus.NOT_FOUND));
     }
 
+    private String normalizeNote(String note) {
+        return note == null || note.isBlank() ? null : note.trim();
+    }
+
     // ─── NESTED CLASSES ─────────────────────────────────────────────────────────
 
-    public record CollectionWithAssets(CollectionEntity collection, List<CatalogAsset> assets) {}
+    public record CollectionWithAssets(
+            CollectionEntity collection,
+            List<CatalogAsset> assets,
+            List<CollectionPlaceEntity> items) {}
     
     public record CollectionSummary(UUID id, String title, UUID coverAssetId, long placeCount) {}
 }

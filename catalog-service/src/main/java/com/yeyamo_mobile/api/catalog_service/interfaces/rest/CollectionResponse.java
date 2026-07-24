@@ -9,15 +9,18 @@ import com.yeyamo_mobile.api.catalog_service.infrastructure.persistence.Collecti
 
 public record CollectionResponse(
     UUID id,
-    UUID userId,
+    String userId,
     String title,
     String description,
     boolean isPublic,
     UUID coverAssetId,
     Instant createdAt,
     Instant updatedAt,
-    List<CatalogAssetResponse> places
+    List<CatalogAssetResponse> places,
+    List<CollectionItemResponse> items
 ) {
+    public record CollectionItemResponse(UUID assetId, Instant addedAt, boolean isPriority, String note) {}
+
     public static CollectionResponse from(CollectionEntity collection) {
         return new CollectionResponse(
             collection.getId(),
@@ -28,7 +31,8 @@ public record CollectionResponse(
             collection.getCoverAssetId(),
             collection.getCreatedAt(),
             collection.getUpdatedAt(),
-            null // Pas de lieux pour la liste simple
+            null, // Pas de lieux pour la liste simple
+            null
         );
     }
 
@@ -47,7 +51,11 @@ public record CollectionResponse(
             collection.getCoverAssetId(),
             collection.getCreatedAt(),
             collection.getUpdatedAt(),
-            places
+            places,
+            data.items().stream()
+                    .map(item -> new CollectionItemResponse(item.getAssetId(), item.getAddedAt(),
+                            item.isPriority(), item.getNote()))
+                    .toList()
         );
     }
 }

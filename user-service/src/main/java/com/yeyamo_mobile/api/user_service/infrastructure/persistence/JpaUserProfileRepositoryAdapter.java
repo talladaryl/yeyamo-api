@@ -40,6 +40,11 @@ public class JpaUserProfileRepositoryAdapter implements UserProfileRepository {
         e.setVisibility(p.getVisibility()); e.setStatus(p.getStatus());
         e.setNotificationsEnabled(p.isNotificationsEnabled());
         e.setLocationSharingEnabled(p.isLocationSharingEnabled()); e.setPreferredRegionId(p.getPreferredRegionId());
+        e.setShowActivity(p.isShowActivity()); e.setShowFollowers(p.isShowFollowers());
+        e.setShowFollowing(p.isShowFollowing()); e.setNotifyNewFollowers(p.isNotifyNewFollowers());
+        e.setNotifyFollowRequests(p.isNotifyFollowRequests()); e.setNotifyMentions(p.isNotifyMentions());
+        e.setNotifyActivityUpdates(p.isNotifyActivityUpdates()); e.setAllowSuggestions(p.isAllowSuggestions());
+        e.setAllowMessagesFromStrangers(p.isAllowMessagesFromStrangers());
         e.setCreatedAt(p.getCreatedAt()); e.setUpdatedAt(p.getUpdatedAt()); e.setDeletedAt(p.getDeletedAt());
         e.setVersion(p.getVersion()); return e;
     }
@@ -51,6 +56,11 @@ public class JpaUserProfileRepositoryAdapter implements UserProfileRepository {
         p.setVisibility(e.getVisibility()); p.setStatus(e.getStatus());
         p.setNotificationsEnabled(e.isNotificationsEnabled());
         p.setLocationSharingEnabled(e.isLocationSharingEnabled()); p.setPreferredRegionId(e.getPreferredRegionId());
+        p.setShowActivity(e.isShowActivity()); p.setShowFollowers(e.isShowFollowers());
+        p.setShowFollowing(e.isShowFollowing()); p.setNotifyNewFollowers(e.isNotifyNewFollowers());
+        p.setNotifyFollowRequests(e.isNotifyFollowRequests()); p.setNotifyMentions(e.isNotifyMentions());
+        p.setNotifyActivityUpdates(e.isNotifyActivityUpdates()); p.setAllowSuggestions(e.isAllowSuggestions());
+        p.setAllowMessagesFromStrangers(e.isAllowMessagesFromStrangers());
         p.setCreatedAt(e.getCreatedAt()); p.setUpdatedAt(e.getUpdatedAt()); p.setDeletedAt(e.getDeletedAt());
         p.setVersion(e.getVersion()); return p;
     }

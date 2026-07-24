@@ -1,7 +1,10 @@
 x-java-service-env: &java-service-env
   JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:+UseSerialGC"
-  SPRING_CLOUD_CONFIG_REQUEST_CONNECT_TIMEOUT: "10000"
-  SPRING_CLOUD_CONFIG_REQUEST_READ_TIMEOUT: "30000"
+  # Un `docker compose up --build` démarre plus de vingt JVM. Le Config Server
+  # peut répondre lentement pendant ce pic CPU : laisser assez de temps évite
+  # les ConfigClientFailFastException observées au premier démarrage.
+  SPRING_CLOUD_CONFIG_REQUEST_CONNECT_TIMEOUT: "30000"
+  SPRING_CLOUD_CONFIG_REQUEST_READ_TIMEOUT: "180000"
 
 services:
   # ============================================
@@ -74,9 +77,9 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "cqlsh -e \"CREATE KEYSPACE IF NOT EXISTS yeyamo_messaging WITH replication = {'class':'SimpleStrategy','replication_factor':1};\" && cqlsh -e 'DESCRIBE CLUSTER'"]
       interval: 15s
-      timeout: 10s
+      timeout: 30s
       retries: 20
-      start_period: 40s
+      start_period: 90s
     networks:
       - yeyamo-network
 
@@ -273,6 +276,8 @@ services:
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_SECRET: local-docker-secret-change-me-1234567890
+      MAIL_DELIVERY_ENABLED: "false"
+      MAIL_HEALTH_ENABLED: "false"
     ports:
       - "8082:8082"
     depends_on:

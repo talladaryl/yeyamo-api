@@ -1,23 +1,39 @@
 package com.yeyamo_mobile.api.messaging_service.infrastructure.websocket;
-import java.util.*;import org.springframework.context.annotation.*;import org.springframework.messaging.*;import org.springframework.messaging.simp.config.MessageBrokerRegistry;import org.springframework.messaging.simp.config.ChannelRegistration;import org.springframework.messaging.simp.stomp.*;import org.springframework.messaging.support.ChannelInterceptor;import org.springframework.messaging.support.MessageHeaderAccessor;import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;import org.springframework.security.core.authority.SimpleGrantedAuthority;import org.springframework.security.oauth2.jwt.JwtDecoder;import org.springframework.web.socket.config.annotation.*;
+import java.util.*;import org.springframework.beans.factory.annotation.Qualifier;import org.springframework.beans.factory.annotation.Value;import org.springframework.context.annotation.*;import org.springframework.messaging.*;import org.springframework.messaging.simp.config.MessageBrokerRegistry;import org.springframework.messaging.simp.config.ChannelRegistration;import org.springframework.messaging.simp.stomp.*;import org.springframework.messaging.support.ChannelInterceptor;import org.springframework.messaging.support.MessageHeaderAccessor;import org.springframework.scheduling.TaskScheduler;import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;import org.springframework.security.core.authority.SimpleGrantedAuthority;import org.springframework.security.oauth2.jwt.JwtDecoder;import org.springframework.web.socket.config.annotation.*;
 @Configuration @EnableWebSocketMessageBroker public class WebSocketConfig implements WebSocketMessageBrokerConfigurer{
  private final JwtDecoder decoder;
  private final WebSocketAuthorizationService authorizationService;
  private final WebSocketRateLimiter rateLimiter;
+ private final long clientHeartbeatMs;
+ private final long serverHeartbeatMs;
+ private final String[] allowedOriginPatterns;
+ private final TaskScheduler messageBrokerTaskScheduler;
  
  public WebSocketConfig(JwtDecoder decoder, 
                         WebSocketAuthorizationService authorizationService,
-                        WebSocketRateLimiter rateLimiter){
+                        WebSocketRateLimiter rateLimiter,
+                        @Qualifier("yeyamoStompTaskScheduler") TaskScheduler messageBrokerTaskScheduler,
+                        @Value("${websocket.heartbeat.client-ms:10000}") long clientHeartbeatMs,
+                        @Value("${websocket.heartbeat.server-ms:10000}") long serverHeartbeatMs,
+                        @Value("${websocket.allowed-origin-patterns:http://localhost:*,http://127.0.0.1:*}")
+                        String allowedOriginPatterns){
   this.decoder=decoder;
   this.authorizationService=authorizationService;
   this.rateLimiter=rateLimiter;
+  this.messageBrokerTaskScheduler=messageBrokerTaskScheduler;
+  this.clientHeartbeatMs=positive(clientHeartbeatMs,"websocket.heartbeat.client-ms");
+  this.serverHeartbeatMs=positive(serverHeartbeatMs,"websocket.heartbeat.server-ms");
+  this.allowedOriginPatterns=Arrays.stream(allowedOriginPatterns.split(","))
+   .map(String::trim).filter(value->!value.isBlank()).toArray(String[]::new);
+  if(this.allowedOriginPatterns.length==0)throw new IllegalArgumentException("At least one WebSocket origin is required");
  }
  
- public void registerStompEndpoints(StompEndpointRegistry registry){registry.addEndpoint("/ws/messaging").setAllowedOriginPatterns("*");}
+ public void registerStompEndpoints(StompEndpointRegistry registry){registry.addEndpoint("/ws/messaging").setAllowedOriginPatterns(allowedOriginPatterns);}
  
  public void configureMessageBroker(MessageBrokerRegistry registry){
   registry.enableSimpleBroker("/queue")
-   .setHeartbeatValue(new long[]{10000, 10000}); // 10s heartbeat client/server
+   .setTaskScheduler(messageBrokerTaskScheduler)
+   .setHeartbeatValue(new long[]{serverHeartbeatMs, clientHeartbeatMs});
   registry.setUserDestinationPrefix("/user");
   registry.setApplicationDestinationPrefixes("/app");
  }
@@ -68,5 +84,6 @@ import java.util.*;import org.springframework.context.annotation.*;import org.sp
    }
   });
  }
+ private static long positive(long value,String name){if(value<=0)throw new IllegalArgumentException(name+" must be positive");return value;}
  static final class MessagingException extends RuntimeException{MessagingException(String message){super(message);}}
 }

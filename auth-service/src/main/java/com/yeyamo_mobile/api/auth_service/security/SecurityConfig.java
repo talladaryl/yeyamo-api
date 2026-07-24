@@ -34,7 +34,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/password/forgot",
                                 "/api/v1/auth/password/reset"
                         ).permitAll()
-                        .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

@@ -8,8 +8,9 @@ class JpaCatalogOutboxAdapterTests {
     @Test void writesTheVersionedCatalogEventEnvelope() throws Exception{
         CatalogOutboxEventRepository repository=mock(CatalogOutboxEventRepository.class);ObjectMapper mapper=new ObjectMapper().findAndRegisterModules();
         CatalogAsset asset=CatalogAsset.create(AssetType.DESTINATION,null,"catalog",null,"Cameroon","cameroon",null,null,null,null,null,null,new GeoPoint(4,12));
-        new JpaCatalogOutboxAdapter(repository,mapper).append("catalog.asset.created",asset.getId().toString(),"admin-1","corr-1",Map.of("assetId",asset.getId().toString()));
+        new JpaCatalogOutboxAdapter(repository,mapper).append("catalog.asset.created",asset,"corr-1","admin-1");
         ArgumentCaptor<CatalogOutboxEventEntity> event=ArgumentCaptor.forClass(CatalogOutboxEventEntity.class);verify(repository).save(event.capture());
         var json=mapper.readTree(event.getValue().getPayload());assertEquals(1,json.get("eventVersion").asInt());assertEquals("catalog-service",json.get("producer").asText());assertEquals("corr-1",json.get("correlationId").asText());
+        assertEquals("CatalogAsset",event.getValue().getAggregateType());assertEquals(asset.getId().toString(),event.getValue().getAggregateId());assertEquals(asset.getId().toString(),json.path("payload").path("assetId").asText());
     }
 }
