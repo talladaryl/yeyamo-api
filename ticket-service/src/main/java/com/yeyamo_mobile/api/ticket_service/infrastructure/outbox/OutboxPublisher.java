@@ -59,8 +59,8 @@ public class OutboxPublisher {
     private String mapEventTypeToTopic(String eventType) {
         return switch (eventType) {
             case "payment.authorization.requested" -> "payment.commands";
-            case "TicketsIssued", "TicketCancelled" -> "ticket.events";
-            case "TicketScanned" -> "ticket.scan.events";
+            case "ticket.issued", "TicketCancelled" -> "ticket.events";
+            case "ticket.validated", "ticket.scan.rejected" -> "ticket.scan.events";
             default -> "ticket.events";
         };
     }

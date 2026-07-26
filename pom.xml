@@ -16,6 +16,8 @@
         <module>auth-service</module>
         <module>user-service</module>
         <module>partner-service</module>
+        <module>campaign-service</module>
+        <module>ads-delivery-service</module>
         <module>admin-service</module>
         <module>catalog-service</module>
         <module>ingestion-service</module>

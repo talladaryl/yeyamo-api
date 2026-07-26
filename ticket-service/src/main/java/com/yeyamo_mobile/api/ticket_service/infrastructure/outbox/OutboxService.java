@@ -13,6 +13,9 @@ import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.UUID;
 import java.time.Instant;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 
 @Service
 public class OutboxService {
@@ -27,6 +30,21 @@ public class OutboxService {
         this.objectMapper = objectMapper;
     }
     
+    @Transactional
+    public void publishTicketOrderCreated(String orderId, String partnerId,
+            String eventId, String ticketTypeId, int quantity,
+            BigDecimal amount, String currency) {
+        publishEvent("TicketOrder", orderId, "ticket.order.created", Map.of(
+            "orderId", orderId,
+            "partnerId", partnerId,
+            "eventId", eventId,
+            "ticketTypeId", ticketTypeId,
+            "quantity", quantity,
+            "amount", amount,
+            "currency", currency
+        ));
+    }
+
     @Transactional
     public void publishPaymentRequested(
             String orderId, 
@@ -49,21 +67,24 @@ public class OutboxService {
     
     @Transactional
     public void publishTicketsIssued(
-            String orderId, 
-            String userId, 
+            String orderId,
+            String partnerId,
             String eventId,
-            List<String> ticketIds) {
+            List<String> ticketIds,
+            BigDecimal amount,
+            String currency) {
         
         Map<String, Object> payload = Map.of(
-            "eventType", "TicketsIssued",
             "orderId", orderId,
-            "userId", userId,
+            "partnerId", partnerId,
             "eventId", eventId,
             "ticketIds", ticketIds,
-            "quantity", ticketIds.size()
+            "quantity", ticketIds.size(),
+            "amount", amount,
+            "currency", currency
         );
         
-        publishEvent("TicketOrder", orderId, "TicketsIssued", payload);
+        publishEvent("TicketOrder", orderId, "ticket.issued", payload);
     }
     
     @Transactional
@@ -74,14 +95,22 @@ public class OutboxService {
             String scannerUserId) {
         
         Map<String, Object> payload = Map.of(
-            "eventType", "TicketScanned",
             "ticketId", ticketId,
             "eventId", eventId,
-            "userId", userId,
-            "scannerUserId", scannerUserId
+            "staffId", hashIdentifier(scannerUserId)
         );
         
-        publishEvent("Ticket", ticketId, "TicketScanned", payload);
+        publishEvent("Ticket", ticketId, "ticket.validated", payload);
+    }
+
+    @Transactional
+    public void publishScanRejected(String eventId, String scannerUserId,
+            String result) {
+        publishEvent("TicketEvent", eventId, "ticket.scan.rejected", Map.of(
+            "eventId", eventId,
+            "staffId", hashIdentifier(scannerUserId),
+            "reason", result
+        ));
     }
     
     @Transactional
@@ -124,6 +153,16 @@ public class OutboxService {
         } catch (JsonProcessingException e) {
             logger.error("Failed to serialize event payload", e);
             throw new RuntimeException("Failed to publish event", e);
+        }
+    }
+
+    private String hashIdentifier(String value) {
+        if (value == null) return "anonymous";
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                .digest(value.getBytes(StandardCharsets.UTF_8))).substring(0, 16);
+        } catch (Exception impossible) {
+            throw new IllegalStateException(impossible);
         }
     }
 }

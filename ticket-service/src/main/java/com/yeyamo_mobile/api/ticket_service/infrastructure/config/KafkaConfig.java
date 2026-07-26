@@ -9,7 +9,10 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.kafka.listener.*;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.apache.kafka.common.TopicPartition;
+import org.springframework.util.backoff.ExponentialBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -25,23 +28,31 @@ public class KafkaConfig {
     private String groupId;
     
     @Bean
-    public ConsumerFactory<String, Map<String, Object>> consumerFactory() {
+    public ConsumerFactory<String, String> consumerFactory() {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         
         return new DefaultKafkaConsumerFactory<>(props);
     }
     
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, Map<String, Object>> kafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, Map<String, Object>> factory =
+    public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory(
+            KafkaTemplate<String, String> kafkaTemplate) {
+        ConcurrentKafkaListenerContainerFactory<String, String> factory =
             new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
+        DeadLetterPublishingRecoverer recoverer =
+            new DeadLetterPublishingRecoverer(kafkaTemplate,
+                (record, error) -> new TopicPartition(
+                    record.topic() + ".DLT", record.partition()));
+        ExponentialBackOff backoff = new ExponentialBackOff(500, 2);
+        backoff.setMaxInterval(5_000);
+        backoff.setMaxElapsedTime(15_000);
+        factory.setCommonErrorHandler(new DefaultErrorHandler(recoverer, backoff));
         return factory;
     }
 }

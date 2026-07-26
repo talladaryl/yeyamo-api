@@ -1,11 +1,10 @@
 FROM eclipse-temurin:21-jre-alpine
+RUN addgroup -S spring && adduser -S spring -G spring
 
 WORKDIR /app
 
 COPY target/*.jar app.jar
-
+USER spring
 EXPOSE 8095
-
-ENV JAVA_OPTS="-Xmx512m -Xms256m"
-
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 CMD wget -qO- http://localhost:${SERVER_PORT:-8095}/actuator/health || exit 1
+ENTRYPOINT ["java", "-jar", "app.jar"]

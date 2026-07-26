@@ -5,6 +5,7 @@ import com.yeyamo_mobile.api.campaign_service.application.exception.CampaignServ
 import com.yeyamo_mobile.api.campaign_service.application.port.OutboxPort;
 import com.yeyamo_mobile.api.campaign_service.domain.model.Campaign;
 import com.yeyamo_mobile.api.campaign_service.domain.model.CampaignStatus;
+import com.yeyamo_mobile.api.campaign_service.domain.model.TargetConfiguration;
 import com.yeyamo_mobile.api.campaign_service.domain.port.CampaignRepository;
 import com.yeyamo_mobile.api.campaign_service.domain.port.PartnerValidationPort;
 import com.yeyamo_mobile.api.campaign_service.domain.port.PromotedEntityValidationPort;
@@ -265,10 +266,13 @@ public class CampaignService {
         payload.put("promotedEntityId", campaign.getPromotedEntityId());
         payload.put("billingModel", campaign.getBillingModel().name());
         payload.put("totalBudget", campaign.getTotalBudget());
+        payload.put("dailyBudget", campaign.getDailyBudget());
         payload.put("spentAmount", campaign.getSpentAmount());
         payload.put("currency", campaign.getCurrency());
         payload.put("startAt", campaign.getStartAt().toString());
         payload.put("endAt", campaign.getEndAt().toString());
+        payload.put("targetConfiguration", safeTarget(campaign.getTargetConfiguration()));
+        payload.put("creativeConfiguration", campaign.getCreativeConfiguration());
         
         if (campaign.getApprovedBy() != null) {
             payload.put("approvedBy", campaign.getApprovedBy());
@@ -278,5 +282,26 @@ public class CampaignService {
         }
         
         outbox.append(eventType, campaign.getId(), actorId, correlationId, payload);
+    }
+
+    private Map<String, Object> safeTarget(TargetConfiguration target) {
+        Map<String, Object> safe = new LinkedHashMap<>();
+        safe.put("countryCodes", target.getCountryCodes());
+        safe.put("regionIds", target.getRegionIds());
+        safe.put("cityIds", target.getCityIds());
+        safe.put("districtIds", target.getDistrictIds());
+        safe.put("minimumAge", target.getMinimumAge());
+        safe.put("maximumAge", target.getMaximumAge());
+        safe.put("interestIds", target.getInterestIds());
+        safe.put("categoryIds", target.getCategoryIds());
+        safe.put("languageCodes", target.getLanguageCodes());
+        safe.put("activeDays", target.getActiveDays());
+        safe.put("startHour", target.getStartHour());
+        safe.put("endHour", target.getEndHour());
+        safe.put("frequencyCapPerUserPerDay",
+            target.getFrequencyCapPerUserPerDay());
+        safe.put("frequencyCapPerUserTotal",
+            target.getFrequencyCapPerUserTotal());
+        return safe;
     }
 }

@@ -10,8 +10,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.yeyamo_mobile.api.ads_delivery_service.infrastructure.kafka.AdsOutboxService;
 
 @Service
 public class AdDeliveryService {
@@ -25,6 +27,7 @@ public class AdDeliveryService {
     private final AdDeliveryRecordRepository deliveryRecordRepository;
     private final AdSelectionEngine selectionEngine;
     private final FeatureFlagService featureFlagService;
+    private final AdsOutboxService outbox;
 
     public AdDeliveryService(
             CampaignProjectionRepository campaignRepository,
@@ -32,13 +35,15 @@ public class AdDeliveryService {
             BudgetReservationService budgetService,
             TrackingTokenService tokenService,
             AdDeliveryRecordRepository deliveryRecordRepository,
-            FeatureFlagService featureFlagService) {
+            FeatureFlagService featureFlagService,
+            AdsOutboxService outbox) {
         this.campaignRepository = campaignRepository;
         this.frequencyCapService = frequencyCapService;
         this.budgetService = budgetService;
         this.tokenService = tokenService;
         this.deliveryRecordRepository = deliveryRecordRepository;
         this.featureFlagService = featureFlagService;
+        this.outbox = outbox;
         this.selectionEngine = new AdSelectionEngine();
     }
 
@@ -94,16 +99,40 @@ public class AdDeliveryService {
             return;
         }
 
-        // Record impression
-        AdDeliveryRecord record = AdDeliveryRecord.createImpression(
-            tokenData.deliveryId(),
-            tokenData.campaignId(),
-            tokenData.userId(),
-            request.viewedAt(),
-            request.viewDurationMs()
-        );
+        CampaignProjection campaign = campaignRepository
+            .findById(tokenData.campaignId())
+            .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
+        BigDecimal charge = impressionCharge(campaign);
+        if (!budgetService.reserveBudget(campaign.getCampaignId(), charge,
+                campaign.getTotalBudget(), tokenData.deliveryId())) {
+            throw new IllegalStateException("Campaign budget exhausted");
+        }
 
-        deliveryRecordRepository.save(record);
+        try {
+            AdDeliveryRecord record = AdDeliveryRecord.createImpression(
+                tokenData.deliveryId(),
+                tokenData.campaignId(),
+                tokenData.userId(),
+                request.viewedAt(),
+                request.viewDurationMs()
+            );
+            deliveryRecordRepository.save(record);
+            outbox.append("ad.impression.recorded", campaign.getCampaignId(),
+                tokenData.deliveryId(), Map.of(
+                    "campaignId", campaign.getCampaignId(),
+                    "partnerId", campaign.getPartnerId(),
+                    "anonymousId", outbox.anonymousSubject(
+                        tokenData.userId() == null
+                            ? tokenData.deliveryId() : tokenData.userId()),
+                    "qualified", record.isQualifiedImpression(),
+                    "cost", charge,
+                    "viewDurationMs", request.viewDurationMs()
+                ));
+            budgetService.confirmReservation(tokenData.deliveryId(), charge);
+        } catch (RuntimeException exception) {
+            budgetService.releaseReservation(tokenData.deliveryId());
+            throw exception;
+        }
 
         // Update frequency cap
         if (tokenData.userId() != null) {
@@ -112,6 +141,15 @@ public class AdDeliveryService {
 
         logger.info("Recorded impression for campaign: {}, delivery: {}", 
             tokenData.campaignId(), tokenData.deliveryId());
+    }
+
+    private BigDecimal impressionCharge(CampaignProjection campaign) {
+        return switch (campaign.getBillingModel()) {
+            case "CPM" -> campaign.getBidAmount().divide(
+                BigDecimal.valueOf(1000), 4, java.math.RoundingMode.HALF_UP);
+            case "FIXED_BUDGET" -> BigDecimal.ZERO;
+            default -> BigDecimal.ZERO;
+        };
     }
 
     @Transactional
@@ -138,8 +176,22 @@ public class AdDeliveryService {
             return;
         }
 
-        record.recordClick(request.clickedAt());
-        deliveryRecordRepository.save(record);
+        CampaignProjection campaign = campaignRepository.findById(record.getCampaignId())
+            .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
+        reserveAndRun(campaign, tokenData.deliveryId() + ":click",
+            "CPC".equals(campaign.getBillingModel())
+                ? campaign.getBidAmount() : BigDecimal.ZERO,
+            () -> {
+                record.recordClick(request.clickedAt());
+                deliveryRecordRepository.save(record);
+                outbox.append("ad.click.recorded", campaign.getCampaignId(),
+                    tokenData.deliveryId(), Map.of(
+                        "campaignId", campaign.getCampaignId(),
+                        "partnerId", campaign.getPartnerId(),
+                        "cost", "CPC".equals(campaign.getBillingModel())
+                            ? campaign.getBidAmount() : BigDecimal.ZERO
+                    ));
+            });
 
         logger.info("Recorded click for campaign: {}, delivery: {}", 
             tokenData.campaignId(), tokenData.deliveryId());
@@ -155,11 +207,42 @@ public class AdDeliveryService {
             return;
         }
 
-        record.recordConversion(request.convertedAt(), request.conversionType(), request.conversionValue());
-        deliveryRecordRepository.save(record);
+        CampaignProjection campaign = campaignRepository.findById(record.getCampaignId())
+            .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
+        reserveAndRun(campaign, request.deliveryId() + ":conversion",
+            "CPA".equals(campaign.getBillingModel())
+                ? campaign.getBidAmount() : BigDecimal.ZERO,
+            () -> {
+                record.recordConversion(request.convertedAt(),
+                    request.conversionType(), request.conversionValue());
+                deliveryRecordRepository.save(record);
+                outbox.append("ad.conversion.recorded",
+                    campaign.getCampaignId(), request.deliveryId(), Map.of(
+                        "campaignId", campaign.getCampaignId(),
+                        "partnerId", campaign.getPartnerId(),
+                        "conversionType", request.conversionType(),
+                        "cost", "CPA".equals(campaign.getBillingModel())
+                            ? campaign.getBidAmount() : BigDecimal.ZERO
+                    ));
+            });
 
         logger.info("Recorded conversion for campaign: {}, delivery: {}, type: {}", 
             record.getCampaignId(), request.deliveryId(), request.conversionType());
+    }
+
+    private void reserveAndRun(CampaignProjection campaign, String reservationId,
+            BigDecimal amount, Runnable mutation) {
+        if (!budgetService.reserveBudget(campaign.getCampaignId(), amount,
+                campaign.getTotalBudget(), reservationId)) {
+            throw new IllegalStateException("Campaign budget exhausted");
+        }
+        try {
+            mutation.run();
+            budgetService.confirmReservation(reservationId, amount);
+        } catch (RuntimeException exception) {
+            budgetService.releaseReservation(reservationId);
+            throw exception;
+        }
     }
 
     private AdSelectionContext buildContext(AdSelectionRequest request) {

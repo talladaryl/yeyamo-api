@@ -107,9 +107,11 @@ public class TicketIssuanceService {
         // 7. Publish tickets issued event (via outbox)
         outboxService.publishTicketsIssued(
             orderId.toString(),
-            order.getUserId(),
+            order.getPartnerId(),
             order.getEventId(),
-            tickets.stream().map(TicketEntity::getId).map(UUID::toString).toList()
+            tickets.stream().map(TicketEntity::getId).map(UUID::toString).toList(),
+            order.getTotalAmount(),
+            order.getCurrency()
         );
         
         logger.info("Issued {} tickets for order: {}", tickets.size(), orderId);

@@ -12,4 +12,5 @@ public interface CampaignProjectionRepository {
     Optional<CampaignProjection> findById(String campaignId);
     void save(CampaignProjection projection);
     void updateSpentAmount(String campaignId, java.math.BigDecimal newSpentAmount);
+    void deactivate(String campaignId);
 }

@@ -1,10 +1,16 @@
 x-java-service-env: &java-service-env
-  JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:+UseSerialGC"
+  JAVA_TOOL_OPTIONS: "${JAVA_TOOL_OPTIONS:--Xms64m -Xmx256m -XX:+UseSerialGC}"
   # Un `docker compose up --build` démarre plus de vingt JVM. Le Config Server
   # peut répondre lentement pendant ce pic CPU : laisser assez de temps évite
   # les ConfigClientFailFastException observées au premier démarrage.
   SPRING_CLOUD_CONFIG_REQUEST_CONNECT_TIMEOUT: "30000"
   SPRING_CLOUD_CONFIG_REQUEST_READ_TIMEOUT: "180000"
+
+x-java-limits: &java-limits
+  resources:
+    limits:
+      cpus: "${JAVA_CPU_LIMIT:-1.0}"
+      memory: "${JAVA_MEMORY_LIMIT:-512M}"
 
 services:
   # ============================================
@@ -21,7 +27,8 @@ services:
         yeyamo_place,yeyamo_content,yeyamo_interaction,yeyamo_event,
         yeyamo_booking,yeyamo_payment,yeyamo_notification,yeyamo_moderation,
         yeyamo_referral,yeyamo_gamification,yeyamo_mission,yeyamo_ingestion,
-        yeyamo_feed,yeyamo_media,yeyamo_discovery,yeyamo_recommendation
+        yeyamo_feed,yeyamo_media,yeyamo_discovery,yeyamo_recommendation,
+        yeyamo_campaign,yeyamo_ads,yeyamo_ticket,yeyamo_commerce,yeyamo_analytics
     command: 
       - "postgres"
       - "-c"
@@ -52,7 +59,8 @@ services:
         yeyamo_place,yeyamo_content,yeyamo_interaction,yeyamo_event,
         yeyamo_booking,yeyamo_payment,yeyamo_notification,yeyamo_moderation,
         yeyamo_referral,yeyamo_gamification,yeyamo_mission,yeyamo_ingestion,
-        yeyamo_feed,yeyamo_media,yeyamo_discovery,yeyamo_recommendation
+        yeyamo_feed,yeyamo_media,yeyamo_discovery,yeyamo_recommendation,
+        yeyamo_campaign,yeyamo_ads,yeyamo_ticket,yeyamo_commerce,yeyamo_analytics
     volumes:
       - ./scripts/init-multiple-databases.sh:/init-multiple-databases.sh:ro
     entrypoint: ["bash", "/init-multiple-databases.sh"]
@@ -201,7 +209,8 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health/readiness | grep UP || exit 1"]
       interval: 10s
-      timeout: 5s
+      timeout: 5s 
+      R
       retries: 15
       start_period: 90s
     networks:
@@ -347,6 +356,90 @@ services:
         condition: service_healthy
     networks:
       - yeyamo-network
+
+  campaign-service:
+    build: ./campaign-service
+    deploy: *java-limits
+    environment:
+      <<: *java-service-env
+      SERVER_PORT: "8094"
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME}
+      CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_campaign
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: ${JWT_SECRET}
+    ports: ["8094:8094"]
+    depends_on:
+      postgres-init: {condition: service_completed_successfully}
+      kafka: {condition: service_healthy}
+      registry-service: {condition: service_healthy}
+    networks: [yeyamo-network]
+
+  ads-delivery-service:
+    build: ./ads-delivery-service
+    deploy: *java-limits
+    environment:
+      <<: *java-service-env
+      SERVER_PORT: "8095"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_ads
+      ADS_DB_USERNAME: ${POSTGRES_USER:-postgres}
+      ADS_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_DATA_REDIS_HOST: redis
+      ADS_TOKEN_SECRET: ${ADS_TOKEN_SECRET}
+      JWT_SECRET: ${JWT_SECRET}
+    ports: ["8095:8095"]
+    depends_on:
+      postgres-init: {condition: service_completed_successfully}
+      kafka: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    networks: [yeyamo-network]
+
+  ticket-service:
+    build: ./ticket-service
+    deploy: *java-limits
+    environment:
+      <<: *java-service-env
+      SERVER_PORT: "8098"
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME}
+      CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_ticket
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_CONSUMER_GROUP_ID: ticket-service
+      JWT_SECRET: ${JWT_SECRET}
+      TICKET_QR_KEY_ID: ${TICKET_QR_KEY_ID}
+      TICKET_QR_PRIVATE_KEY_BASE64: ${TICKET_QR_PRIVATE_KEY_BASE64}
+      TICKET_QR_PUBLIC_KEY_BASE64: ${TICKET_QR_PUBLIC_KEY_BASE64}
+    ports: ["8098:8098"]
+    depends_on:
+      postgres-init: {condition: service_completed_successfully}
+      kafka: {condition: service_healthy}
+    networks: [yeyamo-network]
+
+  commerce-service:
+    build: ./commerce-service
+    deploy: *java-limits
+    environment:
+      <<: *java-service-env
+      SERVER_PORT: "8090"
+      CONFIG_SERVER_URL: http://config-server:8080
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_commerce
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_CONSUMER_GROUP_ID: commerce-service
+      JWT_SECRET: ${JWT_SECRET}
+    ports: ["8090:8090"]
+    depends_on:
+      postgres-init: {condition: service_completed_successfully}
+      kafka: {condition: service_healthy}
+    networks: [yeyamo-network]
 
   admin-service:
     build: ./admin-service
@@ -856,6 +949,7 @@ services:
 
   analytics-service:
     build: ./analytics-service
+    deploy: *java-limits
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -863,11 +957,19 @@ services:
       CONFIG_SERVER_PASSWORD: admin123
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       OPENSEARCH_URIS: http://opensearch:9200
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_analytics
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_SECRET: local-docker-secret-change-me-1234567890
     ports:
       - "8097:8097"
     depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
       opensearch:
         condition: service_healthy
       kafka:

@@ -57,6 +57,16 @@ public class CampaignProjectionRepositoryAdapter implements CampaignProjectionRe
         });
     }
 
+    @Override
+    @Transactional
+    public void deactivate(String campaignId) {
+        springRepository.findById(campaignId).ifPresent(entity -> {
+            entity.setStatus("INACTIVE");
+            entity.setUpdatedAt(Instant.now());
+            springRepository.save(entity);
+        });
+    }
+
     private CampaignProjection toDomain(CampaignProjectionEntity entity) {
         return CampaignProjection.builder()
             .campaignId(entity.getCampaignId())

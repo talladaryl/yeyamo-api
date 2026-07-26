@@ -34,7 +34,7 @@ public class OutboxPortAdapter implements OutboxPort {
         Map<String, Object> envelope = new LinkedHashMap<>();
         envelope.put("eventId", event.getId().toString());
         envelope.put("eventType", eventType);
-        envelope.put("eventVersion", "1.0");
+        envelope.put("eventVersion", 1);
         envelope.put("occurredAt", event.getOccurredAt().toString());
         envelope.put("producer", "campaign-service");
         envelope.put("aggregateId", aggregateId.toString());

@@ -66,7 +66,7 @@ public class ScanController {
             @PathVariable String eventId,
             Authentication auth) {
         
-        ScanService.ScanStatistics stats = scanService.getScanStatistics(eventId);
+        ScanService.ScanStatistics stats = scanService.getScanStatistics(eventId, auth.getName());
         
         return ResponseEntity.ok(new ScanStatisticsDto(
             stats.eventId(),

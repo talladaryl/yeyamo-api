@@ -126,6 +126,9 @@ public class OrderService {
         // 9. Update order status
         order.setStatus(TicketOrderStatus.AWAITING_PAYMENT);
         orderRepository.save(order);
+        outboxService.publishTicketOrderCreated(order.getId().toString(),
+            order.getPartnerId(), order.getEventId(), ticketType.getId().toString(),
+            hold.getQuantity(), order.getTotalAmount(), order.getCurrency());
         
         // 10. Publish payment request event (via outbox)
         outboxService.publishPaymentRequested(

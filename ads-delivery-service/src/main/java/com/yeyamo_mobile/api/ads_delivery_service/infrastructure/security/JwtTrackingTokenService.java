@@ -9,9 +9,11 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Base64;
+import jakarta.annotation.PostConstruct;
 
 /**
  * JWT-like tracking token service with HMAC signature
@@ -26,6 +28,14 @@ public class JwtTrackingTokenService implements TrackingTokenService {
 
     @Value("${yeyamo.ads.tracking-token.secret}")
     private String secret;
+
+    @PostConstruct
+    void validateSecret() {
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException(
+                "ADS_TOKEN_SECRET must contain at least 32 bytes");
+        }
+    }
 
     @Override
     public String generateImpressionToken(String deliveryId, String campaignId, String userId, Instant expiresAt) {
@@ -84,7 +94,7 @@ public class JwtTrackingTokenService implements TrackingTokenService {
 
             // Check expiration
             long expiresAt = Long.parseLong(parts[4]);
-            if (Instant.now().getEpochSecond() > expiresAt) {
+            if (Instant.now().getEpochSecond() >= expiresAt) {
                 return false;
             }
 
@@ -93,7 +103,9 @@ public class JwtTrackingTokenService implements TrackingTokenService {
             String expectedSignature = generateSignature(payload);
             String actualSignature = parts[5];
 
-            return expectedSignature.equals(actualSignature);
+            return MessageDigest.isEqual(
+                expectedSignature.getBytes(StandardCharsets.US_ASCII),
+                actualSignature.getBytes(StandardCharsets.US_ASCII));
 
         } catch (Exception e) {
             return false;

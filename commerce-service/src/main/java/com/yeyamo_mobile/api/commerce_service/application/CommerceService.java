@@ -98,6 +98,17 @@ public class CommerceService {
 
         saveLines(command, order);
         if (promotion != null) savePromotionUsage(promotion, order);
+        if (promotion != null) {
+            Map<String, Object> promotionPayload = new LinkedHashMap<>();
+            promotionPayload.put("orderId", order.id);
+            promotionPayload.put("partnerId", order.partnerId);
+            promotionPayload.put("sourceEntityId", order.sourceEntityId);
+            promotionPayload.put("promotionId", promotion.id);
+            promotionPayload.put("amount", order.discountAmount);
+            promotionPayload.put("currency", order.currency);
+            outbox.append("commerce.events", "promotion.applied",
+                order.id.toString(), idempotencyKey, promotionPayload);
+        }
         requestPayment(order, idempotencyKey);
         return order;
     }
@@ -118,6 +129,21 @@ public class CommerceService {
         append(order, LedgerType.PLATFORM_COMMISSION,
             order.commissionAmount.negate(), "commission:" + orderId);
         issueInvoice(order);
+        Map<String, Object> eventPayload = new LinkedHashMap<>();
+        eventPayload.put("orderId", order.id);
+        eventPayload.put("partnerId", order.partnerId);
+        eventPayload.put("sourceEntityId", order.sourceEntityId);
+        eventPayload.put("amount", order.totalAmount);
+        eventPayload.put("currency", order.currency);
+        eventPayload.put("paymentId", paymentId == null ? "" : paymentId);
+        outbox.append("commerce.events", "payment.confirmed",
+            order.id.toString(), order.id.toString(), eventPayload);
+        Map<String, Object> commissionPayload = new LinkedHashMap<>(eventPayload);
+        commissionPayload.put("amount", order.commissionAmount);
+        commissionPayload.put("ruleVersion",
+            order.commissionRuleVersion == null ? 0 : order.commissionRuleVersion);
+        outbox.append("commerce.events", "commission.calculated",
+            order.id.toString(), order.id.toString(), commissionPayload);
         return order;
     }
 
@@ -224,7 +250,17 @@ public class CommerceService {
             entry.occurredAt = Instant.now();
             entry.createdBy = actor;
             entry.reason = reason;
-            return ledger.save(entry);
+            LedgerEntry saved = ledger.save(entry);
+            if (type == LedgerType.PAYOUT) {
+                outbox.append("commerce.events", "settlement.completed",
+                    partner, key, Map.of(
+                        "partnerId", partner,
+                        "amount", amount,
+                        "currency", currency,
+                        "reference", saved.reference
+                    ));
+            }
+            return saved;
         });
     }
 

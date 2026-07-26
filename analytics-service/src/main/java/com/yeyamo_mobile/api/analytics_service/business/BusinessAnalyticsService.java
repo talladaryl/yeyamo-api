@@ -186,8 +186,12 @@ public class BusinessAnalyticsService {
             case "ad.conversion.recorded" -> row.conversions++;
             case "campaign.activated" -> row.budget = decimal(payload, "budget");
             case "campaign.budget.exhausted" -> row.spend = row.spend.add(amount);
-            case "ticket.issued" ->
+            case "ticket.issued" -> {
                 row.ticketsSold += Math.max(1, payload.path("quantity").asLong(1));
+                // Issuance only happens after a server-confirmed payment. Using this
+                // ticket-domain event keeps the revenue attributed to the event.
+                row.revenue = row.revenue.add(amount);
+            }
             case "ticket.validated" -> row.scans++;
             case "ticket.scan.rejected" -> row.rejectedScans++;
             case "ticket.refunded" -> row.refunds = row.refunds.add(amount);

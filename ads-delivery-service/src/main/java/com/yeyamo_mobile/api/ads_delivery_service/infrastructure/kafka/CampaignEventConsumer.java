@@ -1,117 +1,124 @@
 package com.yeyamo_mobile.api.ads_delivery_service.infrastructure.kafka;
 
-import com.yeyamo_mobile.api.ads_delivery_service.domain.model.CampaignProjection;
-import com.yeyamo_mobile.api.ads_delivery_service.domain.model.PlacementType;
-import com.yeyamo_mobile.api.ads_delivery_service.domain.model.PromotedEntityType;
+import com.fasterxml.jackson.databind.*;
+import com.yeyamo_mobile.api.ads_delivery_service.domain.model.*;
 import com.yeyamo_mobile.api.ads_delivery_service.domain.port.CampaignProjectionRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Component
-@ConditionalOnProperty(name = "yeyamo.kafka.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "yeyamo.kafka.enabled",
+    havingValue = "true", matchIfMissing = true)
 public class CampaignEventConsumer {
+    private final CampaignProjectionRepository campaigns;
+    private final ProcessedCampaignEventRepository processed;
+    private final ObjectMapper json;
 
-    private static final Logger logger = LoggerFactory.getLogger(CampaignEventConsumer.class);
-    
-    private final CampaignProjectionRepository campaignRepository;
-
-    public CampaignEventConsumer(CampaignProjectionRepository campaignRepository) {
-        this.campaignRepository = campaignRepository;
+    public CampaignEventConsumer(CampaignProjectionRepository campaigns,
+            ProcessedCampaignEventRepository processed, ObjectMapper json) {
+        this.campaigns = campaigns;
+        this.processed = processed;
+        this.json = json;
     }
 
-    @KafkaListener(topics = "${yeyamo.kafka.topics.campaign-events}", groupId = "${spring.kafka.consumer.group-id}")
-    public void handleCampaignEvent(Map<String, Object> event) {
-        try {
-            String eventType = (String) event.get("eventType");
-            String campaignId = (String) event.get("campaignId");
-
-            logger.info("Received campaign event: {} for campaign: {}", eventType, campaignId);
-
-            switch (eventType) {
-                case "CampaignActivated":
-                    handleCampaignActivated(event);
-                    break;
-                case "CampaignPaused":
-                case "CampaignCancelled":
-                case "CampaignBudgetExhausted":
-                case "CampaignCompleted":
-                    handleCampaignDeactivated(campaignId);
-                    break;
-                default:
-                    logger.debug("Ignoring event type: {}", eventType);
-            }
-        } catch (Exception e) {
-            logger.error("Error processing campaign event", e);
+    @KafkaListener(topics = "${yeyamo.kafka.topics.campaign-events:campaign-events}",
+        groupId = "${spring.kafka.consumer.group-id:ads-delivery-service}")
+    @Transactional
+    public void handleCampaignEvent(String raw) throws Exception {
+        JsonNode root = json.readTree(raw);
+        UUID eventId = UUID.fromString(required(root, "eventId"));
+        if (processed.existsById(eventId)) return;
+        if (!validVersion(root.path("eventVersion"))) {
+            throw new IllegalArgumentException("Unsupported campaign event version");
         }
+        String eventType = required(root, "eventType");
+        JsonNode payload = root.path("payload");
+        if (!payload.isObject()) throw new IllegalArgumentException("payload is required");
+
+        switch (eventType) {
+            case "campaign.activated", "campaign.resumed", "campaign.updated" ->
+                activate(payload, root.path("occurredAt").asText());
+            case "campaign.paused", "campaign.cancelled",
+                 "campaign.budget.exhausted", "campaign.completed" ->
+                campaigns.deactivate(required(payload, "campaignId"));
+            default -> { }
+        }
+        processed.save(new ProcessedCampaignEvent(eventId, eventType));
     }
 
-    private void handleCampaignActivated(Map<String, Object> event) {
-        String campaignId = (String) event.get("campaignId");
-        
-        // Build projection from event
+    private void activate(JsonNode payload, String occurredAt) throws Exception {
+        JsonNode target = payload.path("targetConfiguration");
+        JsonNode creative = payload.path("creativeConfiguration");
+        BigDecimal dailyBudget = decimal(payload, "dailyBudget",
+            decimal(payload, "totalBudget", BigDecimal.ZERO));
         CampaignProjection projection = CampaignProjection.builder()
-            .campaignId(campaignId)
-            .partnerId((String) event.get("partnerId"))
-            .name((String) event.get("name"))
-            .objective((String) event.get("objective"))
-            .promotedEntityType(PromotedEntityType.valueOf((String) event.get("promotedEntityType")))
-            .promotedEntityId((String) event.get("promotedEntityId"))
-            .billingModel((String) event.get("billingModel"))
-            .bidAmount(new BigDecimal((String) event.get("bidAmount")))
-            .totalBudget(new BigDecimal((String) event.get("totalBudget")))
-            .dailyBudget(new BigDecimal((String) event.get("dailyBudget")))
-            .spentAmount(BigDecimal.ZERO)
-            .currency((String) event.get("currency"))
-            .startAt(Instant.parse((String) event.get("startAt")))
-            .endAt(Instant.parse((String) event.get("endAt")))
-            .eligiblePlacements(parsePlacements(event))
-            .targetCountries(parseStringList(event, "targetCountries"))
-            .targetRegions(parseStringList(event, "targetRegions"))
-            .targetCities(parseStringList(event, "targetCities"))
-            .targetInterests(parseStringList(event, "targetInterests"))
-            .targetCategories(parseStringList(event, "targetCategories"))
-            .targetLanguages(parseStringList(event, "targetLanguages"))
-            .creativeJson((String) event.get("creativeJson"))
-            .qualityScore(50) // Default quality score
-            .createdAt(Instant.now())
+            .campaignId(required(payload, "campaignId"))
+            .partnerId(required(payload, "partnerId"))
+            .name(required(payload, "name"))
+            .objective(required(payload, "objective"))
+            .promotedEntityType(PromotedEntityType.valueOf(
+                required(payload, "promotedEntityType")))
+            .promotedEntityId(required(payload, "promotedEntityId"))
+            .billingModel(required(payload, "billingModel"))
+            .bidAmount(decimal(payload, "bidAmount", BigDecimal.ONE))
+            .totalBudget(decimal(payload, "totalBudget", BigDecimal.ZERO))
+            .dailyBudget(dailyBudget)
+            .spentAmount(decimal(payload, "spentAmount", BigDecimal.ZERO))
+            .currency(required(payload, "currency"))
+            .startAt(Instant.parse(required(payload, "startAt")))
+            .endAt(Instant.parse(required(payload, "endAt")))
+            .eligiblePlacements(enumList(payload.path("eligiblePlacements")))
+            .targetCountries(strings(target.path("countryCodes")))
+            .targetRegions(strings(target.path("regionIds")))
+            .targetCities(strings(target.path("cityIds")))
+            .targetInterests(strings(target.path("interestIds")))
+            .targetCategories(strings(target.path("categoryIds")))
+            .minAge(text(target, "minimumAge"))
+            .maxAge(text(target, "maximumAge"))
+            .targetLanguages(strings(target.path("languageCodes")))
+            .creativeJson(creative.isObject() ? json.writeValueAsString(creative) : "{}")
+            .qualityScore(50)
+            .createdAt(Instant.parse(occurredAt))
             .build();
-
-        campaignRepository.save(projection);
-        
-        logger.info("Saved campaign projection for campaign: {}", campaignId);
+        campaigns.save(projection);
     }
 
-    private void handleCampaignDeactivated(String campaignId) {
-        // In a real implementation, we would update the status or delete the projection
-        // For now, just log
-        logger.info("Campaign deactivated: {}", campaignId);
+    private boolean validVersion(JsonNode version) {
+        return version.isInt() && version.asInt() == 1
+            || version.isTextual()
+                && ("1".equals(version.asText()) || "1.0".equals(version.asText()));
     }
 
-    @SuppressWarnings("unchecked")
-    private List<PlacementType> parsePlacements(Map<String, Object> event) {
-        Object placements = event.get("eligiblePlacements");
-        if (placements instanceof List) {
-            return ((List<String>) placements).stream()
-                .map(PlacementType::valueOf)
-                .toList();
-        }
-        return List.of();
+    private String required(JsonNode node, String field) {
+        String value = node.path(field).asText();
+        if (value.isBlank()) throw new IllegalArgumentException(field + " is required");
+        return value;
     }
 
-    @SuppressWarnings("unchecked")
-    private List<String> parseStringList(Map<String, Object> event, String key) {
-        Object value = event.get(key);
-        if (value instanceof List) {
-            return (List<String>) value;
-        }
-        return List.of();
+    private String text(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        return value == null || value.isNull() ? null : value.asText();
+    }
+
+    private BigDecimal decimal(JsonNode node, String field, BigDecimal fallback) {
+        JsonNode value = node.get(field);
+        return value == null || value.isNull() ? fallback : value.decimalValue();
+    }
+
+    private List<String> strings(JsonNode array) {
+        if (!array.isArray()) return List.of();
+        List<String> values = new ArrayList<>();
+        array.forEach(value -> values.add(value.asText()));
+        return values;
+    }
+
+    private List<PlacementType> enumList(JsonNode array) {
+        return strings(array).stream().map(PlacementType::valueOf).toList();
     }
 }

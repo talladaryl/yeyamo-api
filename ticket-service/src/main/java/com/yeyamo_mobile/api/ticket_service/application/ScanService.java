@@ -4,6 +4,7 @@ import com.yeyamo_mobile.api.ticket_service.domain.model.ScanResult;
 import com.yeyamo_mobile.api.ticket_service.domain.model.TicketStatus;
 import com.yeyamo_mobile.api.ticket_service.infrastructure.crypto.QrTokenService;
 import com.yeyamo_mobile.api.ticket_service.infrastructure.persistence.*;
+import com.yeyamo_mobile.api.ticket_service.infrastructure.outbox.OutboxService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -26,18 +27,21 @@ public class ScanService {
     private final SpringTicketScanRepository scanRepository;
     private final SpringEventStaffAssignmentRepository staffRepository;
     private final SpringTicketTypeRepository ticketTypeRepository;
+    private final OutboxService outbox;
     
     public ScanService(
             QrTokenService qrTokenService,
             SpringTicketRepository ticketRepository,
             SpringTicketScanRepository scanRepository,
             SpringEventStaffAssignmentRepository staffRepository,
-            SpringTicketTypeRepository ticketTypeRepository) {
+            SpringTicketTypeRepository ticketTypeRepository,
+            OutboxService outbox) {
         this.qrTokenService = qrTokenService;
         this.ticketRepository = ticketRepository;
         this.scanRepository = scanRepository;
         this.staffRepository = staffRepository;
         this.ticketTypeRepository = ticketTypeRepository;
+        this.outbox = outbox;
     }
     
     /**
@@ -129,6 +133,8 @@ public class ScanService {
         // 8. Record successful scan
         TicketScanEntity scan = createScanRecord(request, ticket, ScanResult.VALID, null);
         scanRepository.save(scan);
+        outbox.publishTicketScanned(ticket.getId().toString(), ticket.getEventId(),
+            ticket.getOwnerUserId(), request.scannerUserId());
         
         logger.info("Ticket scanned successfully: {} for event: {}", ticketId, request.eventId());
         
@@ -140,7 +146,10 @@ public class ScanService {
      * Get scan statistics for event
      */
     @Transactional(readOnly = true)
-    public ScanStatistics getScanStatistics(String eventId) {
+    public ScanStatistics getScanStatistics(String eventId, String requestingUserId) {
+        if (!isStaffAuthorized(requestingUserId, eventId)) {
+            throw new SecurityException("Staff member is not assigned to this event");
+        }
         long validScans = scanRepository.countByEventIdAndResult(eventId, ScanResult.VALID);
         long alreadyUsed = scanRepository.countByEventIdAndResult(eventId, ScanResult.ALREADY_USED);
         long invalid = scanRepository.countByEventIdAndResult(eventId, ScanResult.INVALID);
@@ -194,6 +203,8 @@ public class ScanService {
         
         TicketScanEntity scan = createScanRecord(request, ticket, result, reason);
         scanRepository.save(scan);
+        outbox.publishScanRejected(request.eventId(), request.scannerUserId(),
+            result.name());
         
         logger.warn("Ticket scan failed: {} for event: {} - Reason: {}", 
             result, request.eventId(), reason);
