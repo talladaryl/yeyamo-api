@@ -1,0 +1,3 @@
+package com.yeyamo_mobile.api.partner_service.infrastructure.staff;
+import jakarta.persistence.*;import java.time.*;import java.util.*;
+@Entity @Table(name="partner_roles")public class PartnerRoleEntity{@Id public UUID id;@Column(name="partner_id")public UUID partnerId;public String code;public String name;@Column(name="system_role")public boolean systemRole;public String permissions;@Column(name="created_at")public Instant createdAt;@Column(name="updated_at")public Instant updatedAt;@PrePersist void c(){id=id==null?UUID.randomUUID():id;createdAt=updatedAt=Instant.now();}@PreUpdate void u(){updatedAt=Instant.now();}public Set<String>permissionSet(){return permissions==null||permissions.isBlank()?Set.of():Set.of(permissions.split(","));}}

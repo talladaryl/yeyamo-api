@@ -1,0 +1,3 @@
+package com.yeyamo_mobile.api.commerce_service.messaging;
+import jakarta.persistence.*;import java.time.*;import java.util.*;
+@Entity @Table(name="commerce_outbox")public class CommerceOutbox{@Id public UUID id;@Column(name="target_topic")public String targetTopic;@Column(name="event_type")public String eventType;@Column(name="aggregate_id")public String aggregateId;@Column(name="correlation_id")public String correlationId;public String payload;@Column(name="occurred_at")public Instant occurredAt;@Column(name="published_at")public Instant publishedAt;public int attempts;@Column(name="last_error")public String lastError;}

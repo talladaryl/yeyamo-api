@@ -1,0 +1,3 @@
+package com.yeyamo_mobile.api.commerce_service.persistence;
+import jakarta.persistence.*;import java.math.*;import java.time.*;import java.util.*;
+@Entity @Table(name="commerce_invoices")public class Invoice{@Id public UUID id;@Column(name="order_id")public UUID orderId;@Column(name="invoice_number")public String invoiceNumber;public String status;public BigDecimal subtotal;@Column(name="tax_amount")public BigDecimal taxAmount;@Column(name="total_amount")public BigDecimal totalAmount;public String currency;@Column(name="billing_snapshot")public String billingSnapshot;@Column(name="issued_at")public Instant issuedAt;@Column(name="voided_at")public Instant voidedAt;}

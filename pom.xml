@@ -32,6 +32,8 @@
         <module>referral-service</module>
         <module>booking-service</module>
         <module>payment-service</module>
+        <module>commerce-service</module>
+        <module>ticket-service</module>
         <module>event-service</module>
         <module>analytics-service</module>
         <module>place-service</module>

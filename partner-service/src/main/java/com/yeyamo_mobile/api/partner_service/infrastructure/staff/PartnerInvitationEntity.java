@@ -1,0 +1,3 @@
+package com.yeyamo_mobile.api.partner_service.infrastructure.staff;
+import jakarta.persistence.*;import java.time.*;import java.util.*;
+@Entity @Table(name="partner_invitations")public class PartnerInvitationEntity{@Id public UUID id;@Column(name="partner_id")public UUID partnerId;public String contact;@Column(name="role_id")public UUID roleId;@Column(name="token_hash")public String tokenHash;@Column(name="expires_at")public Instant expiresAt;public String status;@Column(name="invited_by")public String invitedBy;@Column(name="created_at")public Instant createdAt;@Column(name="accepted_at")public Instant acceptedAt;}

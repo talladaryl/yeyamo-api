@@ -1,0 +1,3 @@
+package com.yeyamo_mobile.api.commerce_service.persistence;
+import org.springframework.data.jpa.repository.*;import org.springframework.data.repository.query.*;import java.time.*;import java.util.*;import static com.yeyamo_mobile.api.commerce_service.domain.CommerceTypes.*;
+public interface CommissionRepository extends JpaRepository<CommissionRule,UUID>{@Query("select r from CommissionRule r where r.productType=:type and r.status='ACTIVE' and r.effectiveFrom<=:now and (r.effectiveUntil is null or r.effectiveUntil>:now) and (r.partnerId=:partner or r.partnerId is null) order by r.ruleVersion desc")List<CommissionRule>active(@Param("partner")String partner,@Param("type")ProductType type,@Param("now")Instant now);}

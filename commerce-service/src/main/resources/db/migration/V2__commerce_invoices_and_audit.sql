@@ -1,0 +1,3 @@
+CREATE TABLE commerce_invoices(id UUID PRIMARY KEY,order_id UUID NOT NULL UNIQUE REFERENCES commerce_orders(id),invoice_number VARCHAR(80) NOT NULL UNIQUE,status VARCHAR(30) NOT NULL,subtotal NUMERIC(19,4) NOT NULL,tax_amount NUMERIC(19,4) NOT NULL,total_amount NUMERIC(19,4) NOT NULL,currency VARCHAR(3) NOT NULL,billing_snapshot TEXT NOT NULL,issued_at TIMESTAMPTZ NOT NULL,voided_at TIMESTAMPTZ);
+CREATE TABLE commerce_audit(id UUID PRIMARY KEY,actor_id VARCHAR(255) NOT NULL,action VARCHAR(100) NOT NULL,entity_type VARCHAR(80) NOT NULL,entity_id VARCHAR(255) NOT NULL,details TEXT,occurred_at TIMESTAMPTZ NOT NULL);
+CREATE INDEX idx_commerce_audit_entity ON commerce_audit(entity_type,entity_id,occurred_at);

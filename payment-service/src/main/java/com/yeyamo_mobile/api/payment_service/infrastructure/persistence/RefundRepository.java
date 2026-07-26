@@ -1,3 +1,3 @@
 package com.yeyamo_mobile.api.payment_service.infrastructure.persistence;
-import java.util.*;import org.springframework.data.jpa.repository.JpaRepository;
-public interface RefundRepository extends JpaRepository<RefundEntity,UUID>{Optional<RefundEntity>findByIdempotencyKey(String key);Optional<RefundEntity>findByProviderRefundId(String id);List<RefundEntity>findByPaymentIdOrderByCreatedAtDesc(UUID payment);}
+import java.util.*;import java.math.*;import org.springframework.data.jpa.repository.*;import org.springframework.data.repository.query.*;
+public interface RefundRepository extends JpaRepository<RefundEntity,UUID>{Optional<RefundEntity>findByIdempotencyKey(String key);Optional<RefundEntity>findByProviderRefundId(String id);List<RefundEntity>findByPaymentIdOrderByCreatedAtDesc(UUID payment);@Query("select coalesce(sum(r.amount),0) from RefundEntity r where r.payment.id=:payment and r.status='SUCCEEDED'")BigDecimal succeededAmount(@Param("payment")UUID payment);}

@@ -1,0 +1,3 @@
+package com.yeyamo_mobile.api.partner_service.infrastructure.staff;
+import jakarta.persistence.*;import java.time.*;import java.util.*;
+@Entity @Table(name="partner_billing_preferences")public class PartnerBillingPreferences{@Id @Column(name="partner_id")public UUID partnerId;@Column(name="invoice_email")public String invoiceEmail;@Column(name="billing_address")public String billingAddress;@Column(name="tax_identifier")public String taxIdentifier;@Column(name="purchase_order_required")public boolean purchaseOrderRequired;@Column(name="updated_at")public Instant updatedAt;@PrePersist@PreUpdate void touch(){updatedAt=Instant.now();}}

@@ -1,0 +1,16 @@
+package com.yeyamo_mobile.api.commerce_service.interfaces;
+import com.yeyamo_mobile.api.commerce_service.application.*;import com.yeyamo_mobile.api.commerce_service.persistence.*;import jakarta.validation.*;import jakarta.validation.constraints.*;import org.springframework.web.bind.annotation.*;import org.springframework.security.core.*;import java.math.*;import java.util.*;import static com.yeyamo_mobile.api.commerce_service.domain.CommerceTypes.*;
+@RestController @RequestMapping("/api/v1/commerce")public class CommerceController{private final CommerceService service;public CommerceController(CommerceService s){service=s;}
+ public record LineRequest(@NotBlank String productId,@NotBlank String description,@Min(1)int quantity,@NotNull@DecimalMin("0")BigDecimal unitPrice){}
+ public record CreateRequest(@NotBlank String partnerId,@NotBlank String sourceEntityId,@NotNull ProductType productType,@Pattern(regexp="[A-Z]{3}")String currency,@NotEmpty List<@Valid LineRequest>lines,String promotionCode,@DecimalMin("0")BigDecimal tax,@DecimalMin("0")BigDecimal serviceFee){}
+ @PostMapping("/orders")public CommerceOrder create(@Valid@RequestBody CreateRequest r,@RequestHeader("Idempotency-Key")String key,Authentication a){return service.create(new CommerceService.Create(a.getName(),r.partnerId(),r.sourceEntityId(),r.productType(),r.currency(),r.lines().stream().map(x->new CommerceService.Line(x.productId(),x.description(),x.quantity(),x.unitPrice())).toList(),r.promotionCode(),r.tax(),r.serviceFee()),key);}
+ @GetMapping("/orders/me")public List<CommerceOrder>mine(Authentication a){return service.mine(a.getName());}
+ public record RefundRequest(@NotNull@DecimalMin("0.01")BigDecimal amount,@NotBlank String reason){}
+ @PostMapping("/orders/{orderId}/refunds")public CommerceRefund refund(@PathVariable UUID orderId,@Valid@RequestBody RefundRequest r,@RequestHeader("Idempotency-Key")String key,Authentication a){return service.refund(orderId,a.getName(),r.amount(),key,r.reason());}
+ @GetMapping("/admin/ledger/{partnerId}")public List<LedgerEntry>ledger(@PathVariable String partnerId){return service.ledger(partnerId);}
+ @GetMapping("/admin/ledger/{partnerId}/balance/{currency}")public Map<String,Object>balance(@PathVariable String partnerId,@PathVariable String currency){return Map.of("partnerId",partnerId,"currency",currency,"balance",service.balance(partnerId,currency));}
+ public record AdjustmentRequest(UUID orderId,@NotNull BigDecimal amount,@Pattern(regexp="[A-Z]{3}")String currency,@NotBlank String reason){}
+ @PostMapping("/admin/ledger/{partnerId}/adjustments")public LedgerEntry adjustment(@PathVariable String partnerId,@Valid@RequestBody AdjustmentRequest r,@RequestHeader("Idempotency-Key")String key,Authentication a){return service.adjustment(partnerId,r.orderId(),r.amount(),r.currency(),key,a.getName(),r.reason());}
+ public record MovementRequest(UUID orderId,@NotNull LedgerType type,@NotNull BigDecimal amount,@Pattern(regexp="[A-Z]{3}")String currency,@NotBlank String reason){}
+ @PostMapping("/admin/ledger/{partnerId}/movements")public LedgerEntry movement(@PathVariable String partnerId,@Valid@RequestBody MovementRequest r,@RequestHeader("Idempotency-Key")String key,Authentication a){return service.movement(partnerId,r.orderId(),r.type(),r.amount(),r.currency(),key,a.getName(),r.reason());}
+}
