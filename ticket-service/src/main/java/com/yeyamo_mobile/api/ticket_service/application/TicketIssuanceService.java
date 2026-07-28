@@ -145,6 +145,20 @@ public class TicketIssuanceService {
     public List<TicketEntity> getUserTickets(String userId) {
         return ticketRepository.findByOwnerUserIdOrderByCreatedAtDesc(userId);
     }
+
+    @Transactional(readOnly = true)
+    public List<TicketEntity> getUserTickets(String userId, TicketStatus status) {
+        return status == null ? getUserTickets(userId)
+            : ticketRepository.findByOwnerUserIdAndStatus(userId, status);
+    }
+
+    @Transactional(readOnly = true)
+    public TicketEntity getUserTicket(UUID ticketId, String userId) {
+        TicketEntity ticket = ticketRepository.findById(ticketId)
+            .orElseThrow(() -> new IllegalArgumentException("Ticket not found: " + ticketId));
+        if (!ticket.getOwnerUserId().equals(userId)) throw new SecurityException("Ticket does not belong to user");
+        return ticket;
+    }
     
     /**
      * Get valid tickets for user

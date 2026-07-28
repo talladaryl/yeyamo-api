@@ -141,8 +141,10 @@ public class UserTicketController {
     
     @GetMapping("/my-tickets")
     @Operation(summary = "Get user tickets")
-    public ResponseEntity<List<TicketSummary>> getMyTickets(Authentication auth) {
-        List<TicketEntity> tickets = ticketIssuanceService.getUserTickets(auth.getName());
+    public ResponseEntity<List<TicketSummary>> getMyTickets(
+            @RequestParam(required = false) com.yeyamo_mobile.api.ticket_service.domain.model.TicketStatus status,
+            Authentication auth) {
+        List<TicketEntity> tickets = ticketIssuanceService.getUserTickets(auth.getName(), status);
         
         List<TicketSummary> response = tickets.stream()
             .map(t -> new TicketSummary(
@@ -156,6 +158,16 @@ public class UserTicketController {
             .toList();
         
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{ticketId}")
+    @Operation(summary = "Get owned ticket details")
+    public ResponseEntity<TicketDetailResponse> getTicket(@PathVariable UUID ticketId, Authentication auth) {
+        TicketEntity ticket = ticketIssuanceService.getUserTicket(ticketId, auth.getName());
+        return ResponseEntity.ok(new TicketDetailResponse(ticket.getId(), ticket.getOrderId(),
+            ticket.getEventId(), ticket.getTicketTypeId(), ticket.getSerialNumber(), ticket.getStatus(),
+            ticket.getIssuedAt(), ticket.getUsedAt(), ticket.getCancelledAt(), ticket.getRefundedAt(),
+            ticket.getCreatedAt()));
     }
     
     @GetMapping("/{ticketId}/qr")
@@ -223,4 +235,9 @@ public class UserTicketController {
         com.yeyamo_mobile.api.ticket_service.domain.model.TicketStatus status,
         String qrToken
     ) {}
+
+    public record TicketDetailResponse(UUID ticketId, UUID orderId, String eventId, UUID ticketTypeId,
+        String serialNumber, com.yeyamo_mobile.api.ticket_service.domain.model.TicketStatus status,
+        java.time.Instant issuedAt, java.time.Instant usedAt, java.time.Instant cancelledAt,
+        java.time.Instant refundedAt, java.time.Instant createdAt) {}
 }
