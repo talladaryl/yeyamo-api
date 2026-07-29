@@ -1,0 +1,94 @@
+openapi: 3.1.0
+info:
+  title: YeYamo Administration Users API
+  version: 1.0.0
+paths:
+  /api/v1/admin/platform-users:
+    get:
+      summary: Liste paginee des utilisateurs plateforme
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - { name: email, in: query, schema: { type: string } }
+        - { name: phone, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/UserStatus' } }
+        - { name: role, in: query, schema: { type: string, enum: [USER, PARTNER] } }
+        - { name: regionId, in: query, schema: { type: integer, format: int64 } }
+        - { name: createdFrom, in: query, schema: { type: string, format: date-time } }
+        - { name: createdTo, in: query, schema: { type: string, format: date-time } }
+        - { name: lastLoginFrom, in: query, schema: { type: string, format: date-time } }
+        - { name: lastLoginTo, in: query, schema: { type: string, format: date-time } }
+        - { name: page, in: query, schema: { type: integer, minimum: 0 } }
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 200 } }
+        - { name: sort, in: query, schema: { type: string } }
+      responses:
+        '200': { description: Page Spring contenant AdminPlatformUserSummary }
+  /api/v1/admin/platform-users/{id}:
+    get:
+      summary: Detail agrege securise d'un utilisateur plateforme
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/UserId' }]
+      responses: { '200': { description: AdminPlatformUserDetail }, '404': { description: Introuvable } }
+  /api/v1/admin/platform-users/{id}/status:
+    patch:
+      summary: Change le statut et revoque les sessions si necessaire
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/UserId' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/StatusRequest' } } }
+      responses: { '200': { description: AdminPlatformUserDetail }, '403': { description: Interdit } }
+  /api/v1/admin/platform-users/{id}/roles:
+    patch:
+      summary: Remplace les roles plateforme USER/PARTNER
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/UserId' }]
+      responses: { '200': { description: AdminPlatformUserDetail }, '403': { description: SUPER_ADMIN requis } }
+  /api/v1/admin/platform-users/{id}/sessions:
+    get:
+      summary: Liste les sessions sans token brut
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/UserId' }]
+      responses: { '200': { description: Liste AdminUserSessionResponse } }
+  /api/v1/admin/platform-users/{id}/sessions/revoke:
+    post:
+      summary: Revoque une session ou toutes les sessions
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/UserId' }]
+      responses: { '204': { description: Sessions revoquees } }
+  /api/v1/admin/platform-users/export:
+    get:
+      summary: Exporte les utilisateurs par pages en CSV
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Flux CSV audite } }
+  /api/v1/admin/users:
+    get:
+      summary: Liste les comptes administrateurs
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: Liste AdminUserResponse } }
+    post:
+      summary: Cree un compte administrateur
+      security: [{ bearerAuth: [] }]
+      responses: { '201': { description: AdminUserResponse }, '403': { description: SUPER_ADMIN requis } }
+  /api/v1/admin/users/{id}:
+    get:
+      summary: Retourne un compte administrateur
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: AdminUserResponse } }
+    put:
+      summary: Modifie RBAC et statut avec protections metier
+      security: [{ bearerAuth: [] }]
+      responses: { '200': { description: AdminUserResponse }, '409': { description: Protection metier } }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    UserId: { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+  schemas:
+    UserStatus: { type: string, enum: [ACTIVE, SUSPENDED, BLOCKED, DEACTIVATED] }
+    StatusRequest:
+      type: object
+      required: [status, reason]
+      properties:
+        status: { $ref: '#/components/schemas/UserStatus' }
+        reason: { type: string, maxLength: 500 }

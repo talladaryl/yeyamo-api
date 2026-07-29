@@ -21,6 +21,10 @@ public class AnalyticsEventLog {
 
     private UUID eventId;
     private String eventType;
+    private String userId;
+    private String service;
+    private String correlationId;
+    private java.time.Instant occurredAt;
     private LocalDateTime processedAt = LocalDateTime.now();
     private AnalyticsEventStatus status;
 }

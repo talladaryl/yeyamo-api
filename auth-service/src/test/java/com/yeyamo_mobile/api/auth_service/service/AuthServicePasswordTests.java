@@ -21,6 +21,7 @@ import com.yeyamo_mobile.api.auth_service.repository.OAuthAccountRepository;
 import com.yeyamo_mobile.api.auth_service.repository.RoleRepository;
 import com.yeyamo_mobile.api.auth_service.repository.UserRepository;
 import com.yeyamo_mobile.api.auth_service.security.JwtService;
+import com.yeyamo_mobile.api.auth_service.security.AntiBotVerifier;
 
 class AuthServicePasswordTests {
     private UserRepository users;
@@ -38,7 +39,7 @@ class AuthServicePasswordTests {
         service = new AuthService(users, mock(OAuthAccountRepository.class), mock(RoleRepository.class),
                 encoder, mock(AuthenticationManager.class), mock(JwtService.class), refreshTokens,
                 mock(OAuthTokenVerifier.class), mock(OtpService.class), mock(EmailService.class),
-                mock(LoginAttemptService.class), outbox);
+                mock(LoginAttemptService.class), outbox, mock(AntiBotVerifier.class));
     }
 
     @Test

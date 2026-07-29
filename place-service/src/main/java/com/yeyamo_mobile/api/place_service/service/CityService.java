@@ -20,11 +20,16 @@ public class CityService {
 
     private final CityRepository cityRepository;
     private final RegionService regionService;
+    private final com.yeyamo_mobile.api.place_service.repository.DistrictRepository districtRepository;
+    private final com.yeyamo_mobile.api.place_service.repository.PlaceRepository placeRepository;
 
-    public CityService(CityRepository cityRepository, RegionService regionService) {
+    public CityService(CityRepository cityRepository, RegionService regionService,com.yeyamo_mobile.api.place_service.repository.DistrictRepository districtRepository,com.yeyamo_mobile.api.place_service.repository.PlaceRepository placeRepository) {
         this.cityRepository = cityRepository;
         this.regionService = regionService;
+        this.districtRepository=districtRepository;this.placeRepository=placeRepository;
     }
+    public CityResponse setActive(Long id,boolean active){City city=getEntityById(id);city.setActive(active);return CityResponse.from(cityRepository.save(city));}
+    public void delete(Long id){City city=getEntityById(id);if(districtRepository.existsByCityId(id)||placeRepository.existsByCityId(id))throw new ApiException("CITY_IN_USE","La ville est referencee et ne peut pas etre supprimee",HttpStatus.CONFLICT);cityRepository.delete(city);}
 
     @Transactional(readOnly = true)
     public List<CityResponse> listByRegion(Long regionId) {

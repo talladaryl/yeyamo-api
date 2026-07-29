@@ -12,7 +12,7 @@ public class JpaImportJobRepositoryAdapter implements ImportJobRepository{
   e.setSourceReference(j.getSourceReference());e.setInputPayload(j.getInputPayload());e.setStatus(j.getStatus());e.setTotalRecords(j.getTotalRecords());e.setAcceptedRecords(j.getAcceptedRecords());
   e.setRejectedRecords(j.getRejectedRecords());e.setDuplicateRecords(j.getDuplicateRecords());e.setErrorMessage(j.getErrorMessage());e.setCreatedAt(j.getCreatedAt());e.setStartedAt(j.getStartedAt());
   e.setCompletedAt(j.getCompletedAt());e.setVersion(j.getVersion());return e;}
- private ImportJob domain(ImportJobEntity e){ImportJob j=new ImportJob();j.setId(e.getId());j.setIdempotencyKey(e.getIdempotencyKey());j.setSourceType(e.getSourceType());
+ public ImportJob toDomain(ImportJobEntity e){return domain(e);}private ImportJob domain(ImportJobEntity e){ImportJob j=new ImportJob();j.setId(e.getId());j.setIdempotencyKey(e.getIdempotencyKey());j.setSourceType(e.getSourceType());
   j.setSourceReference(e.getSourceReference());j.setInputPayload(e.getInputPayload());j.setStatus(e.getStatus());j.setTotalRecords(e.getTotalRecords());j.setAcceptedRecords(e.getAcceptedRecords());
   j.setRejectedRecords(e.getRejectedRecords());j.setDuplicateRecords(e.getDuplicateRecords());j.setErrorMessage(e.getErrorMessage());j.setCreatedAt(e.getCreatedAt());j.setStartedAt(e.getStartedAt());
   j.setCompletedAt(e.getCompletedAt());j.setVersion(e.getVersion());return j;}

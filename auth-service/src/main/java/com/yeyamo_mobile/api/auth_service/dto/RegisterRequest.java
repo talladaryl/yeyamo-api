@@ -8,6 +8,7 @@ public record RegisterRequest(
         @Email @Size(max = 254) String email,
         @Pattern(regexp = "\\+?[0-9]{8,15}") String phone,
         @Size(min = 12, max = 128) String password,
-        @Size(max = 80) @Pattern(regexp = "[\\p{L}\\p{N} .'-]*") String displayName
+        @Size(max = 80) @Pattern(regexp = "[\\p{L}\\p{N} .'-]*") String displayName,
+        @Size(max = 4096) String turnstileToken
 ) {
 }

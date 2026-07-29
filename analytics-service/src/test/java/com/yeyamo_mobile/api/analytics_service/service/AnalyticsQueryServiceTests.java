@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -13,6 +15,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 import com.yeyamo_mobile.api.analytics_service.models.PlacePopularity;
+import com.yeyamo_mobile.api.analytics_service.models.KpiHistory;
 import com.yeyamo_mobile.api.analytics_service.repository.AnalyticsEventLogRepository;
 import com.yeyamo_mobile.api.analytics_service.repository.KpiHistoryRepository;
 import com.yeyamo_mobile.api.analytics_service.repository.PartnerAnalyticsRepository;
@@ -48,6 +51,16 @@ class AnalyticsQueryServiceTests {
 
         assertThrows(IllegalArgumentException.class, () -> service.popularPlaces(
                 LocalDate.of(2025, 1, 1), LocalDate.of(2026, 7, 15), 20));
+    }
+
+    @Test
+    void aggregatesKpisByWeek() {
+        KpiHistoryRepository kpis=mock(KpiHistoryRepository.class);
+        KpiHistory first=new KpiHistory();first.setStatDate(LocalDate.of(2026,7,6));first.setKpiName("users");first.getKpiValue().put("count",2);
+        KpiHistory second=new KpiHistory();second.setStatDate(LocalDate.of(2026,7,8));second.setKpiName("users");second.getKpiValue().put("count",3);
+        when(kpis.findByKpiNameAndStatDateBetweenOrderByStatDateDesc(eq("users"),any(),any())).thenReturn(List.of(first,second));
+        AnalyticsQueryService service=new AnalyticsQueryService(kpis,mock(AnalyticsEventLogRepository.class),mock(RegionActivityRepository.class),mock(PartnerAnalyticsRepository.class),mock(PlacePopularityRepository.class),mock(UserEngagementRepository.class),366);
+        assertEquals(5,service.kpiHistory("users",LocalDate.of(2026,7,1),LocalDate.of(2026,7,31),"week","Africa/Douala").getFirst().value());
     }
 
     private AnalyticsQueryService service(PlacePopularityRepository places) {

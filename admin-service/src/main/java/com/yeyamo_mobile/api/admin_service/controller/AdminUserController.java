@@ -15,8 +15,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.yeyamo_mobile.api.admin_service.dto.AdminUserRequest;
-import com.yeyamo_mobile.api.admin_service.models.AdminUser;
+import com.yeyamo_mobile.api.admin_service.dto.AdminUserResponse;
+import com.yeyamo_mobile.api.admin_service.dto.CreateAdminUserRequest;
+import com.yeyamo_mobile.api.admin_service.dto.UpdateAdminUserRequest;
 import com.yeyamo_mobile.api.admin_service.service.AdminUserService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,35 +27,29 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/v1/admin/users")
 @Validated
 public class AdminUserController {
-
     private final AdminUserService service;
 
-    public AdminUserController(AdminUserService service) {
-        this.service = service;
-    }
+    public AdminUserController(AdminUserService service) { this.service = service; }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
-    public List<AdminUser> list() {
-        return service.list();
-    }
+    public List<AdminUserResponse> list() { return service.list(); }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
-    public AdminUser get(@PathVariable UUID id) {
-        return service.get(id);
-    }
+    public AdminUserResponse get(@PathVariable UUID id) { return service.get(id); }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public AdminUser create(@Valid @RequestBody AdminUserRequest request, HttpServletRequest httpRequest) {
+    public AdminUserResponse create(@Valid @RequestBody CreateAdminUserRequest request, HttpServletRequest httpRequest) {
         return service.create(request, httpRequest);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public AdminUser update(@PathVariable UUID id, @Valid @RequestBody AdminUserRequest request, HttpServletRequest httpRequest) {
+    public AdminUserResponse update(@PathVariable UUID id, @Valid @RequestBody UpdateAdminUserRequest request,
+            HttpServletRequest httpRequest) {
         return service.update(id, request, httpRequest);
     }
 }

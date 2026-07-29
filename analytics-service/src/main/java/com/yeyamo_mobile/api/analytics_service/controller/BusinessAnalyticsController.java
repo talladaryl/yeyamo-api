@@ -1,6 +1,9 @@
 package com.yeyamo_mobile.api.analytics_service.controller;
 
 import com.yeyamo_mobile.api.analytics_service.business.BusinessAnalyticsService;
+import com.yeyamo_mobile.api.analytics_service.business.AnalyticsRebuildService;
+import com.yeyamo_mobile.api.analytics_service.business.AnalyticsRebuildJob;
+import org.springframework.security.core.Authentication;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.constraints.*;
 import org.springframework.data.domain.*;
@@ -17,9 +20,11 @@ import java.util.UUID;
 @RequestMapping("/api/v1/analytics")
 public class BusinessAnalyticsController {
     private final BusinessAnalyticsService analytics;
+    private final AnalyticsRebuildService rebuilds;
 
-    public BusinessAnalyticsController(BusinessAnalyticsService analytics) {
+    public BusinessAnalyticsController(BusinessAnalyticsService analytics,AnalyticsRebuildService rebuilds) {
         this.analytics = analytics;
+        this.rebuilds = rebuilds;
     }
 
     @GetMapping("/partners/{partnerId}/campaigns/{campaignId}")
@@ -29,7 +34,7 @@ public class BusinessAnalyticsController {
             @PathVariable UUID partnerId, @PathVariable String campaignId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(defaultValue = "UTC") String timezone,
+            @RequestParam(defaultValue = "Africa/Douala") String timezone,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size) {
         validate(from, to, timezone);
@@ -45,7 +50,7 @@ public class BusinessAnalyticsController {
             @PathVariable UUID partnerId, @PathVariable String eventId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(defaultValue = "UTC") String timezone,
+            @RequestParam(defaultValue = "Africa/Douala") String timezone,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size) {
         validate(from, to, timezone);
@@ -61,18 +66,21 @@ public class BusinessAnalyticsController {
             @PathVariable UUID partnerId, @PathVariable String eventId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(defaultValue = "UTC") String timezone) {
+            @RequestParam(defaultValue = "Africa/Douala") String timezone) {
         validate(from, to, timezone);
         return analytics.peakEntry(partnerId.toString(), eventId, from, to)
             .map(metric -> display(metric, timezone));
     }
 
-    @PostMapping("/admin/rebuild")
+    @PostMapping("/business/admin/rebuild")
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @Operation(summary = "Rebuild all PostgreSQL projections from stored events")
-    public Map<String, Long> rebuild() {
-        return Map.of("eventsReplayed", analytics.rebuild());
+    public AnalyticsRebuildJob rebuild(Authentication authentication) {
+        return rebuilds.start(authentication.getName());
     }
+    @GetMapping("/business/admin/rebuild/{jobId}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    public AnalyticsRebuildJob rebuildStatus(@PathVariable UUID jobId){return rebuilds.get(jobId);}
 
     @GetMapping("/admin/{scopeType}/{scopeId}")
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
@@ -82,7 +90,7 @@ public class BusinessAnalyticsController {
             @PathVariable String scopeId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(defaultValue = "UTC") String timezone,
+            @RequestParam(defaultValue = "Africa/Douala") String timezone,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(200) int size) {
         validate(from, to, timezone);

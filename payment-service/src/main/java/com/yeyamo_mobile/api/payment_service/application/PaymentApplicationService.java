@@ -8,7 +8,7 @@ import com.yeyamo_mobile.api.payment_service.application.port.*;import com.yeyam
  public PaymentEntity authorize(Authorize command){
   var replay=payments.findByIdempotencyKey(required(command.idempotencyKey(),"idempotencyKey"));if(replay.isPresent())return replay.get();
   var existing=payments.findByBookingId(command.bookingId());if(existing.isPresent()){ensureSame(existing.get(),command);return existing.get();}
-  var payment=payments.save(PaymentEntity.pending(command.bookingId(),command.sagaId(),required(command.userId(),"userId"),command.amount(),command.currency(),provider.name(),command.idempotencyKey()));
+  var payment=PaymentEntity.pending(command.bookingId(),command.sagaId(),required(command.userId(),"userId"),command.amount(),command.currency(),provider.name(),command.idempotencyKey());payment.assignPartner(command.partnerId());payment=payments.save(payment);
   ProviderResult result=provider.authorize(new AuthorizationRequest(payment.getId(),payment.getBookingId(),payment.getUserId(),payment.getAmount(),payment.getCurrency(),payment.getIdempotencyKey()));
   if(result.outcome()==Outcome.SUCCEEDED){payment.authorized(required(result.providerOperationId(),"providerPaymentId"));payments.save(payment);authorized(payment,command.correlationId());}
   else if(result.outcome()==Outcome.FAILED){payment.failed(reason(result));payments.save(payment);failed(payment,reason(result),command.correlationId());}
@@ -25,7 +25,7 @@ import com.yeyamo_mobile.api.payment_service.application.port.*;import com.yeyam
   return payment;
  }
  public RefundEntity refund(Refund command){
-  var replay=refunds.findByIdempotencyKey(required(command.idempotencyKey(),"idempotencyKey"));if(replay.isPresent())return replay.get();
+  var replay=refunds.findByIdempotencyKey(required(command.idempotencyKey(),"idempotencyKey"));if(replay.isPresent()){RefundEntity existing=replay.get();if(!existing.getPayment().getBookingId().equals(command.bookingId())||existing.getAmount().compareTo(command.amount())!=0)throw new PaymentException("IDEMPOTENCY_CONFLICT","Idempotency key already belongs to another refund");return existing;}
   PaymentEntity payment=locked(command.bookingId());if(payment.getStatus()==PaymentStatus.REFUNDED)return refunds.findByPaymentIdOrderByCreatedAtDesc(payment.getId()).stream().findFirst().orElseThrow();
   if(command.paymentId()!=null&&!command.paymentId().equals(payment.getProviderPaymentId()))throw new PaymentException("PAYMENT_REFERENCE_MISMATCH","Payment reference does not belong to booking");
   BigDecimal alreadyRefunded=refundedAmount(payment);if(alreadyRefunded.add(command.amount()).compareTo(payment.getAmount())>0)throw new PaymentException("INVALID_REFUND_AMOUNT","Cumulative refund exceeds captured amount");payment.refundPending();payments.save(payment);RefundEntity refund=refunds.save(RefundEntity.pending(payment,command.amount(),command.idempotencyKey()));
@@ -42,6 +42,7 @@ import com.yeyamo_mobile.api.payment_service.application.port.*;import com.yeyam
  @Transactional(readOnly=true)public PaymentEntity get(UUID id){return payments.findById(id).orElseThrow(()->notFound("payment"));}
  @Transactional(readOnly=true)public List<PaymentEntity> byUser(String user){return payments.findByUserIdOrderByCreatedAtDesc(user);}
  @Transactional(readOnly=true)public List<RefundEntity> refunds(UUID payment){return refunds.findByPaymentIdOrderByCreatedAtDesc(payment);}
+ public RefundEntity manualRefund(UUID paymentId,BigDecimal amount,String reason,String key,String actor,String correlation){String safeReason=required(reason,"reason");PaymentEntity payment=payments.findLockedById(paymentId).orElseThrow(()->notFound("payment"));RefundEntity refund=refund(new Refund(payment.getSagaId(),payment.getBookingId(),payment.getProviderPaymentId(),amount,payment.getCurrency(),required(key,"idempotencyKey"),correlation));outbox.append("REFUND_CREATED",paymentId.toString(),correlation,Map.of("paymentId",paymentId,"refundId",refund.getId(),"actorId",actor,"reason",safeReason,"amount",amount,"currency",payment.getCurrency()));return refund;}
  private PaymentEntity locked(UUID booking){return payments.findByBookingIdLocked(booking).orElseThrow(()->notFound("booking payment"));}
  private void completeRefund(PaymentEntity payment){payment.refunded(refundedAmount(payment).compareTo(payment.getAmount())>=0);}private BigDecimal refundedAmount(PaymentEntity payment){BigDecimal amount=refunds.succeededAmount(payment.getId());return amount==null?BigDecimal.ZERO:amount;}
  private void ensureSame(PaymentEntity p,Authorize c){if(!p.getUserId().equals(c.userId())||p.getAmount().compareTo(c.amount())!=0||!p.getCurrency().equalsIgnoreCase(c.currency()))throw new PaymentException("IDEMPOTENCY_CONFLICT","Booking already has a different payment");}

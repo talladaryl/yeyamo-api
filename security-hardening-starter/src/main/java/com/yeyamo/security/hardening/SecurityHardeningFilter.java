@@ -38,6 +38,7 @@ public final class SecurityHardeningFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         String correlationId = correlationId(request);
+        long startedAt = System.nanoTime();
         MDC.put("correlationId", correlationId);
         response.setHeader("X-Correlation-Id", correlationId);
         addSecurityHeaders(request, response);
@@ -70,6 +71,9 @@ public final class SecurityHardeningFilter extends OncePerRequestFilter {
             }
             chain.doFilter(request, response);
         } finally {
+            long durationMs = java.time.Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
+            LOGGER.info("http_request_completed method={} path={} status={} durationMs={} correlationId={}",
+                    request.getMethod(), safePath(request.getRequestURI()), response.getStatus(), durationMs, correlationId);
             MDC.remove("correlationId");
         }
     }
@@ -187,7 +191,9 @@ public final class SecurityHardeningFilter extends OncePerRequestFilter {
         response.setStatus(status);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.getWriter().write("{\"code\":\"" + code + "\",\"message\":\"" + message + "\"}");
+        response.getWriter().write("{\"timestamp\":\"" + java.time.Instant.now() + "\",\"status\":" + status
+                + ",\"code\":\"" + code + "\",\"message\":\"" + message
+                + "\",\"correlationId\":\"" + MDC.get("correlationId") + "\",\"errors\":[]}");
     }
 
     private String safePath(String value) {

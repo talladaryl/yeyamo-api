@@ -15,11 +15,13 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.Immutable;
 
 @Entity
 @Table(name = "admin_audit_logs")
 @Getter
 @Setter
+@Immutable
 public class AdminAuditLog {
 
     @Id
@@ -27,6 +29,12 @@ public class AdminAuditLog {
 
     @Column(name = "admin_id", nullable = false)
     private UUID adminId;
+
+    @Column(name = "actor_id", length = 120)
+    private String actorId;
+
+    @Column(name = "actor_role", length = 80)
+    private String actorRole;
 
     @Column(nullable = false, length = 100)
     private String action;
@@ -36,6 +44,12 @@ public class AdminAuditLog {
 
     @Column(name = "target_id")
     private UUID targetId;
+
+    @Column(name = "target_id_value", length = 160)
+    private String targetIdValue;
+
+    @Column(nullable = false, length = 100)
+    private String service = "admin-service";
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")

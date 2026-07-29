@@ -25,7 +25,7 @@ services:
       POSTGRES_MULTIPLE_DATABASES: |
         yeyamo_auth,yeyamo_user,yeyamo_partner,yeyamo_admin,yeyamo_catalog,
         yeyamo_place,yeyamo_content,yeyamo_interaction,yeyamo_event,
-        yeyamo_booking,yeyamo_payment,yeyamo_notification,yeyamo_moderation,
+        yeyamo_booking,yeyamo_payment,yeyamo_notification,yeyamo_moderation,yeyamo_support,
         yeyamo_referral,yeyamo_gamification,yeyamo_mission,yeyamo_ingestion,
         yeyamo_feed,yeyamo_media,yeyamo_discovery,yeyamo_recommendation,
         yeyamo_campaign,yeyamo_ads,yeyamo_ticket,yeyamo_commerce,yeyamo_analytics
@@ -45,6 +45,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+      start_period: 10m
     networks:
       - yeyamo-network
 
@@ -57,7 +58,7 @@ services:
       POSTGRES_MULTIPLE_DATABASES: |
         yeyamo_auth,yeyamo_user,yeyamo_partner,yeyamo_admin,yeyamo_catalog,
         yeyamo_place,yeyamo_content,yeyamo_interaction,yeyamo_event,
-        yeyamo_booking,yeyamo_payment,yeyamo_notification,yeyamo_moderation,
+        yeyamo_booking,yeyamo_payment,yeyamo_notification,yeyamo_moderation,yeyamo_support,
         yeyamo_referral,yeyamo_gamification,yeyamo_mission,yeyamo_ingestion,
         yeyamo_feed,yeyamo_media,yeyamo_discovery,yeyamo_recommendation,
         yeyamo_campaign,yeyamo_ads,yeyamo_ticket,yeyamo_commerce,yeyamo_analytics
@@ -283,9 +284,16 @@ services:
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_PORT: 6379
       JWT_SECRET: local-docker-secret-change-me-1234567890
-      MAIL_DELIVERY_ENABLED: "false"
-      MAIL_HEALTH_ENABLED: "false"
+      MAIL_HOST: ${MAIL_HOST:-smtp-relay.brevo.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_DELIVERY_ENABLED: ${MAIL_DELIVERY_ENABLED:-false}
+      MAIL_HEALTH_ENABLED: ${MAIL_HEALTH_ENABLED:-false}
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-YeYamo}
     ports:
       - "8082:8082"
     depends_on:
@@ -316,6 +324,8 @@ services:
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       JWT_SECRET: local-docker-secret-change-me-1234567890
     ports:
       - "8086:8086"
@@ -323,6 +333,8 @@ services:
       postgres:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -384,6 +396,10 @@ services:
     environment:
       <<: *java-service-env
       SERVER_PORT: "8111"
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME:-admin}
+      CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:-admin123}
+      SPRING_CONFIG_IMPORT: configserver:http://config-server:8080
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_ads
       ADS_DB_USERNAME: ${POSTGRES_USER:-postgres}
@@ -394,6 +410,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-local-docker-secret-change-me-1234567890}
     ports: ["8111:8111"]
     depends_on:
+      config-server: {condition: service_healthy}
+      registry-service: {condition: service_healthy}
       postgres-init: {condition: service_completed_successfully}
       kafka: {condition: service_healthy}
       redis: {condition: service_healthy}
@@ -420,6 +438,8 @@ services:
       TICKET_QR_PUBLIC_KEY_BASE64: ${TICKET_QR_PUBLIC_KEY_BASE64}
     ports: ["8112:8112"]
     depends_on:
+      config-server: {condition: service_healthy}
+      registry-service: {condition: service_healthy}
       postgres-init: {condition: service_completed_successfully}
       kafka: {condition: service_healthy}
     networks: [yeyamo-network]
@@ -442,6 +462,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-local-docker-secret-change-me-1234567890}
     ports: ["8113:8113"]
     depends_on:
+      config-server: {condition: service_healthy}
+      registry-service: {condition: service_healthy}
       postgres-init: {condition: service_completed_successfully}
       kafka: {condition: service_healthy}
     networks: [yeyamo-network]
@@ -460,6 +482,8 @@ services:
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       JWT_SECRET: local-docker-secret-change-me-1234567890
     ports:
       - "8096:8096"
@@ -467,6 +491,8 @@ services:
       postgres:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -815,12 +841,60 @@ services:
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_SECRET: local-docker-secret-change-me-1234567890
+      MAIL_HOST: ${MAIL_HOST:-smtp-relay.brevo.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_DELIVERY_ENABLED: ${MAIL_DELIVERY_ENABLED:-false}
+      MAIL_HEALTH_ENABLED: ${MAIL_HEALTH_ENABLED:-false}
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-YeYamo}
+      PUSH_PROVIDER_ENDPOINT: ${PUSH_PROVIDER_ENDPOINT:-https://exp.host/--/api/v2/push/send}
+      PUSH_RECEIPTS_ENDPOINT: ${PUSH_RECEIPTS_ENDPOINT:-https://exp.host/--/api/v2/push/getReceipts}
+      PUSH_PROVIDER_ACCESS_TOKEN: ${PUSH_PROVIDER_ACCESS_TOKEN:-}
     ports:
       - "8094:8094"
     depends_on:
       postgres:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  kafka-init:
+    image: redpandadata/redpanda:v24.3.6
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        rpk topic create payment.commands.DLT payment.events.DLT booking.events.DLT partner-events.DLT ticket.events.DLT admin.audit.events.DLT --brokers kafka:9092 || true
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  support-service:
+    build: ./support-service
+    environment:
+      <<: *java-service-env
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_support
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8110:8110"
+    depends_on:
+      postgres:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -964,7 +1038,7 @@ services:
       OPENSEARCH_URIS: http://opensearch:9200
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_analytics
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       SPRING_DATA_REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_SECRET: local-docker-secret-change-me-1234567890
@@ -1032,6 +1106,9 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
       JWT_SECRET: local-docker-secret-change-me-1234567890
+      GOOGLE_MAPS_SERVER_API_KEY: ${GOOGLE_MAPS_SERVER_API_KEY:-}
+      GOOGLE_MAPS_BASE_URL: ${GOOGLE_MAPS_BASE_URL:-https://maps.googleapis.com}
+      GOOGLE_ROUTES_BASE_URL: ${GOOGLE_ROUTES_BASE_URL:-https://routes.googleapis.com}
     ports:
       - "8093:8093"
     depends_on:

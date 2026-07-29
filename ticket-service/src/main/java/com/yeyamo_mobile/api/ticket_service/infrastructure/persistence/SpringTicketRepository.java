@@ -33,6 +33,8 @@ public interface SpringTicketRepository extends JpaRepository<TicketEntity, UUID
     
     @Query("SELECT COUNT(t) FROM TicketEntity t WHERE t.eventId = :eventId AND t.status = 'USED'")
     long countUsedTicketsByEvent(@Param("eventId") String eventId);
+    List<TicketEntity> findByEventIdOrderByCreatedAtDesc(String eventId);
+    long countByEventIdAndStatus(String eventId,TicketStatus status);
 
     @Query("""
         SELECT COUNT(t) FROM TicketEntity t

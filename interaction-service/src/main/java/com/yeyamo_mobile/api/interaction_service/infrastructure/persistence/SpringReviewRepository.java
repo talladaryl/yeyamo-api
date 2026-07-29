@@ -7,7 +7,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface SpringReviewRepository extends JpaRepository<ReviewEntity, UUID> {
+public interface SpringReviewRepository extends JpaRepository<ReviewEntity, UUID>,org.springframework.data.jpa.repository.JpaSpecificationExecutor<ReviewEntity> {
     
     /**
      * Find all reviews for a specific place, ordered by creation date descending

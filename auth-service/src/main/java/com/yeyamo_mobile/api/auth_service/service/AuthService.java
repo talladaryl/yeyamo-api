@@ -37,6 +37,8 @@ import com.yeyamo_mobile.api.auth_service.repository.OAuthAccountRepository;
 import com.yeyamo_mobile.api.auth_service.repository.RoleRepository;
 import com.yeyamo_mobile.api.auth_service.repository.UserRepository;
 import com.yeyamo_mobile.api.auth_service.security.JwtService;
+import com.yeyamo_mobile.api.auth_service.security.AntiBotAction;
+import com.yeyamo_mobile.api.auth_service.security.AntiBotVerifier;
 import com.yeyamo_mobile.api.auth_service.service.OAuthTokenVerifier.OAuthUserInfo;
 
 @Service
@@ -54,6 +56,7 @@ public class AuthService {
     private final EmailService emailService;
     private final LoginAttemptService loginAttemptService;
     private final AuthEventOutbox eventOutbox;
+    private final AntiBotVerifier antiBotVerifier;
 
     public AuthService(
             UserRepository userRepository,
@@ -67,7 +70,8 @@ public class AuthService {
             OtpService otpService,
             EmailService emailService,
             LoginAttemptService loginAttemptService,
-            AuthEventOutbox eventOutbox
+            AuthEventOutbox eventOutbox,
+            AntiBotVerifier antiBotVerifier
     ) {
         this.userRepository = userRepository;
         this.oAuthAccountRepository = oAuthAccountRepository;
@@ -81,11 +85,13 @@ public class AuthService {
         this.emailService = emailService;
         this.loginAttemptService = loginAttemptService;
         this.eventOutbox = eventOutbox;
+        this.antiBotVerifier = antiBotVerifier;
     }
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
         validateRegisterRequest(request);
+        antiBotVerifier.verify(request.turnstileToken(), AntiBotAction.REGISTER, null);
 
         if (hasText(request.email()) && userRepository.existsByEmail(clean(request.email()))) {
             throw new ApiException("EMAIL_ALREADY_USED", "Cet email est déjà utilisé", HttpStatus.CONFLICT);
@@ -117,6 +123,9 @@ public class AuthService {
 
         String identifier = clean(request.identifier());
         loginAttemptService.assertAllowed(identifier);
+        if (loginAttemptService.requiresTurnstile(identifier)) {
+            antiBotVerifier.verify(request.turnstileToken(), AntiBotAction.LOGIN, null);
+        }
         User user = userRepository.findByEmail(identifier)
                 .or(() -> userRepository.findByPhone(identifier))
                 .orElse(null);
@@ -161,6 +170,8 @@ public class AuthService {
                 .findByProviderAndProviderUserId(userInfo.provider(), userInfo.providerUserId())
                 .map(OAuthAccount::getUser)
                 .orElseGet(() -> findOrCreateOAuthUser(userInfo));
+
+        assertOAuthLoginAllowed(user);
 
         user.setLastLoginAt(Instant.now());
         userRepository.save(user);
@@ -230,6 +241,7 @@ public class AuthService {
     }
 
     public void requestEmailVerification(EmailRequest request) {
+        antiBotVerifier.verify(request == null ? null : request.turnstileToken(), AntiBotAction.RESEND_OTP, null);
         User user = findUserByEmail(request == null ? null : request.email());
         if (user == null) {
             return;
@@ -255,6 +267,7 @@ public class AuthService {
     }
 
     public void requestPasswordReset(EmailRequest request) {
+        antiBotVerifier.verify(request == null ? null : request.turnstileToken(), AntiBotAction.FORGOT_PASSWORD, null);
         User user = findUserByEmail(request == null ? null : request.email());
         if (user == null) {
             return;
@@ -277,6 +290,7 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         refreshTokenService.revokeAll(user);
         userRepository.save(user);
+        eventOutbox.passwordChanged(user, null);
     }
 
     private AuthResponse tokensFor(User user) {
@@ -345,6 +359,17 @@ public class AuthService {
         oAuthAccountRepository.save(account);
 
         return user;
+    }
+
+    private void assertOAuthLoginAllowed(User user) {
+        if (user.getStatus() == UserStatus.BANNED || user.getStatus() == UserStatus.LOCKED
+                || user.getStatus() == UserStatus.DELETED) {
+            throw new ApiException("ACCOUNT_DISABLED", "Ce compte ne peut pas se connecter", HttpStatus.FORBIDDEN);
+        }
+        if (user.getStatus() == UserStatus.PENDING || user.getStatus() == UserStatus.INACTIVE) {
+            user.setStatus(UserStatus.ACTIVE);
+            if (user.getEmailVerifiedAt() == null) user.setEmailVerifiedAt(Instant.now());
+        }
     }
 
     private void validateRegisterRequest(RegisterRequest request) {

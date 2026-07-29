@@ -19,9 +19,11 @@ public class ImportJob {
     public void start(){if(status!=JobStatus.PENDING)throw new IllegalStateException("Only pending jobs can start");status=JobStatus.PROCESSING;startedAt=Instant.now();}
     public void complete(int total,int accepted,int rejected,int duplicates){
         totalRecords=total;acceptedRecords=accepted;rejectedRecords=rejected;duplicateRecords=duplicates;
-        status=rejected>0?JobStatus.COMPLETED_WITH_ERRORS:JobStatus.COMPLETED;completedAt=Instant.now();inputPayload=null;
+        status=rejected>0?JobStatus.PARTIAL:JobStatus.COMPLETED;completedAt=Instant.now();inputPayload=null;
     }
     public void fail(String message){status=JobStatus.FAILED;errorMessage=abbreviate(message);completedAt=Instant.now();}
+    public void cancel(){if(status!=JobStatus.PENDING&&status!=JobStatus.PROCESSING)throw new IllegalStateException("Only pending or processing jobs can be cancelled");status=JobStatus.CANCELLED;completedAt=Instant.now();inputPayload=null;}
+    public void retry(){if(status!=JobStatus.FAILED&&status!=JobStatus.PARTIAL&&status!=JobStatus.COMPLETED_WITH_ERRORS)throw new IllegalStateException("Only failed or partial jobs can be retried");if(inputPayload==null&&sourceType!=SourceType.API)throw new IllegalStateException("Import source is no longer available");status=JobStatus.PENDING;startedAt=null;completedAt=null;errorMessage=null;totalRecords=acceptedRecords=rejectedRecords=duplicateRecords=0;}
     private String abbreviate(String v){if(v==null)return "Unknown ingestion failure";return v.substring(0,Math.min(v.length(),2000));}
     private static String trim(String v){return v==null||v.isBlank()?null:v.trim();}
     public UUID getId(){return id;} public void setId(UUID v){id=v;}

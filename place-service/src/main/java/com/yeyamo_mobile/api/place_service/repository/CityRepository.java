@@ -14,4 +14,5 @@ public interface CityRepository extends JpaRepository<City, Long> {
     Optional<City> findByRegionIdAndSlug(Long regionId, String slug);
 
     boolean existsByRegionIdAndSlug(Long regionId, String slug);
+    boolean existsByRegionId(Long regionId);
 }

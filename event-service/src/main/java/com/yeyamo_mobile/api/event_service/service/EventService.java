@@ -240,9 +240,13 @@ public class EventService {
 
     private void validateStatusTransition(EventStatus current, EventStatus next) {
         boolean valid = switch (current) {
-            case PENDING -> next == EventStatus.PUBLISHED || next == EventStatus.CANCELLED;
+            case DRAFT -> next == EventStatus.PENDING_REVIEW || next == EventStatus.ARCHIVED;
+            case PENDING, PENDING_REVIEW -> next == EventStatus.PUBLISHED || next == EventStatus.CANCELLED
+                    || next == EventStatus.REJECTED || next == EventStatus.ARCHIVED;
             case PUBLISHED -> next == EventStatus.CANCELLED || next == EventStatus.COMPLETED;
-            case CANCELLED, COMPLETED -> false;
+            case SUSPENDED -> next == EventStatus.PUBLISHED || next == EventStatus.ARCHIVED;
+            case REJECTED -> next == EventStatus.DRAFT || next == EventStatus.ARCHIVED;
+            case ARCHIVED, CANCELLED, COMPLETED -> false;
         };
 
         if (!valid) {

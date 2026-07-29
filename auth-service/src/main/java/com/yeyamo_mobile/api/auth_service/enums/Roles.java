@@ -5,5 +5,8 @@ public enum Roles {
     PARTNER,
     ADMIN,
     SUPER_ADMIN,
-    MODERATOR
+    MODERATOR,
+    EDITOR,
+    SUPPORT,
+    COMMERCIAL
 }

@@ -169,7 +169,7 @@ public class CollectionController {
             @Valid @RequestBody UpdateCollectionPlaceRequest request,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             Authentication auth) {
-        service.updatePlace(collectionId, assetId, auth.getName(), request.isPriority(), request.note(),
+        service.updatePlace(collectionId, assetId, auth.getName(), request.isPriority(), request.displayOrder(), request.note(),
                 correlationId, auth.getName());
     }
 

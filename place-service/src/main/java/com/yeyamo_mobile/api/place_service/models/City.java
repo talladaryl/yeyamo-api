@@ -44,6 +44,8 @@ public class City {
     private Double latitude;
 
     private Double longitude;
+    @Column(nullable = false)
+    private boolean active = true;
 
     @OneToMany(mappedBy = "city", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<District> districts = new ArrayList<>();

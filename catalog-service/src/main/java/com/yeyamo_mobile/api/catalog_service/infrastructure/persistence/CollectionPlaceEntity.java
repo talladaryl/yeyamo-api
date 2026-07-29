@@ -15,6 +15,7 @@ public class CollectionPlaceEntity {
     @Column(name = "added_at", nullable = false, updatable = false) private Instant addedAt;
     @Column(name = "is_priority", nullable = false) private boolean priority;
     @Column(length = 1000) private String note;
+    @Column(name="display_order",nullable=false) private int displayOrder;
 
     public UUID getCollectionId() { return collectionId; }
     public void setCollectionId(UUID collectionId) { this.collectionId = collectionId; }
@@ -26,6 +27,7 @@ public class CollectionPlaceEntity {
     public void setPriority(boolean priority) { this.priority = priority; }
     public String getNote() { return note; }
     public void setNote(String note) { this.note = note; }
+    public int getDisplayOrder(){return displayOrder;} public void setDisplayOrder(int displayOrder){this.displayOrder=displayOrder;}
 
     public static class CollectionPlaceId implements Serializable {
         private UUID collectionId;

@@ -29,6 +29,10 @@ public class ReviewEntity {
     
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+    @Column(nullable=false,length=20) private String status="ACTIVE";
+    @Column(name="deleted_at") private Instant deletedAt;
+    @Column(name="deleted_by",length=100) private String deletedBy;
+    @Column(name="deletion_reason",length=1000) private String deletionReason;
     
     // ─── GETTERS & SETTERS ──────────────────────────────────────────────────────
     
@@ -87,4 +91,5 @@ public class ReviewEntity {
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
     }
+    public String getStatus(){return status;}public void setStatus(String v){status=v;}public Instant getDeletedAt(){return deletedAt;}public void setDeletedAt(Instant v){deletedAt=v;}public String getDeletedBy(){return deletedBy;}public void setDeletedBy(String v){deletedBy=v;}public String getDeletionReason(){return deletionReason;}public void setDeletionReason(String v){deletionReason=v;}
 }

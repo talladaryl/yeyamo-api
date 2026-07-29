@@ -13,7 +13,7 @@ import java.util.Optional;
 import com.yeyamo_mobile.api.event_service.enums.EventStatus;
 import com.yeyamo_mobile.api.event_service.models.Event;
 
-public interface EventRepository extends JpaRepository<Event, UUID> {
+public interface EventRepository extends JpaRepository<Event, UUID>,org.springframework.data.jpa.repository.JpaSpecificationExecutor<Event> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select e from Event e where e.id = :id")

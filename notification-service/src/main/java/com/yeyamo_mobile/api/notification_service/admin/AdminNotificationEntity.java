@@ -1,0 +1,3 @@
+package com.yeyamo_mobile.api.notification_service.admin;
+import java.time.Instant;import java.util.UUID;import jakarta.persistence.*;
+@Entity@Table(name="admin_notifications")public class AdminNotificationEntity{@Id public UUID id;@Column(name="source_event_id",unique=true,nullable=false)public UUID sourceEventId;@Column(name="admin_id")public String adminId;@Column(name="target_role")public String targetRole;@Column(name="notification_type",nullable=false)public String type;public String title;@Column(columnDefinition="TEXT")public String message;@Column(name="resource_type")public String resourceType;@Column(name="resource_id")public String resourceId;@Column(name="created_at")public Instant createdAt;@Column(name="expires_at")public Instant expiresAt;}

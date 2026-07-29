@@ -1,6 +1,7 @@
 package com.yeyamo_mobile.api.analytics_service.controller;
 
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.data.domain.*;
 
 import com.yeyamo_mobile.api.analytics_service.dto.AnalyticsDashboardResponse;
 import com.yeyamo_mobile.api.analytics_service.dto.PlacePopularitySummary;
@@ -21,6 +23,7 @@ import com.yeyamo_mobile.api.analytics_service.models.PlacePopularity;
 import com.yeyamo_mobile.api.analytics_service.models.RegionActivity;
 import com.yeyamo_mobile.api.analytics_service.models.UserEngagement;
 import com.yeyamo_mobile.api.analytics_service.service.AnalyticsQueryService;
+import com.yeyamo_mobile.api.analytics_service.service.AnalyticsEventLogQueryService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.constraints.Max;
@@ -30,9 +33,11 @@ import jakarta.validation.constraints.Min;
 @RequestMapping("/api/v1/analytics")
 public class AnalyticsController {
     private final AnalyticsQueryService service;
+    private final AnalyticsEventLogQueryService eventLogQueries;
 
-    public AnalyticsController(AnalyticsQueryService service) {
+    public AnalyticsController(AnalyticsQueryService service,AnalyticsEventLogQueryService eventLogQueries) {
         this.service = service;
+        this.eventLogQueries = eventLogQueries;
     }
 
     @GetMapping("/admin/dashboard")
@@ -50,16 +55,22 @@ public class AnalyticsController {
 
     @GetMapping("/kpis/{kpiName}")
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
-    public List<KpiHistory> kpiHistory(@PathVariable String kpiName,
+    public List<AnalyticsQueryService.KpiPoint> kpiHistory(@PathVariable String kpiName,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        return service.kpiHistory(kpiName, from, to);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(defaultValue="day") String granularity,
+            @RequestParam(defaultValue="Africa/Douala") String timezone) {
+        return service.kpiHistory(kpiName, from, to,granularity,timezone);
     }
 
     @GetMapping("/event-logs")
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
-    public List<AnalyticsEventLog> eventLogs() {
-        return service.eventLogs();
+    public Page<AnalyticsEventLog> eventLogs(@RequestParam(required=false)String eventType,
+            @RequestParam(required=false)String userId,@RequestParam(required=false)String service,
+            @RequestParam(required=false)String correlationId,
+            @RequestParam(required=false)Instant from,@RequestParam(required=false)Instant to,
+            Pageable pageable) {
+        return eventLogQueries.search(eventType,userId,service,correlationId,from,to,pageable);
     }
 
     @GetMapping("/regions/{regionId}/activity")

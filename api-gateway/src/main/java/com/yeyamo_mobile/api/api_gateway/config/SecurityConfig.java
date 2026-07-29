@@ -53,6 +53,9 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health/**", "/actuator/info", "/fallback/**",
                                 "/openapi/**", "/mobile-api/**").permitAll()
                         .requestMatchers(SecurityConfig::isPublicMobileRequest).permitAll()
+                        .requestMatchers("/api/v1/admin/campaigns/**").authenticated()
+                        .requestMatchers("/api/v1/admin/platform-users/**")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN", "SUPPORT")
                         .requestMatchers("/api/v1/admin/**", "/api/v1/analytics/**")
                         .hasAnyRole("ADMIN", "SUPER_ADMIN", "MODERATOR")
                         .anyRequest().authenticated())
@@ -108,12 +111,31 @@ public class SecurityConfig {
         if (singleRole != null && !singleRole.isBlank()) {
             roles.add(singleRole);
         }
-        return roles.stream()
+        List<GrantedAuthority> authorities = new ArrayList<>(roles.stream()
                 .map(role -> role.startsWith("ROLE_") ? role : "ROLE_" + role)
                 .distinct()
                 .map(SimpleGrantedAuthority::new)
                 .map(GrantedAuthority.class::cast)
-                .toList();
+                .toList());
+        addAuthorities(authorities, jwt.getClaimAsStringList("scopes"), "SCOPE_");
+        addAuthorities(authorities, splitClaim(jwt.getClaimAsString("scope")), "SCOPE_");
+        addAuthorities(authorities, jwt.getClaimAsStringList("permissions"), "PERMISSION_");
+        return authorities.stream().distinct().toList();
+    }
+
+    private void addAuthorities(List<GrantedAuthority> authorities, List<String> values, String prefix) {
+        if (values == null) {
+            return;
+        }
+        values.stream()
+                .filter(value -> value != null && !value.isBlank())
+                .map(value -> value.startsWith(prefix) ? value : prefix + value)
+                .map(SimpleGrantedAuthority::new)
+                .forEach(authorities::add);
+    }
+
+    private List<String> splitClaim(String value) {
+        return value == null || value.isBlank() ? List.of() : List.of(value.trim().split("\\s+"));
     }
 
     @Bean

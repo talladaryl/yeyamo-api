@@ -203,7 +203,7 @@ public class CollectionService {
     }
 
     @Transactional
-    public void updatePlace(UUID collectionId, UUID assetId, String requesterId, Boolean priority, String note,
+    public void updatePlace(UUID collectionId, UUID assetId, String requesterId, Boolean priority, Integer displayOrder, String note,
             String correlationId, String actorId) {
         CollectionEntity collection = getRequired(collectionId);
         if (!collection.getUserId().equals(requesterId)) {
@@ -215,6 +215,7 @@ public class CollectionService {
                 .orElseThrow(() -> new CatalogException(
                         "COLLECTION_ITEM_NOT_FOUND", "Élément de collection introuvable", HttpStatus.NOT_FOUND));
         if (priority != null) item.setPriority(priority);
+        if (displayOrder != null) item.setDisplayOrder(Math.max(0, displayOrder));
         if (note != null) item.setNote(normalizeNote(note));
         collectionPlaceRepository.save(item);
         collection.setUpdatedAt(Instant.now());

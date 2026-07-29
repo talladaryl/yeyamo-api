@@ -9,4 +9,7 @@ public class MissionController{
  @PostMapping("/api/v1/mission-management/missions")@ResponseStatus(HttpStatus.CREATED)@Operation(summary="Create a mission")public MissionView create(@Valid@RequestBody CreateMission body,@RequestHeader(value="X-Correlation-Id",required=false)String correlation){return service.create(body,correlation);}
  @PostMapping("/api/v1/mission-management/missions/{id}/activate")public MissionView activate(@PathVariable UUID id,@RequestHeader(value="X-Correlation-Id",required=false)String correlation){return service.activate(id,correlation);}
  @PostMapping("/api/v1/mission-management/missions/{id}/pause")public MissionView pause(@PathVariable UUID id,@RequestHeader(value="X-Correlation-Id",required=false)String correlation){return service.pause(id,correlation);}
+ @GetMapping("/api/v1/mission-management/missions/{id}")public MissionView get(@PathVariable UUID id){return service.get(id);}
+ @PutMapping("/api/v1/mission-management/missions/{id}")public MissionView update(@PathVariable UUID id,@Valid@RequestBody UpdateMission body,@RequestHeader(value="X-Correlation-Id",required=false)String correlation){return service.update(id,body,correlation);}
+ @DeleteMapping("/api/v1/mission-management/missions/{id}")public MissionView archive(@PathVariable UUID id,@RequestHeader(value="X-Correlation-Id",required=false)String correlation){return service.archive(id,correlation);}
 }

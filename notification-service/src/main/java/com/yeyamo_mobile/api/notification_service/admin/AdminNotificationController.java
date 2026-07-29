@@ -1,0 +1,7 @@
+package com.yeyamo_mobile.api.notification_service.admin;
+import static com.yeyamo_mobile.api.notification_service.admin.AdminNotificationDtos.*;import java.util.*;import org.springframework.data.domain.*;import org.springframework.data.web.PageableDefault;import org.springframework.security.core.Authentication;import org.springframework.web.bind.annotation.*;
+@RestController@RequestMapping("/api/v1/admin/notifications")public class AdminNotificationController{
+ private final AdminNotificationService service;public AdminNotificationController(AdminNotificationService s){service=s;}
+ @GetMapping public Page<Response>list(Authentication a,@RequestParam(required=false)String type,@PageableDefault(size=25,sort="createdAt",direction=Sort.Direction.DESC)Pageable p){return service.list(a.getName(),roles(a),type,p);}@GetMapping("/unread-count")public UnreadCount unread(Authentication a){return new UnreadCount(service.unread(a.getName(),roles(a)));}@PatchMapping("/{id}/read")public Response read(Authentication a,@PathVariable UUID id){return service.read(a.getName(),roles(a),id);}@PatchMapping("/{id}/unread")public Response unread(Authentication a,@PathVariable UUID id){return service.unread(a.getName(),roles(a),id);}@PostMapping("/read-all")public Updated all(Authentication a){return new Updated(service.readAll(a.getName(),roles(a)));}
+ private Set<String>roles(Authentication a){Set<String>r=new HashSet<>();a.getAuthorities().forEach(x->{String v=x.getAuthority();r.add(v.startsWith("ROLE_")?v.substring(5):v);});return r;}
+}

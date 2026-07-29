@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.yeyamo_mobile.api.discovery_service.application.port.*;
 import com.yeyamo_mobile.api.discovery_service.domain.model.*;
+import com.yeyamo_mobile.api.discovery_service.infrastructure.searchadmin.SearchAdminService;
 
 @Service 
 public class DiscoveryQueryService {
@@ -13,14 +14,22 @@ public class DiscoveryQueryService {
     private final DiscoverySearchPort search;
     private final DiscoveryCachePort cache;
     private final AdInjectionService adInjectionService;
+    private final SearchAdminService searchAdminService;
     
+    @org.springframework.beans.factory.annotation.Autowired
     public DiscoveryQueryService(
             DiscoverySearchPort s,
             DiscoveryCachePort c,
-            AdInjectionService adInjectionService) {
+            AdInjectionService adInjectionService,
+            SearchAdminService searchAdminService) {
         this.search = s;
         this.cache = c;
         this.adInjectionService = adInjectionService;
+        this.searchAdminService = searchAdminService;
+    }
+
+    DiscoveryQueryService(DiscoverySearchPort search, DiscoveryCachePort cache, AdInjectionService adInjectionService) {
+        this(search, cache, adInjectionService, null);
     }
     
     @Transactional(readOnly = true)
@@ -56,6 +65,7 @@ public class DiscoveryQueryService {
     
     private DiscoveryPage load(DiscoverySearch c) {
         List<DiscoveryDocument> found = search.search(c, c.size() + 1);
+        if (found.isEmpty() && searchAdminService != null) searchAdminService.recordZero(c.query(), c.regionCode());
         boolean next = found.size() > c.size();
         List<DiscoveryDocument> items = next ? List.copyOf(found.subList(0, c.size())) : List.copyOf(found);
         DiscoveryPage p = new DiscoveryPage(c.page(), c.size(), next, items, Instant.now());
@@ -82,4 +92,3 @@ public class DiscoveryQueryService {
         return context.toString();
     }
 }
-

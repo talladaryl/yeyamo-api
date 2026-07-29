@@ -17,13 +17,14 @@ import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.web.SecurityFilterChain;
 
-@Configuration
+@Configuration @org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 public class SecurityConfig {
     @Bean SecurityFilterChain security(HttpSecurity http,JwtRolesConverter converter)throws Exception{
         return http.csrf(csrf->csrf.disable())
                 .sessionManagement(session->session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth->auth
                     .requestMatchers("/actuator/health/**","/actuator/info","/v3/api-docs/**","/swagger-ui/**","/swagger-ui.html").permitAll()
+                    .requestMatchers("/api/v1/admin/**").authenticated()
                     .requestMatchers(HttpMethod.GET,"/api/v1/events/me").authenticated()
                     .requestMatchers(HttpMethod.GET,"/api/v1/events/*/participants").authenticated()
                     .requestMatchers(HttpMethod.GET,"/api/v1/events/**","/api/v1/places/*/events").permitAll()

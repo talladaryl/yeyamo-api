@@ -8,7 +8,8 @@ public record RegionResponse(
         String slug,
         String code,
         String description,
-        String coverImage
+        String coverImage,
+        boolean active
 ) {
     public static RegionResponse from(Region region) {
         return new RegionResponse(
@@ -17,7 +18,8 @@ public record RegionResponse(
                 region.getSlug(),
                 region.getCode(),
                 region.getDescription(),
-                region.getCoverImage()
+                region.getCoverImage(),
+                region.isActive()
         );
     }
 }

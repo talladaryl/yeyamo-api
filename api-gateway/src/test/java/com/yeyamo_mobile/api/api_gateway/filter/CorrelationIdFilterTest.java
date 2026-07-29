@@ -1,0 +1,6 @@
+package com.yeyamo_mobile.api.api_gateway.filter;
+import static org.junit.jupiter.api.Assertions.*;import java.util.concurrent.atomic.AtomicReference;import org.junit.jupiter.api.Test;import org.springframework.mock.web.*;
+class CorrelationIdFilterTest {
+ @Test void generatedCorrelationIdIsForwardedToDownstreamRequest()throws Exception{var request=new MockHttpServletRequest("GET","/api/v1/admin/settings");var response=new MockHttpServletResponse();var seen=new AtomicReference<String>();new CorrelationIdFilter().doFilter(request,response,(req,res)->seen.set(((jakarta.servlet.http.HttpServletRequest)req).getHeader(CorrelationIdFilter.HEADER)));assertNotNull(seen.get());assertEquals(response.getHeader(CorrelationIdFilter.HEADER),seen.get());}
+ @Test void validClientCorrelationIdIsPreserved()throws Exception{var request=new MockHttpServletRequest("GET","/");request.addHeader(CorrelationIdFilter.HEADER,"corr-123");var response=new MockHttpServletResponse();var seen=new AtomicReference<String>();new CorrelationIdFilter().doFilter(request,response,(req,res)->seen.set(((jakarta.servlet.http.HttpServletRequest)req).getHeader(CorrelationIdFilter.HEADER)));assertEquals("corr-123",seen.get());}
+}

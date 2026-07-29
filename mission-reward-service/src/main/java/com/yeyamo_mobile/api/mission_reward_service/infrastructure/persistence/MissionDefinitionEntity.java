@@ -35,10 +35,17 @@ public class MissionDefinitionEntity {
     }
     public void activate(){status=MissionStatus.ACTIVE;updatedAt=Instant.now();}
     public void pause(){status=MissionStatus.PAUSED;updatedAt=Instant.now();}
+    public void update(String title,String description,Instant startsAt,Instant endsAt,String rewardCode,String rewardTitle,int rewardAmount){
+        if(title==null||title.isBlank()||description==null||description.isBlank()||rewardCode==null||rewardCode.isBlank()||rewardTitle==null||rewardTitle.isBlank()||rewardAmount<=0)throw new IllegalArgumentException("Invalid mission definition");
+        if(startsAt!=null&&endsAt!=null&&!endsAt.isAfter(startsAt))throw new IllegalArgumentException("endsAt must be after startsAt");
+        this.title=title.trim();this.description=description.trim();this.startsAt=startsAt;this.endsAt=endsAt;this.rewardCode=rewardCode.trim();this.rewardTitle=rewardTitle.trim();this.rewardAmount=rewardAmount;updatedAt=Instant.now();
+    }
+    public void archive(){status=MissionStatus.ARCHIVED;updatedAt=Instant.now();}
     public boolean accepts(Instant at){return status==MissionStatus.ACTIVE&&(startsAt==null||!at.isBefore(startsAt))&&(endsAt==null||at.isBefore(endsAt));}
     public UUID getId(){return id;} public String getCode(){return code;} public String getTitle(){return title;}
     public String getDescription(){return description;} public MissionStatus getStatus(){return status;}
     public Instant getStartsAt(){return startsAt;} public Instant getEndsAt(){return endsAt;}
     public String getRewardCode(){return rewardCode;} public String getRewardTitle(){return rewardTitle;}
     public int getRewardAmount(){return rewardAmount;}
+    public Instant getCreatedAt(){return createdAt;} public Instant getUpdatedAt(){return updatedAt;}
 }

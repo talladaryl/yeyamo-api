@@ -37,6 +37,8 @@ public class PlaceCategory {
     private String slug;
 
     private String icon;
+    @Column(nullable = false)
+    private boolean active = true;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")

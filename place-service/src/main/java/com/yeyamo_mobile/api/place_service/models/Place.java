@@ -102,6 +102,9 @@ public class Place {
     @Column(nullable = false)
     private PlaceStatus status = PlaceStatus.DRAFT;
 
+    @Column(nullable = false)
+    private boolean verified;
+
     @OneToMany(mappedBy = "place", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PlaceMedia> media = new ArrayList<>();
 

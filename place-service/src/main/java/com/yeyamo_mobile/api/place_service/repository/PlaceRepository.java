@@ -11,7 +11,7 @@ import org.springframework.data.repository.query.Param;
 import com.yeyamo_mobile.api.place_service.enums.PlaceStatus;
 import com.yeyamo_mobile.api.place_service.models.Place;
 
-public interface PlaceRepository extends JpaRepository<Place, UUID> {
+public interface PlaceRepository extends JpaRepository<Place, UUID>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<Place> {
 
     Optional<Place> findBySlug(String slug);
 
@@ -71,4 +71,8 @@ public interface PlaceRepository extends JpaRepository<Place, UUID> {
     );
 
     boolean existsBySlug(String slug);
+    boolean existsByRegionId(Long id);
+    boolean existsByCityId(Long id);
+    boolean existsByDistrictId(Long id);
+    boolean existsByCategoryId(Long id);
 }

@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.mission_reward_service.infrastructure.persistence;import java.util.UUID;import org.springframework.data.jpa.repository.JpaRepository;public interface XpRuleRepository extends JpaRepository<XpRuleEntity,UUID>{boolean existsByAction(String action);}

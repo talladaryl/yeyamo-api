@@ -69,11 +69,13 @@ public class ValidationService {
     public PartnerValidation reviewPartner(UUID id, PartnerReviewRequest request, HttpServletRequest httpRequest) {
         PartnerValidation validation = partnerRepository.findById(id)
                 .orElseThrow(() -> new ApiException("PARTNER_VALIDATION_NOT_FOUND", "Validation partenaire introuvable", HttpStatus.NOT_FOUND));
-        validation.setStatus(request.status());
-        validation.setReviewComment(request.reviewComment());
+        validation.setStatus(request.decision());
+        validation.setReviewComment(request.reason() == null ? request.comment() : request.reason());
         validation.setRiskScore(request.riskScore());
-        if (request.status() == ValidationStatus.APPROVED || request.status() == ValidationStatus.REJECTED) {
-            validation.setValidatedBy(request.validatedBy() == null ? auditService.currentAdminId() : request.validatedBy());
+        if (request.decision() == ValidationStatus.APPROVED || request.decision() == ValidationStatus.REJECTED
+                || request.decision() == ValidationStatus.REQUIRES_CHANGES || request.decision() == ValidationStatus.CORRECTIONS_REQUIRED
+                || request.decision() == ValidationStatus.NEEDS_INFO) {
+            validation.setValidatedBy(auditService.currentAdminId());
             validation.setValidatedAt(LocalDateTime.now());
         }
         PartnerValidation saved = partnerRepository.save(validation);
@@ -124,6 +126,7 @@ public class ValidationService {
             case REJECTED -> "partner.rejected";
             case NEEDS_INFO -> "partner.needs_info";
             case REQUIRES_CHANGES -> "partner.requires_changes";
+            case CORRECTIONS_REQUIRED -> "partner.requires_changes";
             case PENDING -> null;
         };
     }

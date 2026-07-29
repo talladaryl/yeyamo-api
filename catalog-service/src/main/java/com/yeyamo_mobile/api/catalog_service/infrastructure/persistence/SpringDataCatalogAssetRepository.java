@@ -11,7 +11,7 @@ import org.springframework.data.repository.query.Param;
 import com.yeyamo_mobile.api.catalog_service.domain.model.AssetStatus;
 import com.yeyamo_mobile.api.catalog_service.domain.model.AssetType;
 
-public interface SpringDataCatalogAssetRepository extends JpaRepository<CatalogAssetEntity, UUID> {
+public interface SpringDataCatalogAssetRepository extends JpaRepository<CatalogAssetEntity, UUID>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<CatalogAssetEntity> {
     Optional<CatalogAssetEntity> findBySlug(String slug);
     Optional<CatalogAssetEntity> findBySourceAndExternalId(String source, String externalId);
     boolean existsBySlugAndIdNot(String slug, UUID id);

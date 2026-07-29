@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 import javax.crypto.SecretKey;
 
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import com.yeyamo_mobile.api.auth_service.models.User;
+import com.yeyamo_mobile.api.auth_service.enums.Roles;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -62,6 +64,11 @@ public class JwtService {
         List<String> roles = user.getRoles().stream()
                 .map(role -> role.getCode().name())
                 .toList();
+        Set<Roles> roleCodes = user.getRoles().stream()
+                .map(role -> role.getCode())
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        Set<String> scopes = RoleAuthorities.scopes(roleCodes);
+        Set<String> permissions = RoleAuthorities.permissions(roleCodes);
 
         return Jwts.builder()
                 .header().keyId(keyId).and()
@@ -71,6 +78,9 @@ public class JwtService {
                 .claim("email", user.getEmail())
                 .claim("phone", user.getPhone())
                 .claim("roles", roles)
+                .claim("scope", String.join(" ", scopes))
+                .claim("scopes", scopes)
+                .claim("permissions", permissions)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(accessTokenExpirationMs)))
                 .signWith(signingKey, Jwts.SIG.HS256)

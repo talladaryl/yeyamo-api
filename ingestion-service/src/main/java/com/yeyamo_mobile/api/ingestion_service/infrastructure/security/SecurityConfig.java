@@ -5,7 +5,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;import org
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.oauth2.jwt.*;import org.springframework.security.oauth2.server.resource.authentication.*;import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.core.convert.converter.Converter;
-@Configuration
+@Configuration @org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 public class SecurityConfig{
  @Bean SecurityFilterChain security(HttpSecurity http)throws Exception{return http.csrf(c->c.disable()).sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
   .authorizeHttpRequests(a->a.requestMatchers("/actuator/health/**","/actuator/info").permitAll().requestMatchers("/api/v1/catalog/imports/**").hasAnyRole("ADMIN","PARTNER").anyRequest().authenticated())

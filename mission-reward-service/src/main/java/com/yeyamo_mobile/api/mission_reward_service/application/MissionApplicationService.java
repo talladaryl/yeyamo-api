@@ -24,6 +24,9 @@ public class MissionApplicationService {
  @Transactional public MissionView activate(UUID id,String correlation){var mission=required(id);if(objectives.findByMissionIdOrderByPositionAsc(id).isEmpty())throw new IllegalStateException("Mission requires at least one objective");mission.activate();
   outbox.append("mission.activated",id.toString(),correlation,Map.of("missionId",id,"code",mission.getCode()));return view(mission,null);}
  @Transactional public MissionView pause(UUID id,String correlation){var mission=required(id);mission.pause();outbox.append("mission.paused",id.toString(),correlation,Map.of("missionId",id,"code",mission.getCode()));return view(mission,null);}
+ @Transactional(readOnly=true)public MissionView get(UUID id){return view(required(id),null);}
+ @Transactional public MissionView update(UUID id,UpdateMission command,String correlation){var mission=required(id);mission.update(command.title(),command.description(),command.startsAt(),command.endsAt(),command.rewardCode(),command.rewardTitle(),command.rewardAmount());missions.save(mission);outbox.append("mission.updated",id.toString(),correlation,Map.of("missionId",id,"code",mission.getCode()));return view(mission,null);}
+ @Transactional public MissionView archive(UUID id,String correlation){var mission=required(id);mission.archive();missions.save(mission);outbox.append("mission.archived",id.toString(),correlation,Map.of("missionId",id,"code",mission.getCode()));return view(mission,null);}
  @Transactional public void apply(MissionEvent event){
   Map<UUID,List<MissionObjectiveEntity>> grouped=objectives.findByEventTypeOrderByPositionAsc(event.eventType()).stream()
     .filter(o->o.getMission().accepts(event.occurredAt())).filter(o->ProgressCalculator.matches(o.rule(),event))

@@ -12,4 +12,6 @@ public interface PlaceCategoryRepository extends JpaRepository<PlaceCategory, Lo
     Optional<PlaceCategory> findBySlug(String slug);
 
     List<PlaceCategory> findByParentIsNullOrderByNameAsc();
+    boolean existsBySlug(String slug);
+    boolean existsByParentId(Long parentId);
 }

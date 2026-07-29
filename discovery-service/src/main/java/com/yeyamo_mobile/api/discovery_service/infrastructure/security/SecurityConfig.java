@@ -21,7 +21,9 @@ public class SecurityConfig {
     @Bean SecurityFilterChain security(HttpSecurity http,JwtRolesConverter roles) throws Exception {
         return http.csrf(c->c.disable()).sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(a->a.requestMatchers("/actuator/health/**","/actuator/info","/v3/api-docs/**","/swagger-ui/**","/swagger-ui.html").permitAll()
-                        .requestMatchers("/api/v1/discovery/**").authenticated().anyRequest().authenticated())
+                        .requestMatchers(org.springframework.http.HttpMethod.GET,"/api/v1/admin/search/**").hasAnyRole("ADMIN","SUPER_ADMIN","SUPPORT")
+                        .requestMatchers("/api/v1/admin/search/**").hasAnyRole("ADMIN","SUPER_ADMIN")
+                        .requestMatchers("/api/v1/discovery/**","/api/v1/maps/**").authenticated().anyRequest().authenticated())
                 .oauth2ResourceServer(o->o.jwt(j->j.jwtAuthenticationConverter(roles))).build();
     }
     @Bean JwtDecoder decoder(@Value("${jwt.secret}") String secret) {

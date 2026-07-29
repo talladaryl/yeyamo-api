@@ -24,6 +24,9 @@ public class RoleSeeder implements CommandLineRunner {
         seed(Roles.ADMIN, LabelRole.COMMERCIAL);
         seed(Roles.SUPER_ADMIN, LabelRole.SUPER_ADMINISTRATEUR);
         seed(Roles.MODERATOR, LabelRole.MODERATEUR);
+        seed(Roles.EDITOR, LabelRole.MODERATEUR);
+        seed(Roles.SUPPORT, LabelRole.UTILISATEUR);
+        seed(Roles.COMMERCIAL, LabelRole.COMMERCIAL);
     }
 
     private void seed(Roles code, LabelRole label) {

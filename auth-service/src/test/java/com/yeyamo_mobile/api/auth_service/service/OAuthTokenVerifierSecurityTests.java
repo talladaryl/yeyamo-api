@@ -21,14 +21,14 @@ class OAuthTokenVerifierSecurityTests {
 
         ApiException failure = assertThrows(ApiException.class, () -> verifier.verify("google", "signed-token"));
 
-        assertEquals("OAUTH_AUDIENCE_INVALID", failure.getCode());
+        assertEquals("GOOGLE_AUDIENCE_INVALID", failure.getCode());
     }
 
     @Test
     void rejectsUnverifiedEmailAndAmbiguousAuthorizedParty() {
         JwtDecoder unverified = token -> jwt("https://accounts.google.com", List.of("yeyamo-google"), false);
         OAuthTokenVerifier unverifiedVerifier = new OAuthTokenVerifier("yeyamo-google", "yeyamo-apple", unverified, unverified);
-        assertEquals("OAUTH_EMAIL_UNVERIFIED",
+        assertEquals("GOOGLE_EMAIL_NOT_VERIFIED",
                 assertThrows(ApiException.class, () -> unverifiedVerifier.verify("google", "signed-token")).getCode());
 
         JwtDecoder ambiguous = token -> Jwt.withTokenValue("signed-token")

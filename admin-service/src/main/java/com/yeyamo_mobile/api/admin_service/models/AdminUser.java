@@ -3,6 +3,8 @@ package com.yeyamo_mobile.api.admin_service.models;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 import org.hibernate.annotations.JdbcTypeCode;
@@ -34,6 +36,12 @@ public class AdminUser {
     @Column(name = "user_id", nullable = false, unique = true)
     private UUID userId;
 
+    @Column(nullable = false, length = 150)
+    private String name;
+
+    @Column(nullable = false, unique = true, length = 320)
+    private String email;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
     private AdminRole role;
@@ -41,6 +49,10 @@ public class AdminUser {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
     private Map<String, Object> permissions = new LinkedHashMap<>();
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = false, columnDefinition = "jsonb")
+    private Set<String> scopes = new LinkedHashSet<>();
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

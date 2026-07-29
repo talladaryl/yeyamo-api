@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.mission_reward_service.infrastructure.persistence;import java.util.UUID;import org.springframework.data.jpa.repository.*;public interface FraudAlertRepository extends JpaRepository<FraudAlertEntity,UUID>,JpaSpecificationExecutor<FraudAlertEntity>{}

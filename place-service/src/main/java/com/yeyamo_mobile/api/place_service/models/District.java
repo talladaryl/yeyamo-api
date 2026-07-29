@@ -36,4 +36,6 @@ public class District {
     private Double latitude;
 
     private Double longitude;
+    @Column(nullable = false)
+    private boolean active = true;
 }

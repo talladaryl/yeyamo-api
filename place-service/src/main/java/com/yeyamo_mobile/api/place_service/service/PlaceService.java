@@ -2,14 +2,19 @@ package com.yeyamo_mobile.api.place_service.service;
 
 import java.util.List;
 import java.util.UUID;
+import java.time.Instant;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.*;
+import org.springframework.data.jpa.domain.Specification;
 
 import com.yeyamo_mobile.api.place_service.dto.PlaceRequest;
 import com.yeyamo_mobile.api.place_service.dto.PlaceResponse;
 import com.yeyamo_mobile.api.place_service.dto.PlaceSummaryResponse;
+import com.yeyamo_mobile.api.place_service.dto.AdminPlaceResponse;
+import com.yeyamo_mobile.api.place_service.dto.PlaceStatusRequest;
 import com.yeyamo_mobile.api.place_service.enums.PlaceStatus;
 import com.yeyamo_mobile.api.place_service.event.PlaceEventPublisher;
 import com.yeyamo_mobile.api.place_service.exception.ApiException;
@@ -117,6 +122,40 @@ public class PlaceService {
         Place saved = placeRepository.save(place);
         eventPublisher.publishUpdated(saved);
         return PlaceResponse.from(placeRepository.findDetailedById(saved.getId()).orElse(saved));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AdminPlaceResponse> adminSearch(String search, PlaceStatus status, Long categoryId, Long regionId,
+            Long cityId, Long districtId, UUID partnerId, Boolean verified, Instant createdFrom, Instant createdTo,
+            Pageable pageable) {
+        Specification<Place> specification = Specification.where(null);
+        if (search != null && !search.isBlank()) specification = specification.and((root, query, cb) -> cb.like(cb.lower(root.get("name")), "%" + search.trim().toLowerCase() + "%"));
+        if (status != null) specification = specification.and((root, query, cb) -> cb.equal(root.get("status"), status));
+        if (categoryId != null) specification = specification.and((root, query, cb) -> cb.equal(root.get("category").get("id"), categoryId));
+        if (regionId != null) specification = specification.and((root, query, cb) -> cb.equal(root.get("region").get("id"), regionId));
+        if (cityId != null) specification = specification.and((root, query, cb) -> cb.equal(root.get("city").get("id"), cityId));
+        if (districtId != null) specification = specification.and((root, query, cb) -> cb.equal(root.get("district").get("id"), districtId));
+        if (partnerId != null) specification = specification.and((root, query, cb) -> cb.equal(root.get("partnerId"), partnerId));
+        if (verified != null) specification = specification.and((root, query, cb) -> cb.equal(root.get("verified"), verified));
+        if (createdFrom != null) specification = specification.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("createdAt"), createdFrom));
+        if (createdTo != null) specification = specification.and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("createdAt"), createdTo));
+        return placeRepository.findAll(specification, pageable).map(AdminPlaceResponse::from);
+    }
+
+    @Transactional(readOnly = true)
+    public AdminPlaceResponse adminDetail(UUID id) {
+        return AdminPlaceResponse.from(placeRepository.findDetailedById(id)
+                .orElseThrow(() -> new ApiException("PLACE_NOT_FOUND", "Lieu introuvable", HttpStatus.NOT_FOUND)));
+    }
+
+    public AdminPlaceResponse updateStatus(UUID id, PlaceStatusRequest request) {
+        Place place = placeRepository.findDetailedById(id)
+                .orElseThrow(() -> new ApiException("PLACE_NOT_FOUND", "Lieu introuvable", HttpStatus.NOT_FOUND));
+        place.setStatus(request.status());
+        place.setVerified(request.verified());
+        Place saved = placeRepository.save(place);
+        eventPublisher.publishUpdated(saved);
+        return AdminPlaceResponse.from(saved);
     }
 
     private void applyRequest(Place place, PlaceRequest request) {

@@ -6,5 +6,6 @@ public enum ValidationStatus {
     APPROVED,
     REJECTED,
     NEEDS_INFO,
-    REQUIRES_CHANGES
+    REQUIRES_CHANGES,
+    CORRECTIONS_REQUIRED
 }

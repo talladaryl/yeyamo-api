@@ -19,10 +19,12 @@ public class DistrictService {
 
     private final DistrictRepository districtRepository;
     private final CityService cityService;
+    private final com.yeyamo_mobile.api.place_service.repository.PlaceRepository placeRepository;
 
-    public DistrictService(DistrictRepository districtRepository, CityService cityService) {
+    public DistrictService(DistrictRepository districtRepository, CityService cityService,com.yeyamo_mobile.api.place_service.repository.PlaceRepository placeRepository) {
         this.districtRepository = districtRepository;
         this.cityService = cityService;
+        this.placeRepository=placeRepository;
     }
 
     @Transactional(readOnly = true)
@@ -38,6 +40,7 @@ public class DistrictService {
 
     public DistrictResponse create(DistrictRequest request) {
         City city = cityService.getEntityById(request.getCityId());
+        if(districtRepository.existsByCityIdAndNameIgnoreCase(city.getId(),request.getName()))throw new ApiException("DISTRICT_EXISTS","Ce quartier existe deja dans cette ville",HttpStatus.CONFLICT);
         District district = new District();
         district.setCity(city);
         district.setName(request.getName());
@@ -55,4 +58,7 @@ public class DistrictService {
         district.setLongitude(request.getLongitude());
         return DistrictResponse.from(districtRepository.save(district));
     }
+
+    public DistrictResponse setActive(Long id,boolean active){District district=getEntityById(id);district.setActive(active);return DistrictResponse.from(districtRepository.save(district));}
+    public void delete(Long id){District district=getEntityById(id);if(placeRepository.existsByDistrictId(id))throw new ApiException("DISTRICT_IN_USE","Le quartier est reference et ne peut pas etre supprime",HttpStatus.CONFLICT);districtRepository.delete(district);}
 }

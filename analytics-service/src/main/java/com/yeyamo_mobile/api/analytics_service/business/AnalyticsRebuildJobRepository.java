@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.analytics_service.business;import java.util.UUID;import org.springframework.data.jpa.repository.JpaRepository;public interface AnalyticsRebuildJobRepository extends JpaRepository<AnalyticsRebuildJob,UUID>{}

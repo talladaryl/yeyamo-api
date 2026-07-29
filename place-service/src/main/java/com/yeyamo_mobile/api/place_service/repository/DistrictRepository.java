@@ -9,4 +9,6 @@ import com.yeyamo_mobile.api.place_service.models.District;
 public interface DistrictRepository extends JpaRepository<District, Long> {
 
     List<District> findByCityId(Long cityId);
+    boolean existsByCityIdAndNameIgnoreCase(Long cityId,String name);
+    boolean existsByCityId(Long cityId);
 }

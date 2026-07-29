@@ -42,6 +42,8 @@ public class Region {
 
     @Column(name = "cover_image")
     private String coverImage;
+    @Column(nullable = false)
+    private boolean active = true;
 
     @OneToMany(mappedBy = "region", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<City> cities = new ArrayList<>();

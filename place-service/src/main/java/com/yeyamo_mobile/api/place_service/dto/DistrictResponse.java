@@ -7,7 +7,8 @@ public record DistrictResponse(
         Long cityId,
         String name,
         Double latitude,
-        Double longitude
+        Double longitude,
+        boolean active
 ) {
     public static DistrictResponse from(District district) {
         return new DistrictResponse(
@@ -15,7 +16,8 @@ public record DistrictResponse(
                 district.getCity().getId(),
                 district.getName(),
                 district.getLatitude(),
-                district.getLongitude()
+                district.getLongitude(),
+                district.isActive()
         );
     }
 }

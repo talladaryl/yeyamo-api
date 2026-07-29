@@ -10,7 +10,8 @@ public record CategoryResponse(
         String slug,
         String icon,
         Long parentId,
-        List<CategoryResponse> children
+        List<CategoryResponse> children,
+        boolean active
 ) {
     public static CategoryResponse from(PlaceCategory category) {
         return new CategoryResponse(
@@ -19,7 +20,8 @@ public record CategoryResponse(
                 category.getSlug(),
                 category.getIcon(),
                 category.getParent() != null ? category.getParent().getId() : null,
-                category.getChildren().stream().map(CategoryResponse::from).toList()
+                category.getChildren().stream().map(CategoryResponse::from).toList(),
+                category.isActive()
         );
     }
 
@@ -30,7 +32,8 @@ public record CategoryResponse(
                 category.getSlug(),
                 category.getIcon(),
                 category.getParent() != null ? category.getParent().getId() : null,
-                List.of()
+                List.of(),
+                category.isActive()
         );
     }
 }

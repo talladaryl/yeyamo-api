@@ -1,3 +1,5 @@
 package com.yeyamo_mobile.api.commerce_service.persistence;
 import jakarta.persistence.*;import java.math.*;import java.time.*;import java.util.*;import static com.yeyamo_mobile.api.commerce_service.domain.CommerceTypes.*;
-@Entity @Table(name="commerce_ledger")public class LedgerEntry{@Id public UUID id;@Column(name="partner_id")public String partnerId;@Column(name="order_id")public UUID orderId;@Enumerated(EnumType.STRING)@Column(name="transaction_type")public LedgerType transactionType;public BigDecimal amount;public String currency;public String reference;@Column(name="idempotency_key")public String idempotencyKey;@Column(name="occurred_at")public Instant occurredAt;@Column(name="created_by")public String createdBy;public String reason;}
+@Entity@Table(name="commerce_ledger")public class LedgerEntry{
+ @Id public UUID id;@Column(name="partner_id")public String partnerId;@Column(name="order_id")public UUID orderId;@Enumerated(EnumType.STRING)@Column(name="transaction_type")public LedgerType transactionType;public BigDecimal amount;@Column(name="balance_after")public BigDecimal balanceAfter;public String currency;public String reference;@Column(name="idempotency_key")public String idempotencyKey;@Column(name="occurred_at")public Instant occurredAt;@Column(name="created_by")public String createdBy;public String reason;
+}

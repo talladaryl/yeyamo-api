@@ -1,0 +1,9 @@
+ALTER TABLE places ADD COLUMN IF NOT EXISTS verified BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE regions ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE cities ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE districts ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE place_categories ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+CREATE INDEX IF NOT EXISTS idx_places_partner_status ON places(partner_id,status);
+CREATE INDEX IF NOT EXISTS idx_places_category_status ON places(category_id,status);
+CREATE INDEX IF NOT EXISTS idx_places_verified ON places(verified);
+CREATE INDEX IF NOT EXISTS idx_places_created_at ON places(created_at);

@@ -26,6 +26,7 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/tickets/events/*/types").permitAll()
+                .requestMatchers("/api/v1/admin/events/**").hasAnyRole("ADMIN","SUPER_ADMIN")
                 
                 // User ticket operations
                 .requestMatchers(HttpMethod.POST, "/api/v1/tickets/hold").authenticated()

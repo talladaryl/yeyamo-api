@@ -4,5 +4,6 @@ import jakarta.validation.constraints.Size;
 
 public record UpdateCollectionPlaceRequest(
         Boolean isPriority,
+        Integer displayOrder,
         @Size(max = 1000) String note) {
 }

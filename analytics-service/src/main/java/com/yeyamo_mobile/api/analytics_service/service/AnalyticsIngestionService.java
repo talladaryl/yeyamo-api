@@ -63,9 +63,11 @@ public class AnalyticsIngestionService {
                     projection.project(event);
                 }
             }
-            saveEventLog(eventId, eventType, AnalyticsEventStatus.SUCCESS);
+            saveEventLog(eventId, eventType, AnalyticsEventStatus.SUCCESS,
+                    event.actorId(), event.producer(), event.correlationId(), event.occurredAt());
         } catch (Exception exception) {
-            saveEventLog(eventId, eventType, AnalyticsEventStatus.FAILED);
+            saveEventLog(eventId, eventType, AnalyticsEventStatus.FAILED,
+                    null, null, correlationId, Instant.now());
             publishAuditFailure(eventType, correlationId, exception.getMessage());
             throw new AnalyticsIngestionException("Analytics event processing failed", exception);
         }
@@ -91,11 +93,16 @@ public class AnalyticsIngestionService {
                 correlationId, text(event, "actorId", null), payload);
     }
 
-    private void saveEventLog(UUID eventId, String eventType, AnalyticsEventStatus status) {
+    private void saveEventLog(UUID eventId, String eventType, AnalyticsEventStatus status,
+            String userId,String service,String correlationId,Instant occurredAt) {
         AnalyticsEventLog log = eventLogRepository.findByEventId(eventId).orElseGet(AnalyticsEventLog::new);
         log.setId(eventId);
         log.setEventId(eventId);
         log.setEventType(eventType);
+        log.setUserId(userId);
+        log.setService(service);
+        log.setCorrelationId(correlationId);
+        log.setOccurredAt(occurredAt);
         log.setProcessedAt(LocalDateTime.now());
         log.setStatus(status);
         eventLogRepository.save(log);

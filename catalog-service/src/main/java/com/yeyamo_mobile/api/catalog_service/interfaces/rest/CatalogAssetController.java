@@ -5,6 +5,11 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.*;
+import java.time.Instant;
+import com.yeyamo_mobile.api.catalog_service.application.AdminCatalogAssetService;
+import com.yeyamo_mobile.api.catalog_service.domain.model.AssetStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.yeyamo_mobile.api.catalog_service.application.CatalogAssetService;
 import com.yeyamo_mobile.api.catalog_service.domain.model.AssetType;
 import jakarta.validation.Valid;
@@ -15,15 +20,27 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController @RequestMapping("/api/v1/catalog/assets") @Tag(name="Catalog assets")
 public class CatalogAssetController {
-    private final CatalogAssetService service;
-    public CatalogAssetController(CatalogAssetService service){this.service=service;}
+    private final CatalogAssetService service;private final AdminCatalogAssetService adminService;
+    public CatalogAssetController(CatalogAssetService service,AdminCatalogAssetService adminService){this.service=service;this.adminService=adminService;}
+    @GetMapping("/manage") @PreAuthorize("hasAnyRole('EDITOR','ADMIN','SUPER_ADMIN')") public Page<AdminCatalogAssetResponse>manageList(@RequestParam(required=false)String search,@RequestParam(required=false)AssetType type,@RequestParam(required=false)AssetStatus status,@RequestParam(required=false)String regionId,@RequestParam(required=false)String categoryId,@RequestParam(required=false)String source,@RequestParam(required=false)Instant createdFrom,@RequestParam(required=false)Instant createdTo,Pageable pageable){return adminService.search(search,type,status,regionId,categoryId,source,createdFrom,createdTo,pageable);}
     @GetMapping("/{id}") public CatalogAssetResponse get(@PathVariable UUID id){return CatalogAssetResponse.from(service.get(id));}
     @GetMapping("/manage/{id}") @Operation(summary="Read any asset status for management",security=@SecurityRequirement(name="bearerAuth")) public CatalogAssetResponse manage(@PathVariable UUID id){return CatalogAssetResponse.from(service.getForManagement(id));}
     @GetMapping("/slug/{slug}") public CatalogAssetResponse bySlug(@PathVariable String slug){return CatalogAssetResponse.from(service.getBySlug(slug));}
-    @GetMapping public List<CatalogAssetResponse> search(@RequestParam(required=false) AssetType type,
+    @GetMapping(params="!page") public List<CatalogAssetResponse> search(@RequestParam(required=false) AssetType type,
             @RequestParam(required=false) String regionCode,@RequestParam(required=false) String categoryCode,
             @RequestParam(required=false) String q,@RequestParam(defaultValue="50") @Min(1) @Max(100) int limit){
         return service.search(type,regionCode,categoryCode,q,limit).stream().map(CatalogAssetResponse::from).toList();
+    }
+    @GetMapping(params="page") @PreAuthorize("hasAnyRole('EDITOR','ADMIN','SUPER_ADMIN')")
+    public Page<AdminCatalogAssetResponse> adminSearch(@RequestParam int page,@RequestParam(defaultValue="20")int size,
+            @RequestParam(required=false)String search,@RequestParam(required=false)AssetType type,
+            @RequestParam(required=false)AssetStatus status,@RequestParam(required=false)String regionId,
+            @RequestParam(required=false)String categoryId,@RequestParam(required=false)String source,
+            @RequestParam(required=false)Instant createdFrom,@RequestParam(required=false)Instant createdTo,
+            @RequestParam(defaultValue="createdAt,desc")String sort){
+        String[] parts=sort.split(",",2);Sort.Direction direction=parts.length>1&&"asc".equalsIgnoreCase(parts[1])?Sort.Direction.ASC:Sort.Direction.DESC;
+        return adminService.search(search,type,status,regionId,categoryId,source,createdFrom,createdTo,
+                PageRequest.of(Math.max(0,page),Math.max(1,Math.min(100,size)),Sort.by(direction,parts[0])));
     }
     @GetMapping("/nearby") public List<CatalogAssetResponse> nearby(
             @RequestParam @DecimalMin("-90") @DecimalMax("90") double lat,

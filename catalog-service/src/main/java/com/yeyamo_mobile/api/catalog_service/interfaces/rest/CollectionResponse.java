@@ -19,7 +19,7 @@ public record CollectionResponse(
     List<CatalogAssetResponse> places,
     List<CollectionItemResponse> items
 ) {
-    public record CollectionItemResponse(UUID assetId, Instant addedAt, boolean isPriority, String note) {}
+    public record CollectionItemResponse(UUID assetId, Instant addedAt, boolean isPriority, int displayOrder, String note) {}
 
     public static CollectionResponse from(CollectionEntity collection) {
         return new CollectionResponse(
@@ -54,7 +54,7 @@ public record CollectionResponse(
             places,
             data.items().stream()
                     .map(item -> new CollectionItemResponse(item.getAssetId(), item.getAddedAt(),
-                            item.isPriority(), item.getNote()))
+                            item.isPriority(), item.getDisplayOrder(), item.getNote()))
                     .toList()
         );
     }

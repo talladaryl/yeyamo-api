@@ -18,10 +18,15 @@ import com.yeyamo_mobile.api.place_service.util.SlugUtil;
 public class RegionService {
 
     private final RegionRepository regionRepository;
+    private final com.yeyamo_mobile.api.place_service.repository.CityRepository cityRepository;
+    private final com.yeyamo_mobile.api.place_service.repository.PlaceRepository placeRepository;
 
-    public RegionService(RegionRepository regionRepository) {
+    public RegionService(RegionRepository regionRepository,com.yeyamo_mobile.api.place_service.repository.CityRepository cityRepository,com.yeyamo_mobile.api.place_service.repository.PlaceRepository placeRepository) {
         this.regionRepository = regionRepository;
+        this.cityRepository=cityRepository;this.placeRepository=placeRepository;
     }
+    public RegionResponse setActive(Long id,boolean active){Region region=getEntityById(id);region.setActive(active);return RegionResponse.from(regionRepository.save(region));}
+    public void delete(Long id){Region region=getEntityById(id);if(cityRepository.existsByRegionId(id)||placeRepository.existsByRegionId(id))throw new ApiException("REGION_IN_USE","La region est referencee et ne peut pas etre supprimee",HttpStatus.CONFLICT);regionRepository.delete(region);}
 
     @Transactional(readOnly = true)
     public List<RegionResponse> listRegions() {

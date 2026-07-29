@@ -97,6 +97,7 @@ public class UserProfileService {
         Map<String,Object> payload = new LinkedHashMap<>();
         payload.put("profileId", p.getId().toString()); payload.put("authUserId", p.getAuthUserId());
         payload.put("displayName", p.getDisplayName()); payload.put("status", p.getStatus().name());
+        payload.put("avatarUrl", p.getAvatarUrl());
         payload.put("language", p.getLanguage().name()); payload.put("notificationsEnabled", p.isNotificationsEnabled());
         payload.put("locationSharingEnabled", p.isLocationSharingEnabled()); payload.put("preferredRegionId", p.getPreferredRegionId());
         outbox.append(type, p.getId(), actor, correlationId, payload);

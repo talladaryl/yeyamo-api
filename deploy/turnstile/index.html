@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="turnstile-site-key" content="__TURNSTILE_SITE_KEY__">
+  <title>Vérification YeYamo</title>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
+</head>
+<body>
+  <main id="challenge" aria-label="Vérification de sécurité"></main>
+  <script>
+    const allowedActions = new Set(['register', 'request_otp', 'resend_otp', 'forgot_password', 'login']);
+    const action = new URLSearchParams(location.search).get('action');
+    const sitekey = document.querySelector('meta[name="turnstile-site-key"]').content;
+    const send = (type, token) => window.ReactNativeWebView?.postMessage(JSON.stringify({ type, token, action }));
+    window.addEventListener('load', () => {
+      if (!allowedActions.has(action) || !sitekey || sitekey.startsWith('__')) return send('TURNSTILE_ERROR');
+      turnstile.render('#challenge', {
+        sitekey,
+        action,
+        callback: token => send('TURNSTILE_SUCCESS', token),
+        'error-callback': () => send('TURNSTILE_ERROR'),
+        'expired-callback': () => send('TURNSTILE_EXPIRED')
+      });
+    });
+  </script>
+</body>
+</html>

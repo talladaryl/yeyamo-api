@@ -1,0 +1,3 @@
+package com.yeyamo_mobile.api.notification_service.domain;
+import java.time.Instant;import java.util.UUID;
+public record DevicePushToken(UUID id,String userId,String token,DevicePlatform platform,String deviceId,String appVersion,boolean enabled,Instant createdAt,Instant updatedAt,Instant lastSeenAt,Instant invalidatedAt){public DevicePushToken{if(userId==null||userId.isBlank())throw new IllegalArgumentException("userId is required");if(token==null||!token.matches("^(ExponentPushToken|ExpoPushToken)\\[[^]]+\\]$"))throw new IllegalArgumentException("Invalid Expo push token");if(deviceId==null||deviceId.isBlank())throw new IllegalArgumentException("deviceId is required");}}

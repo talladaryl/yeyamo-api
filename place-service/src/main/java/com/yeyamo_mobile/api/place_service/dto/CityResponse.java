@@ -8,7 +8,8 @@ public record CityResponse(
         String name,
         String slug,
         Double latitude,
-        Double longitude
+        Double longitude,
+        boolean active
 ) {
     public static CityResponse from(City city) {
         return new CityResponse(
@@ -17,7 +18,8 @@ public record CityResponse(
                 city.getName(),
                 city.getSlug(),
                 city.getLatitude(),
-                city.getLongitude()
+                city.getLongitude(),
+                city.isActive()
         );
     }
 }

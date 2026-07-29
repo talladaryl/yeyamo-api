@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.yeyamo_mobile.api.notification_service.application.port.DeliveryRepositoryPort;
+import com.yeyamo_mobile.api.notification_service.application.port.DevicePushTokenRepositoryPort;
 import com.yeyamo_mobile.api.notification_service.application.port.NotificationRepositoryPort;
 import com.yeyamo_mobile.api.notification_service.application.port.PreferenceRepositoryPort;
 import com.yeyamo_mobile.api.notification_service.application.port.TemplatePort;
@@ -29,7 +30,7 @@ class NotificationAlignmentTest {
     void setUp() {
         notifications = mock(NotificationRepositoryPort.class);
         service = new NotificationApplicationService(notifications, mock(PreferenceRepositoryPort.class),
-                mock(TemplatePort.class), mock(DeliveryRepositoryPort.class));
+                mock(TemplatePort.class), mock(DeliveryRepositoryPort.class), mock(DevicePushTokenRepositoryPort.class));
     }
 
     @Test

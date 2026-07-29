@@ -245,6 +245,7 @@ public class CommerceService {
             entry.transactionType = type;
             entry.amount = amount;
             entry.currency = currency;
+            entry.balanceAfter = ledger.balance(partner, currency).add(amount);
             entry.reference = type.name() + "-" + entry.id;
             entry.idempotencyKey = key;
             entry.occurredAt = Instant.now();
@@ -380,6 +381,7 @@ public class CommerceService {
         entry.transactionType = type;
         entry.amount = amount;
         entry.currency = order.currency;
+        entry.balanceAfter = ledger.balance(order.partnerId, order.currency).add(amount);
         entry.reference = order.reference;
         entry.idempotencyKey = key;
         entry.occurredAt = Instant.now();

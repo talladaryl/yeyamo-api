@@ -3,6 +3,8 @@ package com.yeyamo_mobile.api.analytics_service.service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.time.ZoneId;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -65,6 +67,15 @@ public class AnalyticsQueryService {
         DateRange range = range(from, to, 30);
         return kpis.findByKpiNameAndStatDateBetweenOrderByStatDateDesc(kpiName, range.from(), range.to());
     }
+    public List<KpiPoint> kpiHistory(String kpiName,LocalDate from,LocalDate to,String granularity,String timezone){
+        ZoneId.of(timezone);String normalized=granularity.toLowerCase(java.util.Locale.ROOT);
+        if(!java.util.Set.of("hour","day","week","month").contains(normalized))throw new IllegalArgumentException("Unsupported granularity");
+        if("hour".equals(normalized))throw new IllegalArgumentException("Hourly granularity is unavailable for daily KPI storage");
+        Map<LocalDate,Long> buckets=new java.util.TreeMap<>();
+        for(KpiHistory row:kpiHistory(kpiName,from,to)){LocalDate bucket=switch(normalized){case"week"->row.getStatDate().with(java.time.DayOfWeek.MONDAY);case"month"->row.getStatDate().with(TemporalAdjusters.firstDayOfMonth());default->row.getStatDate();};Object raw=row.getKpiValue().getOrDefault("count",0);buckets.merge(bucket,raw instanceof Number number?number.longValue():0L,Long::sum);}
+        return buckets.entrySet().stream().map(entry->new KpiPoint(entry.getKey(),entry.getValue(),normalized)).toList();
+    }
+    public record KpiPoint(LocalDate bucket,long value,String granularity){}
 
     public List<AnalyticsEventLog> eventLogs() {
         return eventLogs.findTop50ByOrderByProcessedAtDesc();

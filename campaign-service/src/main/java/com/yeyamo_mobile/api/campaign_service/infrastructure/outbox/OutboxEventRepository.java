@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.UUID;
 
 public interface OutboxEventRepository extends JpaRepository<OutboxEventEntity, UUID> {
+    java.util.List<OutboxEventEntity> findByAggregateIdOrderByOccurredAtAsc(String aggregateId);
     
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<OutboxEventEntity> findTop100ByPublishedAtIsNullOrderByOccurredAtAsc();

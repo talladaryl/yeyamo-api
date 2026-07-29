@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.payment_service.infrastructure.persistence;import java.util.*;import org.springframework.data.jpa.repository.JpaRepository;public interface ReconciliationJobRepository extends JpaRepository<ReconciliationJobEntity,UUID>{List<ReconciliationJobEntity>findTop10ByStatusOrderByCreatedAtAsc(String status);}

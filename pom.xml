@@ -9,6 +9,7 @@
     <packaging>pom</packaging>
     <name>YeYamo API Reactor</name>
     <modules>
+        <module>event-contracts</module>
         <module>security-hardening-starter</module>
         <module>config-server</module>
         <module>registry-service</module>
@@ -40,6 +41,7 @@
         <module>analytics-service</module>
         <module>place-service</module>
         <module>messaging-service</module>
+        <module>support-service</module>
     </modules>
     <profiles>
         <profile>

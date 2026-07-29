@@ -38,6 +38,11 @@ public class Event {
 
     @Column(name = "place_id", nullable = false)
     private UUID placeId;
+    @Column(name="organizer_id") private UUID organizerId;
+    @Column(name="partner_id") private UUID partnerId;
+    @Column(name="region_id") private Long regionId;
+    @Column(name="city_id") private Long cityId;
+    @Column(name="category_id") private Long categoryId;
 
     @Column(nullable = false, length = 255)
     private String title;

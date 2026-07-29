@@ -1,0 +1,11 @@
+package com.yeyamo_mobile.api.place_service.controller;
+import java.time.Instant;import java.util.UUID;import org.springframework.data.domain.*;import org.springframework.http.HttpStatus;import org.springframework.security.access.prepost.PreAuthorize;import org.springframework.web.bind.annotation.*;import com.yeyamo_mobile.api.place_service.dto.*;import com.yeyamo_mobile.api.place_service.enums.PlaceStatus;import com.yeyamo_mobile.api.place_service.service.PlaceService;import jakarta.validation.Valid;
+@RestController @RequestMapping("/api/v1/admin/places")
+public class AdminPlaceController{
+ private final PlaceService service;public AdminPlaceController(PlaceService service){this.service=service;}
+ @GetMapping @PreAuthorize("hasAnyRole('MODERATOR','ADMIN','SUPER_ADMIN')") public Page<AdminPlaceResponse>list(@RequestParam(required=false)String search,@RequestParam(required=false)PlaceStatus status,@RequestParam(required=false)Long categoryId,@RequestParam(required=false)Long regionId,@RequestParam(required=false)Long cityId,@RequestParam(required=false)Long districtId,@RequestParam(required=false)UUID partnerId,@RequestParam(required=false)Boolean verified,@RequestParam(required=false)Instant createdFrom,@RequestParam(required=false)Instant createdTo,Pageable pageable){return service.adminSearch(search,status,categoryId,regionId,cityId,districtId,partnerId,verified,createdFrom,createdTo,pageable);}
+ @GetMapping("/{id}") @PreAuthorize("hasAnyRole('MODERATOR','ADMIN','SUPER_ADMIN')") public AdminPlaceResponse detail(@PathVariable UUID id){return service.adminDetail(id);}
+ @PostMapping @ResponseStatus(HttpStatus.CREATED) @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')") public PlaceResponse create(@Valid@RequestBody PlaceRequest request){return service.create(request);}
+ @PutMapping("/{id}") @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')") public PlaceResponse update(@PathVariable UUID id,@Valid@RequestBody PlaceRequest request){return service.update(id,request);}
+ @PatchMapping("/{id}/status") @PreAuthorize("hasAnyRole('MODERATOR','ADMIN','SUPER_ADMIN')") public AdminPlaceResponse status(@PathVariable UUID id,@Valid@RequestBody PlaceStatusRequest request){return service.updateStatus(id,request);}
+}
