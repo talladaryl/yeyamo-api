@@ -12,6 +12,8 @@ public record UserResponse(
         String phone,
         UserStatus status,
         Set<String> roles,
+        Set<String> permissions,
+        Set<String> scopes,
         LocalDateTime createdAt,
         Instant emailVerifiedAt
 ) {

@@ -7,7 +7,7 @@ import java.util.Set;
 
 import com.yeyamo_mobile.api.auth_service.enums.Roles;
 
-final class RoleAuthorities {
+public final class RoleAuthorities {
     private static final Set<String> CAMPAIGN_ADMIN = Set.of(
             "campaign:read", "campaign:approve", "campaign:reject");
     private static final Set<String> CAMPAIGN_OWNER = Set.of(
@@ -17,13 +17,13 @@ final class RoleAuthorities {
     private RoleAuthorities() {
     }
 
-    static Set<String> scopes(Set<Roles> roles) {
+    public static Set<String> scopes(Set<Roles> roles) {
         LinkedHashSet<String> scopes = new LinkedHashSet<>();
         roles.forEach(role -> scopes.addAll(SCOPES.getOrDefault(role, Set.of())));
         return Set.copyOf(scopes);
     }
 
-    static Set<String> permissions(Set<Roles> roles) {
+    public static Set<String> permissions(Set<Roles> roles) {
         LinkedHashSet<String> permissions = new LinkedHashSet<>();
         if (roles.contains(Roles.SUPER_ADMIN)) {
             permissions.add("admin:manage");

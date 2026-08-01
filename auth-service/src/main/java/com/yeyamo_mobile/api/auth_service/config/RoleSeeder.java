@@ -1,6 +1,7 @@
 package com.yeyamo_mobile.api.auth_service.config;
 
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import com.yeyamo_mobile.api.auth_service.enums.LabelRole;
@@ -9,6 +10,7 @@ import com.yeyamo_mobile.api.auth_service.models.Role;
 import com.yeyamo_mobile.api.auth_service.repository.RoleRepository;
 
 @Component
+@Order(0)
 public class RoleSeeder implements CommandLineRunner {
 
     private final RoleRepository roleRepository;

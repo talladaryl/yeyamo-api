@@ -286,6 +286,9 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_PORT: 6379
       JWT_SECRET: local-docker-secret-change-me-1234567890
+      YEYAMO_BOOTSTRAP_ADMIN_ENABLED: ${YEYAMO_BOOTSTRAP_ADMIN_ENABLED:-false}
+      YEYAMO_BOOTSTRAP_ADMIN_EMAIL: ${YEYAMO_BOOTSTRAP_ADMIN_EMAIL:-}
+      YEYAMO_BOOTSTRAP_ADMIN_PASSWORD: ${YEYAMO_BOOTSTRAP_ADMIN_PASSWORD:-}
       MAIL_HOST: ${MAIL_HOST:-smtp-relay.brevo.com}
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
@@ -399,6 +402,8 @@ services:
       CONFIG_SERVER_URL: http://config-server:8080
       CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME:-admin}
       CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:-admin123}
+      SPRING_CLOUD_CONFIG_USERNAME: ${CONFIG_SERVER_USERNAME:-admin}
+      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-admin123}
       SPRING_CONFIG_IMPORT: configserver:http://config-server:8080
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_ads
@@ -878,9 +883,12 @@ services:
       - yeyamo-network
 
   support-service:
-    build: ./support-service
+    build:
+      context: .
+      dockerfile: support-service/Dockerfile
     environment:
       <<: *java-service-env
+      SERVER_PORT: "8114"
       CONFIG_SERVER_URL: http://config-server:8080
       CONFIG_SERVER_USERNAME: admin
       CONFIG_SERVER_PASSWORD: admin123
@@ -892,7 +900,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       JWT_SECRET: local-docker-secret-change-me-1234567890
     ports:
-      - "8110:8110"
+      - "8114:8114"
     depends_on:
       postgres:
         condition: service_healthy

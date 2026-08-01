@@ -37,6 +37,7 @@ import com.yeyamo_mobile.api.auth_service.repository.OAuthAccountRepository;
 import com.yeyamo_mobile.api.auth_service.repository.RoleRepository;
 import com.yeyamo_mobile.api.auth_service.repository.UserRepository;
 import com.yeyamo_mobile.api.auth_service.security.JwtService;
+import com.yeyamo_mobile.api.auth_service.security.RoleAuthorities;
 import com.yeyamo_mobile.api.auth_service.security.AntiBotAction;
 import com.yeyamo_mobile.api.auth_service.security.AntiBotVerifier;
 import com.yeyamo_mobile.api.auth_service.service.OAuthTokenVerifier.OAuthUserInfo;
@@ -304,7 +305,10 @@ public class AuthService {
                 .map(role -> role.getCode().name())
                 .collect(Collectors.toSet());
 
-        return new UserResponse(user.getId(), user.getEmail(), user.getPhone(), user.getStatus(), roles, user.getCreatedAt(), user.getEmailVerifiedAt());
+        Set<Roles> roleCodes = user.getRoles().stream().map(Role::getCode).collect(Collectors.toSet());
+        return new UserResponse(user.getId(), user.getEmail(), user.getPhone(), user.getStatus(), roles,
+                RoleAuthorities.permissions(roleCodes), RoleAuthorities.scopes(roleCodes),
+                user.getCreatedAt(), user.getEmailVerifiedAt());
     }
 
     private Role defaultUserRole() {
