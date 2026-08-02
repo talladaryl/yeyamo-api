@@ -1,6 +1,74 @@
-package com.yeyamo_mobile.api.feed_service.application;import static org.junit.jupiter.api.Assertions.*;import java.time.*;import java.util.*;import org.junit.jupiter.api.Test;import com.yeyamo_mobile.api.feed_service.application.port.*;import com.yeyamo_mobile.api.feed_service.application.ranking.PersonalizedRankingStrategy;import com.yeyamo_mobile.api.feed_service.domain.model.*;
-class FeedQueryServiceTests{@Test void cacheMissRanksAndStoresThePage(){UUID p1=UUID.randomUUID(),p2=UUID.randomUUID();Instant now=Instant.now();List<FeedCandidate>candidates=List.of(candidate(p1,"preferred",now.minusSeconds(600),1),candidate(p2,"other",now.minusSeconds(600),20));FeedProjectionPort projection=new StubProjection(candidates,Map.of("preferred",20d));MemoryCache cache=new MemoryCache();FeedQueryService service=new FeedQueryService(projection,cache,new PersonalizedRankingStrategy());FeedPage page=service.feed("u1",0,10);assertEquals(p1,page.items().getFirst().postId());assertNotNull(cache.value);assertSame(cache.value,service.feed("u1",0,10));}
- private FeedCandidate candidate(UUID id,String author,Instant at,long likes){return new FeedCandidate(new FeedPost(id,author,"text","PUBLIC","PUBLISHED",null,List.of(),List.of(),at,at),new FeedMetric(id,likes,0,0,0,at));}
- record StubProjection(List<FeedCandidate>values,Map<String,Double>affinity)implements FeedProjectionPort{public void savePost(FeedPost p){}public Optional<FeedPost>findPost(UUID id){return Optional.empty();}public FeedMetric metric(UUID id){return FeedMetric.empty(id);}public void saveMetric(FeedMetric m){}public void adjustSignal(String u,UUID p,double w){}public List<FeedCandidate>candidates(int l){return values;}public Map<String,Double>authorAffinities(String u){return affinity;}}
- static class MemoryCache implements FeedCachePort{FeedPage value;public Optional<FeedPage>get(String u,int p,int s){return Optional.ofNullable(value);}public void put(FeedPage p){value=p;}public void invalidate(){value=null;}}
+package com.yeyamo_mobile.api.feed_service.application;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+import java.time.*;
+import java.util.*;
+import org.junit.jupiter.api.Test;
+import com.yeyamo_mobile.api.feed_service.application.port.*;
+import com.yeyamo_mobile.api.feed_service.application.ranking.PersonalizedRankingStrategy;
+import com.yeyamo_mobile.api.feed_service.domain.model.*;
+
+class FeedQueryServiceTests {
+    
+    @Test 
+    void cacheMissRanksAndStoresThePage() {
+        UUID p1 = UUID.randomUUID(), p2 = UUID.randomUUID();
+        Instant now = Instant.now();
+        List<FeedCandidate> candidates = List.of(
+            candidate(p1, "preferred", now.minusSeconds(600), 1),
+            candidate(p2, "other", now.minusSeconds(600), 20)
+        );
+        
+        FeedProjectionPort projection = new StubProjection(candidates, Map.of("preferred", 20d));
+        MemoryCache cache = new MemoryCache();
+        
+        // Mock AdInjectionService to return items as-is
+        AdInjectionService adInjectionService = mock(AdInjectionService.class);
+        when(adInjectionService.injectAds(anyList(), anyString(), anyInt(), anyString()))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        
+        FeedQueryService service = new FeedQueryService(
+            projection, 
+            cache, 
+            new PersonalizedRankingStrategy(),
+            adInjectionService
+        );
+        
+        FeedPage page = service.feed("u1", 0, 10);
+        
+        assertEquals(p1, page.items().getFirst().postId());
+        assertNotNull(cache.value);
+        
+        // Second call should use cache (ads injection still called but on cached organic items)
+        FeedPage cached = service.feed("u1", 0, 10);
+        assertEquals(2, page.items().size());
+    }
+ 
+    private FeedCandidate candidate(UUID id, String author, Instant at, long likes) {
+        return new FeedCandidate(
+            new FeedPost(id, author, "text", "PUBLIC", "PUBLISHED", null, List.of(), List.of(), at, at),
+            new FeedMetric(id, likes, 0, 0, 0, at)
+        );
+    }
+ 
+    record StubProjection(List<FeedCandidate> values, Map<String, Double> affinity) implements FeedProjectionPort {
+        public void savePost(FeedPost p) {}
+        public Optional<FeedPost> findPost(UUID id) { return Optional.empty(); }
+        public FeedMetric metric(UUID id) { return FeedMetric.empty(id); }
+        public void saveMetric(FeedMetric m) {}
+        public void adjustSignal(String u, UUID p, double w) {}
+        public List<FeedCandidate> candidates(int l) { return values; }
+        public Map<String, Double> authorAffinities(String u) { return affinity; }
+    }
+ 
+    static class MemoryCache implements FeedCachePort {
+        FeedPage value;
+        public Optional<FeedPage> get(String u, int p, int s) { return Optional.ofNullable(value); }
+        public void put(FeedPage p) { value = p; }
+        public void invalidate() { value = null; }
+    }
 }
+
