@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 import com.yeyamo_mobile.api.interaction_service.application.port.*;
 import com.yeyamo_mobile.api.interaction_service.domain.model.*;
 import com.yeyamo_mobile.api.interaction_service.domain.port.*;
+import com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.SpringReviewRepository;
+import static org.mockito.Mockito.mock;
 
 class InteractionCommandServiceTest {
     private final MemoryRelations relations = new MemoryRelations();
@@ -23,7 +25,9 @@ class InteractionCommandServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new InteractionCommandService(relations, comments, shares, checkIns, receipts, outbox, cache);
+        service = new InteractionCommandService(
+                relations, comments, shares, checkIns, mock(SpringReviewRepository.class),
+                receipts, outbox, cache);
     }
 
     @Test

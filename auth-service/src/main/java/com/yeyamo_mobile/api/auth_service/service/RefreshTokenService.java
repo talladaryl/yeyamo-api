@@ -17,6 +17,7 @@ import com.yeyamo_mobile.api.auth_service.exception.ApiException;
 import com.yeyamo_mobile.api.auth_service.models.RefreshToken;
 import com.yeyamo_mobile.api.auth_service.models.User;
 import com.yeyamo_mobile.api.auth_service.repository.RefreshTokenRepository;
+import com.yeyamo_mobile.api.auth_service.dto.SessionResponse;
 
 @Service
 public class RefreshTokenService {
@@ -57,6 +58,28 @@ public class RefreshTokenService {
     public void revoke(RefreshToken refreshToken) {
         refreshToken.setRevokedAt(LocalDateTime.now());
         refreshTokenRepository.save(refreshToken);
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<SessionResponse> sessions(User user) {
+        LocalDateTime now = LocalDateTime.now();
+        return refreshTokenRepository.findByUserOrderByIdDesc(user).stream()
+                .map(token -> new SessionResponse(
+                        token.getId(),
+                        token.getExpiresAt(),
+                        token.getRevokedAt(),
+                        token.getRevokedAt() == null && token.getExpiresAt().isAfter(now)))
+                .toList();
+    }
+
+    @Transactional
+    public void revoke(User user, Long sessionId) {
+        RefreshToken token = refreshTokenRepository.findByIdAndUser(sessionId, user)
+                .orElseThrow(() -> new ApiException(
+                        "SESSION_NOT_FOUND", "Session introuvable", HttpStatus.NOT_FOUND));
+        if (token.getRevokedAt() == null) {
+            revoke(token);
+        }
     }
 
     @Transactional

@@ -2,6 +2,8 @@ package com.yeyamo_mobile.api.auth_service.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -13,6 +15,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import com.yeyamo_mobile.api.auth_service.dto.AuthResponse;
 import com.yeyamo_mobile.api.auth_service.dto.ChangePasswordRequest;
+import com.yeyamo_mobile.api.auth_service.dto.DeactivateAccountRequest;
 import com.yeyamo_mobile.api.auth_service.dto.EmailRequest;
 import com.yeyamo_mobile.api.auth_service.dto.LoginRequest;
 import com.yeyamo_mobile.api.auth_service.dto.MessageResponse;
@@ -21,11 +24,13 @@ import com.yeyamo_mobile.api.auth_service.dto.OtpVerificationRequest;
 import com.yeyamo_mobile.api.auth_service.dto.PasswordResetRequest;
 import com.yeyamo_mobile.api.auth_service.dto.RefreshTokenRequest;
 import com.yeyamo_mobile.api.auth_service.dto.RegisterRequest;
+import com.yeyamo_mobile.api.auth_service.dto.SessionResponse;
 import com.yeyamo_mobile.api.auth_service.dto.UserResponse;
 import com.yeyamo_mobile.api.auth_service.security.UserPrincipal;
 import com.yeyamo_mobile.api.auth_service.service.AuthService;
 
 import jakarta.validation.Valid;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -105,5 +110,26 @@ public class AuthController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId) {
         authService.changePassword(principal.user(), request, correlationId);
+    }
+
+    @PostMapping("/account/deactivate")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deactivate(
+            @Valid @RequestBody DeactivateAccountRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        authService.deactivate(principal.user(), request);
+    }
+
+    @GetMapping("/sessions")
+    public List<SessionResponse> sessions(@AuthenticationPrincipal UserPrincipal principal) {
+        return authService.sessions(principal.user());
+    }
+
+    @DeleteMapping("/sessions/{sessionId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revokeSession(
+            @PathVariable Long sessionId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        authService.revokeSession(principal.user(), sessionId);
     }
 }

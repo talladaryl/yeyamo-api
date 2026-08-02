@@ -18,4 +18,7 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
 
     List<EventRegistration> findByUserIdAndStatusOrderByRegisteredAtDesc(
             String userId, RegistrationStatus status, Pageable pageable);
+
+    List<EventRegistration> findByEventIdAndStatusOrderByRegisteredAtAsc(
+            UUID eventId, RegistrationStatus status, Pageable pageable);
 }

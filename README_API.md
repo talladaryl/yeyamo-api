@@ -2,7 +2,7 @@
 
 > Audit statique du code effectué le **22 juillet 2026**. Les routes ci-dessous proviennent des contrôleurs Spring (`@RestController`) présents dans le dépôt, et non d'une liste d'API théorique.
 
-Ce document recense les **227 endpoints REST effectivement implémentés**, répartis dans **23 services applicatifs**. Il précise aussi les règles d'accès, le routage via l'API Gateway et les modules qui ne publient actuellement aucun endpoint métier.
+Ce document recense les **235 endpoints REST effectivement implémentés**, répartis dans **23 services applicatifs**. Il précise aussi les règles d'accès, le routage via l'API Gateway et les modules qui ne publient actuellement aucun endpoint métier.
 
 ---
 
@@ -19,16 +19,16 @@ Ce document recense les **227 endpoints REST effectivement implémentés**, rép
 
 | Domaine | Service | Port par défaut | Endpoints |
 |---|---|---:|---:|
-| Authentification | `auth-service` | 8082 | 12 |
+| Authentification | `auth-service` | 8082 | 15 |
 | Passerelle | `api-gateway` | 8083 | 1 endpoint de fallback |
 | Lieux | `place-service` | 8084 | 17 |
-| Événements | `event-service` | 8085 | 9 |
-| Utilisateurs / graphe social | `user-service` | 8086 | 23 |
+| Événements | `event-service` | 8085 | 10 |
+| Utilisateurs / graphe social | `user-service` | 8086 | 21 |
 | Partenaires | `partner-service` | 8087 | 9 |
-| Catalogue / collections | `catalog-service` | 8088 | 25 |
+| Catalogue / collections | `catalog-service` | 8088 | 24 |
 | Ingestion catalogue | `ingestion-service` | 8089 | 2 |
 | Contenu | `content-service` | 8090 | 16 |
-| Interactions | `interaction-service` | 8091 | 18 |
+| Interactions | `interaction-service` | 8091 | 21 |
 | Feed | `feed-service` | 8092 | 1 |
 | Discovery | `discovery-service` | 8093 | 2 |
 | Notifications | `notification-service` | 8094 | 8 |
@@ -42,8 +42,8 @@ Ce document recense les **227 endpoints REST effectivement implémentés**, rép
 | Réservations | `booking-service` | 8102 | 9 |
 | Paiements | `payment-service` | 8103 | 5 |
 | Messagerie | `messaging-service` | 8104 | 11 |
-| Gamification | `gamification-service` | 8105 | 6 |
-| **Total métier** | **23 services** |  | **227** |
+| Gamification | `gamification-service` | 8105 | 10 |
+| **Total métier** | **23 services** |  | **235** |
 
 Les ports viennent de `cloud-conf-yeyamo/*.properties`. `config-server` utilise le port 8080 et `registry-service` le port 8761, mais ils n'exposent pas de contrôleur métier.
 
@@ -118,8 +118,6 @@ Dans les tableaux existants ci-dessous, le chemin affiché est relatif au **Base
 | DELETE | `/{userId}/block` | Unblock a user | Social settings |
 | GET | `/blocked` | List profiles blocked by the current user | Privacy settings |
 | DELETE | `/followers/{userId}` | Remove one of my followers without blocking | Followers management |
-| GET | `/settings` | Read social privacy and notification settings | Social settings |
-| PUT | `/settings` | Partially update social privacy and notification settings | Social settings |
 | GET | `/suggestions` | Friend suggestions | Social graph - utilisé par socialApi.getSuggestions |
 | GET | `/search` | Search users (excluding blocked) | Search screens - utilisé par socialApi.searchUsers |
 | GET | `/activity` | Network activity | Social feed - utilisé par socialApi.getNetworkActivity |
@@ -137,7 +135,7 @@ Dans les tableaux existants ci-dessous, le chemin affiché est relatif au **Base
 | Method | Path | Description | Interface Mobile |
 |--------|------|-------------|------------------|
 | POST | `/register` | Register new user | Login/Register - utilisé par authApi.register |
-| POST | `/login` | Login with email or phone and password | Login - utilisé par authApi.login |
+| POST | `/login` | Login with email/password | Login - utilisé par authApi.login |
 | POST | `/oauth/google` | Login with Google | OAuth login |
 | POST | `/oauth/apple` | Login with Apple | OAuth login |
 | POST | `/refresh` | Refresh access token | Token management |
@@ -147,7 +145,10 @@ Dans les tableaux existants ci-dessous, le chemin affiché est relatif au **Base
 | POST | `/password/reset` | Reset password with code | Password reset |
 | GET | `/me` | Get current user info | Auth state - utilisé par authApi.me |
 | POST | `/logout` | Logout | Logout button - utilisé par authApi.logout |
-| PUT | `/password` | Change password with the current password and revoke refresh sessions | Security settings |
+| PUT | `/password` | Change password and revoke refresh sessions | Security settings |
+| POST | `/account/deactivate` | Temporarily deactivate account | Account settings |
+| GET | `/sessions` | List refresh sessions | Session management |
+| DELETE | `/sessions/{sessionId}` | Revoke one refresh session | Session management |
 
 ---
 
@@ -252,7 +253,6 @@ Dans les tableaux existants ci-dessous, le chemin affiché est relatif au **Base
 | PUT | `/{id}` | Update collection | Edit collection - utilisé par collectionsApi.updateCollection |
 | DELETE | `/{id}` | Delete collection | Delete collection - utilisé par collectionsApi.deleteCollection |
 | POST | `/places` | Add place to collection | Add to collection - utilisé par collectionsApi.addPlaceToCollection |
-| PATCH | `/{collectionId}/places/{assetId}` | Update an item's `note` and `isPriority` | Collection detail |
 | DELETE | `/{collectionId}/places/{assetId}` | Remove place from collection | Collection management - utilisé par collectionsApi.removePlaceFromCollection |
 
 ---
@@ -307,6 +307,9 @@ Dans les tableaux existants ci-dessous, le chemin affiché est relatif au **Base
 | POST | `/interactions/posts/{postId}/shares` | Share a post | Share menu |
 | GET | `/interactions/posts/{postId}/summary` | Interaction counts | Post detail |
 | GET | `/interactions/posts/{postId}/comments` | List comments | Comments section |
+| PUT | `/interactions/comments/{id}/like` | Like a comment (idempotent) | Comment actions |
+| DELETE | `/interactions/comments/{id}/like` | Unlike a comment (idempotent) | Comment actions |
+| GET | `/interactions/comments/{id}/likes` | Comment like count and current-user state | Comments section |
 | POST | `/interactions/places/{placeId}/reviews` | Create review | Review form - utilisé indirectement par profileApi.getUserReviews |
 | PUT | `/interactions/reviews/{id}` | Update review | Edit review |
 | DELETE | `/interactions/reviews/{id}` | Delete review | Delete review |
@@ -382,6 +385,7 @@ Dans les tableaux existants ci-dessous, le chemin affiché est relatif au **Base
 | GET | `/upcoming` | Upcoming events | Events explore |
 | GET | `/me` | Events where the current user has a confirmed registration (`limit=50`, max 100) | My events |
 | GET | `/{id}` | Event detail | Event detail screen |
+| GET | `/{id}/participants?limit=100` | Confirmed participants, maximum 200 rows | Event participants |
 | PUT | `/{id}` | Update event | Edit event |
 | PATCH | `/{id}/status` | Update status | Event management |
 | POST | `/{id}/register` | Register for event | Event registration - utilisé indirectement par profileApi.getUserEvents |
@@ -522,12 +526,16 @@ Le remboursement manuel exige `Idempotency-Key` et un utilisateur ayant le rôle
 |--------|------|-------------|------------------|
 | GET | `/xp` | My XP and level | Profile gamification |
 | GET | `/badges` | My badges | Badges screen - utilisé indirectement par badgesApi.getUserBadges |
+| GET | `/badges/catalog` | Badge catalog with current user's earned state | Badges catalog |
+| GET | `/badges/catalog/{code}` | Badge detail with current user's earned state | Badge detail |
+| GET | `/badges/stats` | Badge, XP, level and rank statistics | Badge statistics |
+| GET | `/leaderboard?limit=50` | XP leaderboard, maximum 100 rows | Leaderboard |
 | GET | `/passport` | My passport stamps | Passport screen |
 | GET | `/streaks` | My streaks | Streaks widget |
 | GET | `/rewards` | My rewards | Rewards screen |
 | POST | `/rewards/{id}/claim` | Claim reward | Claim button |
 
-**Note:** Les endpoints `/badges/user`, `/badges/{id}`, `/badges/stats`, `/badges` du client mobile ne correspondent pas au service gamification actuel.
+**Note:** le mobile doit utiliser les chemins ci-dessus sous `/api/v1/me`; les anciens chemins simulés `/badges/user` et `/badges/{id}` ne sont pas des routes backend.
 
 ---
 
@@ -809,12 +817,13 @@ Les commandes sociales acceptent maintenant les UUID publics de profil. Les insc
 
 Le tableau suivant ne demande pas nécessairement un endpoint séparé pour chaque bouton. Le backend peut regrouper plusieurs opérations si le contrat final couvre explicitement le besoin fonctionnel.
 
-| Domaine mobile déjà visible | Besoin backend non trouvé dans les 227 endpoints | État ou conséquence côté mobile |
+| Domaine mobile déjà visible | Besoin backend non trouvé dans les 223 endpoints | État ou conséquence côté mobile |
 |---|---|---|
+| Sécurité du compte | Changer le mot de passe d'un utilisateur déjà authentifié | L'écran Sécurité renvoie actuellement vers le parcours « mot de passe oublié » de démonstration |
 | Sécurité du compte | Lister les sessions/appareils actifs et révoquer une session distante | Les appareils affichés viennent de `MOCK_USER_SETTINGS` et l'action de déconnexion n'appelle aucun backend |
 | Sécurité du compte | Activer, confirmer, désactiver et récupérer la configuration 2FA | Le bouton 2FA ne fait que modifier l'état local |
 | Sécurité du compte | Vérifier ou modifier le numéro de téléphone | Seule la vérification d'email est documentée dans `auth-service` |
-| Confidentialité | Le statut en ligne, les autorisations de tag, l'affichage de la ville/localisation et la présence dans la recherche ne sont pas encore persistés | Le nouveau contrat `/users/social/settings` couvre la visibilité, l'activité, les abonnés/abonnements, les demandes sociales, les suggestions et les messages d'inconnus |
+| Confidentialité | Lire et enregistrer la visibilité du compte, le statut en ligne, les autorisations de message/tag, l'affichage de la ville/localisation et la présence dans recherche/suggestions | L'écran Confidentialité est entièrement local; `/users/me/preferences` n'est pas suffisamment décrit pour confirmer qu'il accepte ces champs |
 | Préférences | Lire/enregistrer la langue, les catégories préférées et les préférences de contenu | L'interface existe; la structure acceptée par `/users/me/preferences` n'est pas documentée |
 | Contacts et suggestions | Importer/synchroniser les contacts, demander le consentement et obtenir des suggestions issues du carnet d'adresses | L'écran « Trouver des amis » existe, mais aucune API de contacts n'est publiée |
 | Notifications push | Gérer plusieurs appareils, renouveler et supprimer individuellement les tokens Expo/APNs/FCM | `PUT /notifications/preferences` sait enregistrer un token unique, mais ne modélise pas encore le cycle de vie multi-appareils |
@@ -885,301 +894,6 @@ EXPO_PUBLIC_MESSAGING_WS_URL=wss://messaging-staging.example.com/ws/messaging
 # Variables Reverb à supprimer après migration du client vers STOMP.
 ```
 
----
-
-## Résultat d'alignement backend/mobile — 23 juillet 2026
-
-Cette section est la référence la plus récente pour l'intégration locale. Elle remplace les constats devenus obsolètes dans les audits précédents, sans supprimer leur historique.
-
-### 1. Résumé exécutif
-
-**Verdict : `PARTIEL`.**
-
-Le contrat de la première tranche mobile est maintenant exploitable : URL locale, préfixe Gateway, authentification avec refresh token, paramètres sociaux, collections avec métadonnées, CORS local, STOMP direct, OpenAPI mobile et script de smoke test sont définis. Les cinq modules modifiés compilent et leurs **73 tests passent sans échec**.
-
-Le verdict ne peut pas être `PRÊT` dans cette session pour trois raisons vérifiables :
-
-- l'accès au moteur Docker local a été refusé par le mécanisme d'autorisation de l'environnement avant le démarrage des conteneurs ; les URLs ci-dessous sont donc des **URLs de configuration**, pas une déclaration de disponibilité runtime ;
-- aucun compte de test `USER` et `PARTNER` n'a été fourni par canal sécurisé ;
-- plusieurs fonctionnalités visibles dans le mobile restent explicitement absentes ou simulées, notamment les appels, les offres et le paiement réel.
-
-### 2. Version backend auditée
-
-- Dépôt : `yeyamo-api`
-- Commit de base : `a4e9c7daf9d16329ed0b444bed96c74e8b1d2290`
-- État : commit de base complété par les modifications non commitées décrites dans cette section.
-- Contrat mobile indexé : **59 opérations sur 47 chemins** dans l'OpenAPI Gateway.
-- Inventaire backend global après ajout : **227 endpoints**.
-
-### 3. Démarrage local et URLs
-
-Depuis la racine du backend :
-
-```powershell
-docker compose up -d --build
-docker compose ps
-.\scripts\smoke-mobile-local.ps1
-```
-
-Pour inclure les lectures authentifiées dans le smoke test, définir temporairement un JWT de test dans le terminal, sans le sauvegarder :
-
-```powershell
-$env:YEYAMO_SMOKE_TOKEN="<access-token-de-test>"
-.\scripts\smoke-mobile-local.ps1
-Remove-Item Env:YEYAMO_SMOKE_TOKEN
-```
-
-| Composant | URL locale cible | Usage |
-|---|---|---|
-| API Gateway | `http://127.0.0.1:8083` | Point d'entrée REST normal du front |
-| OpenAPI mobile | `http://127.0.0.1:8083/mobile-api/openapi.json` | Index stable du contrat mobile |
-| Health Gateway | `http://127.0.0.1:8083/actuator/health` | Disponibilité de la Gateway |
-| Registry Eureka | `http://127.0.0.1:8761` | Diagnostic backend uniquement |
-| Auth direct | `http://127.0.0.1:8082` | Diagnostic/OpenAPI, pas l'URL du front |
-| User direct | `http://127.0.0.1:8086` | Diagnostic/OpenAPI |
-| Catalog direct | `http://127.0.0.1:8088` | Diagnostic/OpenAPI |
-| Messaging REST direct | `http://127.0.0.1:8104` | Diagnostic/OpenAPI |
-| Messaging STOMP | `ws://127.0.0.1:8104/ws/messaging` | Temps réel, accès direct requis |
-
-Les spécifications détaillées Springdoc sont disponibles sur `http://127.0.0.1:<port>/v3/api-docs` et les interfaces sur `http://127.0.0.1:<port>/swagger-ui.html` lorsque le service concerné est démarré. Les ports de tous les services restent listés dans l'inventaire général de ce README.
-
-### 4. Configuration publique du mobile
-
-Le fichier versionné [`.env.mobile.example`](.env.mobile.example) contient :
-
-```dotenv
-EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8083
-EXPO_PUBLIC_MESSAGING_WS_URL=ws://127.0.0.1:8104/ws/messaging
-EXPO_PUBLIC_USE_MOCKS=false
-EXPO_PUBLIC_APP_ENV=development
-```
-
-Adresses à utiliser selon l'appareil :
-
-| Cible front | Hôte API/WS |
-|---|---|
-| Expo Web ou simulateur iOS sur la même machine | `127.0.0.1` |
-| Android Emulator standard | `10.0.2.2` |
-| Téléphone physique sur le même Wi-Fi | IPv4 LAN du PC, par exemple `192.168.1.20` |
-
-Le pare-feu Windows doit autoriser les ports `8083` et `8104` pour un téléphone physique. Le téléphone et le PC doivent être sur le même réseau.
-
-**Correction obligatoire dans le client Axios actuel :** sa base est construite comme ``${ENV.API_BASE_URL}/api``. Elle doit devenir ``${ENV.API_BASE_URL}/api/v1``. Les modules front doivent ensuite utiliser des chemins tels que `/auth/login`, `/users/me` ou `/feed`, sans remettre `/api/v1`. Il ne faut pas ajouter `/api/v1` dans la variable d'environnement et dans le code en même temps.
-
-### 5. OpenAPI
-
-- Fichier versionné : [`api-gateway/src/main/resources/static/mobile-api/openapi.json`](api-gateway/src/main/resources/static/mobile-api/openapi.json)
-- URL via Gateway : `GET http://127.0.0.1:8083/mobile-api/openapi.json`
-- Format : OpenAPI 3.1, sécurité Bearer, schéma d'erreur commun, service propriétaire par opération.
-- Validation automatique : `MobileIntegrationContractTest` vérifie le JSON, le nombre d'opérations, les chemins critiques et la configuration CORS.
-
-L'index Gateway couvre la tranche mobile prioritaire. Les `/v3/api-docs` de chaque service restent la source détaillée pour l'ensemble des DTO, validations et opérations d'administration.
-
-### 6. Matrice de consommation mobile
-
-Règles transversales :
-
-- préfixe REST unique via Gateway : `http://<hôte>:8083/api/v1` ;
-- `Authorization: Bearer <accessToken>` sur toute route non publique ;
-- `Content-Type: application/json`, sauf upload multipart ;
-- `X-Correlation-Id` est recommandé sur les écritures ;
-- les identifiants de profils, assets, collections, posts, messages et notifications sont des UUID, sauf `AuthResponse.user.id`, entier converti en chaîne dans le claim JWT `sub` ;
-- `page` est indexé à partir de `0` et `size` doit respecter la limite publiée par le service ;
-- une ressource appartenant à un autre utilisateur peut retourner `404` plutôt que `403`.
-
-| Module front / usage | Méthode et chemin Gateway | Auth | Contrat à utiliser | État |
-|---|---|---|---|---|
-| Auth inscription | `POST /api/v1/auth/register` | Public | `{email?, phone?, password, displayName?}` ; email ou téléphone requis ; mot de passe 12–128 | PRÊT |
-| Auth connexion | `POST /api/v1/auth/login` | Public | `{identifier, password}` ; `identifier` accepte email ou téléphone | PRÊT |
-| Auth renouvellement | `POST /api/v1/auth/refresh` | Public | `{refreshToken}` ; rotation obligatoire | PRÊT |
-| Auth session | `GET /api/v1/auth/me` | Bearer | retourne l'utilisateur auth | PRÊT |
-| Auth déconnexion | `POST /api/v1/auth/logout` | Bearer | révoque tous les refresh tokens de l'utilisateur | PRÊT |
-| Auth mot de passe | `PUT /api/v1/auth/password` | Bearer | `{currentPassword,newPassword}` ; succès `204` | PRÊT |
-| Profil courant | `GET`, `PUT /api/v1/users/me` | Bearer | utiliser le DTO camelCase de `user-service` | PRÊT |
-| Préférences profil | `PATCH /api/v1/users/me/preferences` | Bearer | mise à jour partielle | PRÊT |
-| Paramètres sociaux | `GET`, `PUT /api/v1/users/social/settings` | Bearer | DTO exact ci-dessous ; PUT partiel | PRÊT |
-| Abonnements | `GET /users/social/following`, `GET /followers`, `POST` ou `DELETE /{userId}/follow` | Bearer | `{userId}` = UUID public du profil | PRÊT |
-| Blocage/retrait | `GET /users/social/blocked`, `DELETE /users/social/followers/{userId}` | Bearer | UUID public du profil | PRÊT |
-| Feed | `GET /api/v1/feed?page=0&size=20` | Bearer | enveloppe paginée backend ; ne pas attendre le DTO mock | PRÊT |
-| Post | `GET /posts/{id}`, `POST /posts`, `POST /posts/{id}/publish` | Bearer | création d'abord en brouillon, puis publication | PRÊT |
-| Like/favori post | `PUT` ou `DELETE /api/v1/interactions/posts/{postId}/like|favorite` | Bearer | pas de body pour basculer l'état | PRÊT |
-| Upload média | `POST /api/v1/media` | Bearer | multipart, part fichier nommée `file` | PRÊT |
-| Stories | `GET`, `POST /api/v1/stories`, `GET /{id}`, `POST /{id}/view` | Bearer | UUID story | PRÊT |
-| Notifications | `GET /notifications`, `GET /unread`, `GET /unread/count` | Bearer | `{page,size,hasNext,items}` et `{count}` | PRÊT |
-| Actions notification | `POST /notifications/{id}/read`, `POST /read-all`, `DELETE /{id}` | Bearer | UUID notification ; ne pas utiliser `PATCH` | PRÊT |
-| Lieux | `GET /api/v1/places/nearby`, `GET /places/{id}` | Public selon route | `lat`, `lng`, rayon/limite selon OpenAPI du service | PRÊT |
-| Recherche | `GET /api/v1/discovery/search` | Selon route | utiliser les query params du service, pas un endpoint `/places` générique | PRÊT |
-| Mes événements | `GET /api/v1/events/me` | Bearer | sujet JWT, aucun userId dans le body | PRÊT |
-| Inscription événement | `POST /events/{id}/register`, `DELETE /events/{id}/unregister` | Bearer | UUID événement | PRÊT |
-| Collections | CRUD `/api/v1/collections` | Bearer | UUID collection ; `userId` de réponse = chaîne du sujet JWT | PRÊT |
-| Élément collection | `POST /collections/places` | Bearer | `{collectionId,assetId,isPriority?,note?}` | PRÊT |
-| Métadonnées collection | `PATCH /collections/{collectionId}/places/{assetId}` | Bearer/propriétaire | `{isPriority?,note?}` ; succès `204` | PRÊT |
-| Retrait collection | `DELETE /collections/{collectionId}/places/{assetId}` | Bearer/propriétaire | succès `204` | PRÊT |
-| Conversations | `GET`, `POST /api/v1/messaging/conversations` | Bearer/membre | DTO messaging-service, UUID conversation | PRÊT |
-| Messages | `GET`, `POST /messaging/conversations/{id}/messages` | Bearer/membre | rattrapage REST après reconnexion | PRÊT |
-| Lecture message | `POST /messaging/conversations/{id}/read/{messageId}` | Bearer/membre | UUID message | PRÊT |
-| Badges utilisateur | `GET /api/v1/me/badges` | Bearer | remplace `/badges/user` | PARTIEL |
-| Réservations utilisateur | `GET /api/v1/bookings/me` | Bearer | remplace `/profile/reservations` | PRÊT |
-
-Les alias front `/profile/publications`, `/profile/favorites`, `/profile/events`, `/profile/reservations`, `/profile/reviews` et `/profile/stats` ne doivent pas être appelés : composer les routes réelles documentées aux lignes 770–779.
-
-DTO des paramètres sociaux :
-
-```json
-{
-  "privacy": {
-    "profileVisibility": "PUBLIC",
-    "showActivity": true,
-    "showFollowers": true,
-    "showFollowing": true
-  },
-  "notifications": {
-    "newFollowers": true,
-    "followRequests": true,
-    "mentions": true,
-    "activityUpdates": true
-  },
-  "preferences": {
-    "allowSuggestions": true,
-    "allowMessagesFromStrangers": true
-  }
-}
-```
-
-`profileVisibility` accepte `PUBLIC`, `FOLLOWERS_ONLY` ou `PRIVATE`. À l'écriture, chaque bloc et chaque champ peuvent être omis pour conserver la valeur existante.
-
-### 7. Authentification, email et OAuth
-
-Réponse de `register`, `login`, `refresh` et OAuth :
-
-```json
-{
-  "accessToken": "<jwt>",
-  "refreshToken": "<opaque>",
-  "tokenType": "Bearer",
-  "expiresIn": 1800,
-  "user": {
-    "id": 42,
-    "email": "user@example.test",
-    "phone": "+221700000000",
-    "status": "ACTIVE",
-    "roles": ["USER"],
-    "createdAt": "2026-07-23T12:00:00Z",
-    "emailVerifiedAt": null
-  }
-}
-```
-
-- durée access token locale par défaut : 1 800 secondes ;
-- durée refresh token locale par défaut : 30 jours ;
-- le refresh token est rotatif ; le rejeu révoque la famille de tokens ;
-- le front doit sérialiser les refresh concurrents avec une seule promesse de renouvellement, rejouer les requêtes en attente une fois, puis vider la session si le refresh échoue ;
-- `logout` et le changement de mot de passe révoquent actuellement tous les refresh tokens ;
-- claims utiles : `sub` = ID auth numérique sous forme de chaîne, `roles`, `email` ou `phone`, `iss=yeyamo-auth`, `aud=yeyamo-api`, `iat`, `exp` ;
-- l'UUID public du profil provient de `GET /api/v1/users/me`, pas du claim `sub`.
-
-Le backend possède les parcours demande/confirmation de vérification email et oubli/reset du mot de passe. Le changement authentifié produit l'événement `user.password_changed`. Les clients OAuth publics, redirect URI et comptes de test restent à fournir hors dépôt ; aucun client secret ne va dans Expo.
-
-### 8. Carte, média, push, STOMP, appels et paiement
-
-- **Carte :** coordonnées WGS84, ordre `latitude`, puis `longitude`. Aucun fournisseur de tuiles/itinéraire avec SLA n'est figé dans cette livraison ; ne considérer aucune URL OSRM de démonstration comme production.
-- **Média :** multipart avec part `file`. Images JPEG/PNG/WEBP jusqu'à 10 Mio ; vidéos MP4/WEBM/MOV jusqu'à 100 Mio. `contentUrl` peut être relatif en local et doit alors être résolu contre l'origine Gateway.
-- **Push :** le contrat courant conserve un seul token dans les préférences de notification. Le cycle multi-appareils reste absent.
-- **STOMP :** WebSocket natif, sans SockJS, sur `ws://<hôte>:8104/ws/messaging`; frame `CONNECT` avec `Authorization: Bearer <JWT>` ; abonnement `/user/queue/messaging` ; heartbeat client/serveur 10 s ; reconnexion après rotation du JWT ; rattrapage via REST.
-- **Gateway WebSocket :** la Gateway Spring MVC ne proxifie pas l'upgrade WebSocket. Le port `8104` direct est donc intentionnel en local.
-- **Appels :** aucune signalisation WebRTC, aucun STUN/TURN temporaire et aucun historique d'appel backend : `ABSENT`.
-- **Paiement :** orchestration backend présente mais fournisseur actif simulé : `PARTIEL`, impropre à la production.
-
-### 9. Éléments nouvellement implémentés
-
-| Élément | Résultat |
-|---|---|
-| `PUT /api/v1/auth/password` | Vérifie l'ancien mot de passe, impose 12–128 caractères au nouveau, révoque les refresh tokens, retourne `204` |
-| `GET /api/v1/users/social/settings` | Retourne confidentialité, notifications sociales et préférences |
-| `PUT /api/v1/users/social/settings` | Mise à jour partielle persistée avec migration SQL |
-| `PATCH /api/v1/collections/{collectionId}/places/{assetId}` | Met à jour `isPriority` et/ou `note`, contrôle le propriétaire |
-| Collection et JWT | `userId` de collection aligné sur le `sub` auth de type chaîne |
-| Détail collection | Ajout de `items[{assetId,addedAt,isPriority,note}]`, conservation de `places` |
-| CORS Gateway | Origines locales par motif, `X-Requested-With`, headers rate-limit exposés |
-| STOMP | Origines et heartbeat configurables |
-| Outbox Catalog | Le port des événements d'assets possède maintenant une implémentation Spring effective |
-
-### 10. Fonctionnalités encore absentes ou partielles
-
-- sessions/appareils actifs et révocation d'une session unique ;
-- 2FA et codes de récupération ;
-- vérification/modification du téléphone après inscription ;
-- import consenti et haché des contacts ;
-- suggestion de lieu par un utilisateur standard ;
-- favori de lieu dédié, hors collection ;
-- participants/invitations/amis proches pour les événements ;
-- CRUD et validation des offres partenaires ;
-- archive, mute, pin, recherche serveur et export des conversations ;
-- signalisation des appels audio/vidéo ;
-- catalogue/détail/statistiques globales de badges et leaderboard ;
-- gestion push multi-appareils ;
-- fournisseur de paiement réel.
-
-Le front doit masquer ces actions, les laisser explicitement en mode démonstration ou attendre un contrat backend ultérieur ; il ne doit pas inventer une route.
-
-### 11. Incohérences et migration
-
-- **Breaking DB Catalog :** `collections.user_id` passe de `UUID` à `VARCHAR(120)` afin d'accepter le sujet JWT numérique sous forme de chaîne. La migration `V4__align_collection_owner_with_auth_subject.sql` réalise la conversion.
-- **Contrat collection :** `userId` est maintenant une chaîne. `items` est additif ; `places` reste présent pour compatibilité.
-- **Nommage :** le backend est camelCase. Le front ne doit plus envoyer `place_id`, `is_priority` ou attendre systématiquement un wrapper `{data: ...}`.
-- **Auth front :** la réponse n'est pas `{token,user}` mais `{accessToken,refreshToken,tokenType,expiresIn,user}`.
-- **Notifications :** lecture en `POST`, pas en `PATCH`; suppression par UUID.
-- **Temps réel :** le backend parle STOMP, pas Pusher/Reverb.
-- **Base URL :** le préfixe correct est `/api/v1`, pas `/api`.
-
-### 12. Tests exécutés
-
-| Module | Tests | Échecs | Erreurs |
-|---|---:|---:|---:|
-| `auth-service` | 9 | 0 | 0 |
-| `user-service` | 8 | 0 | 0 |
-| `catalog-service` | 32 | 0 | 0 |
-| `messaging-service` | 21 | 0 | 0 |
-| `api-gateway` | 3 | 0 | 0 |
-| **Total** | **73** | **0** | **0** |
-
-Commandes validées :
-
-```powershell
-mvn -q -pl auth-service,user-service,catalog-service,messaging-service,api-gateway -am -DskipTests compile
-mvn -q -pl catalog-service -am test
-```
-
-Les suites complètes des quatre autres modules ont également été exécutées séparément. `MobileIntegrationContractTest` vérifie les 59 opérations OpenAPI et les règles CORS locales. Le smoke runtime Docker n'a pas été exécuté dans cette session car l'accès au moteur Docker a été rejeté avant exécution ; le script [`scripts/smoke-mobile-local.ps1`](scripts/smoke-mobile-local.ps1) constitue la procédure reproductible et ne doit être déclaré réussi qu'après son exécution effective.
-
-### 13. Configurations à fournir par canal sécurisé
-
-- secrets JWT actif/précédent et politique de rotation ;
-- identifiants serveur SMTP/email et configuration du bac local ;
-- secrets et configuration serveur OAuth Google/Apple ;
-- comptes de test `USER` et `PARTNER`, jamais dans Git ;
-- credentials du fournisseur de paiement réel ;
-- credentials temporaires TURN si les appels sont implémentés ;
-- configuration APNs/FCM/Expo serveur ;
-- éventuelles clés privées de carte ou de géocodage.
-
-Seuls les client IDs OAuth publics éventuellement nécessaires à Expo peuvent être exposés sous `EXPO_PUBLIC_*`.
-
-### 14. Checklist front
-
-1. Copier `.env.mobile.example` vers le fichier d'environnement local du front.
-2. Choisir `127.0.0.1`, `10.0.2.2` ou l'IPv4 LAN selon l'appareil.
-3. Remplacer la base Axios `/api` par `/api/v1`.
-4. Désactiver les mocks avec `EXPO_PUBLIC_USE_MOCKS=false`.
-5. Stocker access et refresh tokens dans SecureStore.
-6. Implémenter un refresh single-flight et rejouer une requête une seule fois.
-7. Adapter les onze modules API aux verbes, UUID, DTO camelCase et enveloppes ci-dessus.
-8. Remplacer Reverb par un client STOMP natif et prévoir le rattrapage REST.
-9. Démarrer le backend avec Docker Compose puis exécuter le smoke test.
-10. Vérifier au minimum register/login/refresh/me/logout, profil, feed, notifications, collections et STOMP sur la cible réelle.
-11. Masquer les fonctionnalités marquées `ABSENT` et signaler celles marquées `PARTIEL`.
-12. Ne placer aucun secret dans une variable `EXPO_PUBLIC_*`.
-
 Le dépôt ignore actuellement `.env*.local`; un fichier tel que `.env.development.local` convient pour une configuration machine non partagée. Une valeur `EXPO_PUBLIC_*` ne devient toutefois pas secrète parce que le fichier est ignoré par Git.
 
 ### Contrats immédiatement consommables par le front
@@ -1193,7 +907,7 @@ Le dépôt ignore actuellement `.env*.local`; un fichier tel que `.env.developme
   "accessToken": "jwt",
   "refreshToken": "opaque-refresh-token",
   "tokenType": "Bearer",
-  "expiresIn": 1800,
+  "expiresIn": 3600,
   "user": {
     "id": 42,
     "email": "user@example.com",
@@ -1379,7 +1093,7 @@ Les différences de chemin, préfixe ou nom de route ne figurent pas dans cette 
 
 ## Résumé
 
-- **227 endpoints REST métier** documentés dans **23 services** possédant au moins un contrôleur.
+- **223 endpoints REST métier** documentés dans **23 services** possédant au moins un contrôleur.
 - **1 endpoint technique** supplémentaire dans l'API Gateway : `/fallback/{service}`.
 - **6 modules sans endpoint métier** : `graph-service`, `search-service`, `social-service`, `config-server`, `registry-service` et `security-hardening-starter`.
 - Les routes REST auparavant manquantes dans la Gateway (stories, collections, références catalogue et modération) sont maintenant corrigées; le WebSocket STOMP reste exposé directement par `messaging-service`.
@@ -1402,7 +1116,7 @@ Les différences de chemin, préfixe ou nom de route ne figurent pas dans cette 
 - **278 fichiers** sous `src` et **97 écrans** Expo Router inspectés.
 - **11 modules API** contenant **60 fonctions de consommation** recensées.
 - **15 fichiers de mocks**; de nombreux écrans importent encore directement des données simulées.
-- **227 lignes d'endpoints REST métier** recomptées dans les tableaux du présent document, réparties sur **23 services**; le total affiché dans la vue d'ensemble est cohérent avec les tableaux.
+- **223 lignes d'endpoints REST métier** recomptées dans les tableaux du présent document, réparties sur **23 services**; le total affiché dans la vue d'ensemble est cohérent avec les tableaux.
 - `npx.cmd tsc --noEmit` réussit sans erreur sur le projet mobile actuel.
 - Le dépôt mobile ne contient pas les sources Spring ni leurs OpenAPI versionnées; les affirmations relatives aux contrôleurs et aux 52 tests backend ne peuvent donc pas être reproduites depuis ce seul workspace.
 
@@ -1423,7 +1137,7 @@ Certaines notes antérieures sont devenues fausses après les ajouts backend dé
 |---|---:|---|---|
 | `auth.api.ts` | 4 | Équivalents backend présents | `me` utilise le mauvais verbe; réponse `{ token, user }` incompatible avec `{ accessToken, refreshToken, tokenType, expiresIn, user }`; aucun refresh mobile |
 | `chat.api.ts` | 5 | Équivalents REST présents | Envoi et lecture ne respectent pas le contrat conversation/message; DTO, pagination et types d'identifiants à confirmer; temps réel mobile incompatible avec STOMP |
-| `collections.api.ts` | 9 | Les 9 opérations principales existent | Utiliser des UUID, `assetId`, les champs camelCase `isPriority`/`note`; la visibilité backend est booléenne (`isPublic`) et ne possède pas de valeur `friends` |
+| `collections.api.ts` | 9 | Les 9 opérations principales existent | Confirmer UUID/entier, `assetId` contre `place_id`, visibilité `friends`, enveloppes et prise en charge de `note`/`is_priority` |
 | `feed.api.ts` | 6 | Feed et détail de post présents; interactions présentes ailleurs | Like/save utilisent de mauvais verbes et une sémantique différente; paramètres du feed non documentés |
 | `notifications.api.ts` | 6 | Les 6 besoins sont maintenant présents | Verbes de lecture incorrects, UUID attendu, pagination `items/page/size/hasNext` non gérée, compteur sans enveloppe `data` |
 | `places.api.ts` | 2 | Détail présent | La liste générique appelée par le mobile n'existe pas sous cette forme; choisir proximité, catalogue, région/ville ou discovery; paramètres incompatibles |
@@ -1442,13 +1156,16 @@ Cette liste retire les éléments désormais implémentés par le backend et con
 | Domaine | Besoin affiché dans l'application | Endpoint/contrat encore absent |
 |---|---|---|
 | Compte | Désactivation temporaire puis réactivation à la connexion | Commandes de désactivation/réactivation distinctes de la suppression définitive |
+| Sécurité | Changement de mot de passe authentifié | Endpoint exigeant ancien mot de passe, nouveau mot de passe et révocation éventuelle des sessions |
 | Sécurité | Liste des sessions/appareils et révocation d'une session | Ressources de session utilisateur |
 | Sécurité | Activation, confirmation, désactivation et récupération 2FA | Workflow 2FA complet et codes de récupération |
 | Sécurité | Vérification/modification du téléphone | Workflow téléphone distinct de la vérification email |
-| Confidentialité | Statut en ligne, autorisations de tag, affichage de la ville/localisation et présence dans la recherche | Ces champs restent hors du DTO `/users/social/settings` |
+| Confidentialité | Visibilité du profil, statut en ligne, autorisations message/tag, recherche et suggestions | DTO confirmé pour lire et enregistrer ces réglages; `/users/me/preferences` n'est pas suffisamment détaillé |
 | Social | Suggestions issues des contacts du téléphone | Import haché/consenti des contacts et endpoint de suggestions |
+| Social | Paramètres sociaux lus et modifiés par `socialApi` | GET/PUT de paramètres sociaux ou intégration explicite dans les préférences utilisateur |
 | Lieux | Suggestion de lieu par un utilisateur non partenaire | Commande de suggestion avec statut de validation; la création actuelle est réservée aux rôles privilégiés |
 | Favoris | Favori de lieu explicite et écran « Mes favoris » | API dédiée ou décision contractuelle d'utiliser une collection système |
+| Collections | Modifier `note` et `is_priority` d'un élément déjà ajouté | Mise à jour de l'élément de collection; l'écran ne fait aujourd'hui qu'une modification locale |
 | Événements | Participants, invitations, acceptation/refus et groupes « amis proches » | Endpoints de participants et d'invitations correspondant à l'écran de création |
 | Événements/expériences | Enregistrer/retirer un événement ou une expérience | API de sauvegarde ou règle documentée d'utilisation des collections/favoris |
 | Offres partenaires | CRUD, soumission, validation, publication et archivage d'une offre | Aucun service d'offres/promotions n'est inventorié |
@@ -1869,426 +1586,128 @@ Ne conclus `PRÊT` que si :
 Si un seul de ces critères manque, conclus `PARTIEL` ou `BLOQUÉ` et indique exactement ce qui empêche l'intégration. Ne masque pas un manque de contrat derrière une valeur supposée ou un exemple fictif.
 ```
 
-## État d'intégration réel `yeyamo-mobile` / `yeyamo-api` — 23 juillet 2026
+---
 
-### Verdict et score
+## Mise à jour du 24 juillet 2026 — vérification des API signalées absentes
 
-Verdict : **PARTIEL — intégration front autorisée au niveau du code source, mais recette locale complète bloquée par l'état des conteneurs en cours d'exécution.**
+Cette section est le bilan de référence après comparaison du rapport frontend avec le code backend. Elle remplace les affirmations d'absence devenues obsolètes dans les sections historiques du rapport.
 
-| Axe | Score | Constat |
-|---|---:|---|
-| Configuration réseau et séparation des dépôts | 10/10 | Le mobile ne dépend d'aucun chemin du dépôt backend. Toutes les communications utilisent des variables `EXPO_PUBLIC_*`. |
-| Authentification et cycle JWT | 18/20 | Login, register, refresh token rotatif, `GET /auth/me`, logout, email, reset et changement de mot de passe sont raccordés. OAuth reste dépendant de vrais clients Google/Apple. |
-| Contrats REST utilisés par l'interface | 24/30 | UUID, pages Spring, réponses directes, verbes HTTP et clés d'idempotence sont alignés. Plusieurs DTO backend restent moins riches que les écrans. |
-| Temps réel | 7/10 | Client STOMP 1.2 natif, Bearer, heartbeat, reconnexion et `/user/queue/messaging` implémentés. Aucun test à deux utilisateurs possible tant que `messaging-service:8104` n'est pas démarré. |
-| Disponibilité locale et recette bout en bout | 6/20 | Gateway joignable, mais l'image active est ancienne; auth/catalog/content/messaging sont absents et user/notification/analytics sont indisponibles ou dégradés. |
-| Tests automatisés | 9/10 | TypeScript passe et 82 tests Java ciblés passent. `expo-doctor` n'a pas pu être téléchargé dans l'environnement de test. |
-| **Total** | **74/100** | Le développement d'intégration peut commencer; ne pas déclarer la recette fonctionnelle terminée avant reconstruction des conteneurs et smoke test authentifié. |
+### Endpoints ajoutés
 
-### Version mobile imposée
+Tous les appels passent par `http://localhost:8083/api/v1` et nécessitent
+`Authorization: Bearer <accessToken>`.
 
-Le dépôt `yeyamo-mobile` reste strictement sur **Expo SDK 54** :
+#### Compte et sessions (`auth-service`)
 
-- `expo ~54.0.0`;
-- `react-native 0.81.5`;
-- `react 19.1.0`;
-- aucune mise à niveau vers Expo 56 n'a été effectuée;
-- `npx tsc --noEmit` passe sans erreur le 23 juillet 2026.
+| Méthode | Chemin | Requête | Réponse |
+|---|---|---|---|
+| POST | `/auth/account/deactivate` | `{ "currentPassword": "..." }` | `204 No Content` |
+| GET | `/auth/sessions` | aucune | tableau `{ id, expiresAt, revokedAt, active }` |
+| DELETE | `/auth/sessions/{sessionId}` | aucune | `204 No Content`; `404 SESSION_NOT_FOUND` si la session n'appartient pas à l'utilisateur |
 
-### Configuration locale et dépôts indépendants
+La réactivation n'utilise volontairement pas une route publique séparée: une connexion
+`POST /auth/login` avec le bon mot de passe réactive un compte `INACTIVE`, puis émet
+de nouveaux tokens. Un compte `PENDING` retourne maintenant explicitement
+`403 EMAIL_NOT_VERIFIED` avant l'authentification, au lieu d'un `401` ambigu.
+La désactivation et le changement de mot de passe révoquent tous les refresh tokens.
+Un access token déjà émis reste cependant valable jusqu'à son expiration, car les JWT
+sont stateless et il n'existe pas encore de denylist distribuée.
 
-Le fichier de référence est `yeyamo-mobile/.env.example`. Il doit être copié en `.env.local` **dans le dépôt mobile**, même lorsque ce dépôt est déplacé hors de `yeyamo-api`.
+La liste représente des **sessions de refresh token**. Le schéma actuel ne conserve pas
+encore le nom de l'appareil, l'adresse IP ni le user-agent.
 
-```dotenv
-# Expo Web ou iOS Simulator sur le même PC
-EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8083
-EXPO_PUBLIC_MESSAGING_WS_URL=ws://127.0.0.1:8104/ws/messaging
-EXPO_PUBLIC_USE_MOCKS=false
-EXPO_PUBLIC_APP_ENV=development
-```
+#### Participants d'événement (`event-service`)
 
-Adresses selon la cible :
-
-| Cible Expo | Hôte à employer |
-|---|---|
-| Expo Web sur le PC | `127.0.0.1` |
-| iOS Simulator sur le Mac qui exécute Docker | `127.0.0.1` |
-| Android Emulator | `10.0.2.2` |
-| Téléphone physique Expo Go/dev build | IPv4 LAN du PC, par exemple `192.168.1.25` |
-
-Pour un téléphone physique, le PC et le téléphone doivent être sur le même réseau et les ports TCP `8083` et `8104` doivent être autorisés par le pare-feu. Aucun secret ne doit être placé dans une variable `EXPO_PUBLIC_*`.
-
-Le client REST ajoute lui-même `/api/v1`. La variable contient donc `http://...:8083`, **jamais** `http://...:8083/api` ni `http://...:8083/api/v1`.
-
-### Matrice de consommation effectivement raccordée dans le mobile
-
-| Domaine mobile | Endpoints consommés | État |
+| Méthode | Chemin | Réponse |
 |---|---|---|
-| Auth | `POST /auth/register`, `/login`, `/refresh`, `/logout`, `GET /auth/me`, email verification, forgot/reset, OAuth, `PUT /auth/password` | ALIGNÉ SOURCE |
-| Feed et posts | `GET /feed`, `GET /posts/{id}`, `POST /posts`, `/posts/{id}/publish`, `DELETE /posts/{id}` | ALIGNÉ SOURCE |
-| Interactions | summary, comments GET/POST, like et favorite PUT/DELETE | ALIGNÉ SOURCE; `Idempotency-Key` envoyé |
-| Médias | `POST /media` multipart, `GET /media/{id}/content` | ALIGNÉ SOURCE |
-| Stories | liste, détail, création, vue | ALIGNÉ SOURCE |
-| Collections | liste, publiques, détail, CRUD, ajout/retrait d'asset et métadonnées d'item | ALIGNÉ SOURCE |
-| Lieux | proximité, détail et recherche discovery | PARTIEL : le DTO place ne fournit pas toute la galerie, les horaires et les avis riches attendus par l'écran |
-| Événements | upcoming, détail, inscription et désinscription | PARTIEL : organisateur, image, tickets, participants et sauvegarde ne sont pas fournis par `EventResponse` |
-| Social | recherche, followers/following, suggestions, activité, follow/unfollow, retrait follower, paramètres | ALIGNÉ SOURCE pour le noyau social |
-| Profil | publications, collections, événements, réservations, avis et statistiques composés | PARTIEL : données publiques d'auteur et projections riches incomplètes |
-| Notifications | liste, non lues, compteur, read, read-all, delete | ALIGNÉ SOURCE; service actif actuellement `503` |
-| Messagerie | conversations, messages, création, envoi, lecture + STOMP | ALIGNÉ SOURCE; service `8104` non démarré |
-| Badges/XP | `/me/badges`, `/me/xp` | PARTIEL : pas de catalogue global ni de détail riche |
-| Réservations/paiements | lecture des réservations dans le profil | PARTIEL : écrans de transaction complets non raccordés |
-| Expériences/offres/appels audio-vidéo | aucun contrat complet consommable | ABSENT ou SIMULÉ; ne pas présenter ces écrans comme fonctionnels |
+| GET | `/events/{eventId}/participants?limit=100` | tableau `{ registrationId, userId, status, registeredAt }` |
 
-### Conventions figées pour le front
+Seules les inscriptions `CONFIRMED` sont retournées. `limit` vaut `100` par défaut et
+est borné entre `1` et `200`. La route exige un JWT et retourne
+`404 EVENT_NOT_FOUND` pour un événement inconnu.
 
-- Tous les identifiants métier de contenu, collection, place, événement, conversation, message, média, story et notification sont traités comme des chaînes UUID. Le mobile accepte encore `number` uniquement pour ses mocks historiques.
-- L'identifiant retourné par `auth-service` reste numérique. Le sujet JWT est envoyé tel quel aux services; le mobile ne fabrique jamais un UUID utilisateur.
-- Les erreurs suivent `code`, `message`, `status`, `path`, `correlationId`, `timestamp` et éventuellement `fieldErrors`.
-- Les opérations d'interaction nécessitant l'idempotence envoient un nouvel en-tête `Idempotency-Key`.
-- Le refresh token est stocké dans SecureStore. Une seule rotation est exécutée lorsque plusieurs requêtes reçoivent simultanément `401`, puis la requête initiale est rejouée une fois.
-- Les URLs médias sont construites à partir de `EXPO_PUBLIC_API_BASE_URL`; aucun chemin relatif au dépôt n'est utilisé.
+#### Réponses et likes de commentaires (`interaction-service`)
 
-### Messagerie STOMP locale
+Les réponses imbriquées étaient déjà prises en charge par
+`POST /interactions/posts/{postId}/comments` avec le champ optionnel `parentId`.
+Les routes manquantes de like sont maintenant:
 
-Connexion WebSocket directe :
-
-```text
-ws://127.0.0.1:8104/ws/messaging
-```
-
-Le client envoie :
-
-```text
-CONNECT
-accept-version:1.2,1.1
-heart-beat:10000,10000
-Authorization:Bearer <access-token>
-```
-
-Puis il souscrit à :
-
-```text
-/user/queue/messaging
-```
-
-Les messages sont créés via REST. STOMP sert à recevoir les événements `messaging.message.*`. Le client reconnecte avec backoff exponentiel et réutilise le nouveau JWT après rotation.
-
-### État runtime observé le 23 juillet 2026
-
-Contrôles HTTP effectués directement depuis la machine locale :
-
-| Port/service | Résultat |
-|---|---|
-| `8083` Gateway | `200` sur `/actuator/health` |
-| `8084` place, `8085` event, `8087` partner | `200` |
-| `8089` ingestion, `8091` interaction, `8092` feed, `8093` discovery | `200` |
-| `8095` recommendation, `8098` mission, `8099` referral, `8100` moderation | `200` |
-| `8101` media, `8102` booking, `8103` payment, `8105` gamification | `200` |
-| `8082` auth, `8088` catalog, `8090` content, `8104` messaging | non joignables (`000`) |
-| `8086` user, `8094` notification, `8097` analytics | `503` |
-
-La Gateway active renvoie encore `401` pour :
-
-- `/mobile-api/openapi.json`;
-- `/api/v1/regions`;
-- `/api/v1/categories`;
-- `/api/v1/events/upcoming`;
-- `/api/v1/catalog/assets`.
-
-Le code source Gateway corrigé autorise ces lectures, ce qui prouve que le conteneur actif n'a pas encore été reconstruit avec la version courante. `GET /api/v1/auth/me` retourne également `401`, ce qui est attendu sans Bearer.
-
-### Reconstruction nécessaire avant recette
-
-Depuis le dépôt backend :
-
-```powershell
-docker compose up -d --build config-server registry-service auth-service user-service catalog-service content-service messaging-service notification-service analytics-service api-gateway
-docker compose ps
-pwsh -File scripts/smoke-mobile-local.ps1 -RunAuthFlow
-```
-
-Le test ne doit être déclaré réussi que lorsque :
-
-1. auth, user, catalog, content, messaging, notification et Gateway sont `healthy`;
-2. `/mobile-api/openapi.json` et les lectures publiques retournent `200`;
-3. register, login, refresh, me et logout passent via `8083`;
-4. un upload, un post, une story, une collection et une inscription événement passent via la Gateway;
-5. deux comptes valident l'envoi REST et la réception STOMP.
-
-L'accès Docker Desktop n'était pas autorisé dans l'environnement d'audit; les images n'ont donc pas pu être reconstruites ni les logs des conteneurs consultés ici.
-
-### Tests exécutés
-
-| Cible | Tests | Échecs |
-|---|---:|---:|
-| `security-hardening-starter` | 9 | 0 |
-| `api-gateway` | 3 | 0 |
-| `auth-service` | 9 | 0 |
-| `user-service` | 8 | 0 |
-| `catalog-service` | 32 | 0 |
-| `messaging-service` | 21 | 0 |
-| **Total Java ciblé** | **82** | **0** |
-| TypeScript mobile `npx tsc --noEmit` | compilation complète | 0 |
-| `git diff --check` mobile | contrôle des patchs | 0 |
-| Export Metro Android | non exécuté jusqu'au bundle | bloqué par `spawn EPERM` dans le bac à sable |
-| `expo-doctor` | non exécuté | paquet absent du cache et téléchargement non autorisé |
-
-Maven a terminé par `BUILD SUCCESS`. L'outil a dépassé la durée d'attente de son enveloppe après environ cinq minutes, mais le résumé Surefire final confirme le succès de chacun des six modules.
-
-### Décision de lancement
-
-Il est possible de lancer dès maintenant le travail d'intégration et les tests d'interface sur les modules marqués `ALIGNÉ SOURCE`. Il n'est pas encore possible de valider une consommation **complète** en environnement local tant que les conteneurs manquants/dégradés ne sont pas reconstruits et que le smoke test authentifié n'est pas vert.
-
-## Addendum runtime vérifié — 24 juillet 2026
-
-Cet addendum remplace les constats runtime du 23 juillet 2026 lorsqu'ils sont contradictoires.
-
-### Verdict actuel
-
-Verdict : **PARTIEL — infrastructure et 24 services applicatifs opérationnels, dernière image Gateway à reconstruire avant la recette mobile complète.**
-
-Score d'intégration : **89/100**.
-
-| Axe | Score | État vérifié |
-|---|---:|---|
-| Réseau local et dépôts indépendants | 10/10 | URLs pilotées par `EXPO_PUBLIC_*`; aucun chemin relatif entre les deux dépôts |
-| Authentification et JWT | 18/20 | auth-service démarre sans client OAuth local; login/refresh restent à revalider via la dernière image Gateway |
-| Contrats REST mobiles | 25/30 | surface OpenAPI disponible; DTO riches encore incomplets pour certains écrans |
-| Temps réel | 9/10 | messaging-service et broker STOMP démarrés, heartbeat corrigé; test à deux utilisateurs restant |
-| Runtime Docker et Eureka | 17/20 | 30 conteneurs `healthy`; 24 applications sur 24 enregistrées `UP` dans Eureka |
-| Tests automatisés ciblés | 10/10 | 98 tests Java exécutés sans échec pendant la remédiation |
-
-Le front peut poursuivre l'intégration des modules alignés. Depuis l'intégration mobile du 24 juillet 2026, il n'existe plus de basculement mock global : seuls les deux boutons de connexion démo ouvrent une session mock; toute connexion ou inscription normale utilise systématiquement la Gateway.
-
-### État Docker et Eureka réellement observé
-
-`docker compose ps --format json` a retourné **30 conteneurs actifs et healthy** :
-
-- 24 services applicatifs, Gateway comprise;
-- config-server et registry-service;
-- PostgreSQL, Redis, Redpanda/Kafka, Cassandra et OpenSearch.
-
-L'API Eureka a retourné **24 applications**, chacune avec une instance `UP` :
-
-`ADMIN-SERVICE`, `ANALYTICS-SERVICE`, `API-GATEWAY`, `AUTH-SERVICE`, `BOOKING-SERVICE`,
-`CATALOG-SERVICE`, `CONTENT-SERVICE`, `DISCOVERY-SERVICE`, `EVENT-SERVICE`, `FEED-SERVICE`,
-`GAMIFICATION-SERVICE`, `INGESTION-SERVICE`, `INTERACTION-SERVICE`, `MEDIA-SERVICE`,
-`MESSAGING-SERVICE`, `MISSION-REWARD-SERVICE`, `MODERATION-TRUST-SERVICE`,
-`NOTIFICATION-SERVICE`, `PARTNER-SERVICE`, `PAYMENT-SERVICE`, `PLACE-SERVICE`,
-`RECOMMENDATION-SERVICE`, `REFERRAL-SERVICE` et `USER-SERVICE`.
-
-### URLs locales à ouvrir
-
-| Composant | URL | Remarque |
+| Méthode | Chemin | Réponse |
 |---|---|---|
-| Config Server | `http://localhost:8080/actuator/health` | Santé du serveur de configuration |
-| Configuration Gateway | `http://localhost:8080/api-gateway/default` | JSON; Basic Auth via `CONFIG_SERVER_USERNAME` / `CONFIG_SERVER_PASSWORD` |
-| Eureka | `http://localhost:8761/` | Interface du registre; Basic Auth via `EUREKA_USERNAME` / `EUREKA_PASSWORD` |
-| Gateway | `http://localhost:8083/actuator/health` | Point d'entrée REST unique du mobile |
-| OpenAPI mobile | `http://localhost:8083/mobile-api/openapi.json` | Index versionné de la surface mobile |
-| WebSocket STOMP | `ws://localhost:8104/ws/messaging` | Bearer dans la frame `CONNECT` |
+| PUT | `/interactions/comments/{commentId}/like` | `{ commentId, likeCount, liked: true }` |
+| DELETE | `/interactions/comments/{commentId}/like` | `{ commentId, likeCount, liked: false }` |
+| GET | `/interactions/comments/{commentId}/likes` | `{ commentId, likeCount, liked }` |
 
-RabbitMQ n'est pas utilisé par cette stack. Le broker est **Redpanda compatible Kafka** sur `localhost:9092`; aucun tableau de bord RabbitMQ n'existe donc sur `15672`.
+`PUT` et `DELETE` sont idempotents. Un commentaire absent ou supprimé retourne
+`404 COMMENT_NOT_FOUND`. La migration Flyway `V3__create_comment_likes.sql` impose
+une unicité `(comment_id, user_id)` et supprime les likes en cascade avec le commentaire.
 
-### Corrections runtime appliquées
+#### Badges et classement (`gamification-service`)
 
-- `auth-service` : Actuator ajouté, sondes health autorisées, OAuth Google/Apple optionnel au démarrage et healthcheck readiness;
-- `catalog-service` : migration Flyway V6 ajoutée pour `outbox_events`;
-- `content-service` : index PostgreSQL corrigés afin de ne plus utiliser `NOW()` dans un prédicat d'index partiel;
-- `messaging-service` : scheduler dédié au heartbeat du broker STOMP;
-- `admin-service` : convertisseur JWT retiré du registre global de converters Kafka;
-- `analytics-service` : indicateur Elasticsearch redondant désactivé; le client OpenSearch reste `UP`;
-- `notification-service` : indicateur SMTP optionnel désactivé sans serveur mail local;
-- `start-mobile-stack.ps1` : démarrage progressif par lots et validation readiness;
-- Gateway : règles anonymes explicites par méthode et URI; `auth/me`, `logout` et `events/me` restent protégés.
+| Méthode | Chemin | Réponse |
+|---|---|---|
+| GET | `/me/badges/catalog` | catalogue `{ code, name, description, earned, earnedAt }[]` |
+| GET | `/me/badges/catalog/{code}` | détail d'un badge et état de gain de l'utilisateur |
+| GET | `/me/badges/stats` | `{ earnedBadges, totalBadges, totalXp, level, rank }` |
+| GET | `/me/leaderboard?limit=50` | `{ rank, userId, totalXp, level }[]`, maximum 100 |
 
-### Tests exécutés pendant la remédiation
+Le catalogue contient les sept règles réellement attribuées par le service:
+`FIRST_POST`, `EXPLORER`, `TRAVELER_5`, `SOCIAL_10`, `FIRST_BOOKING`,
+`STREAK_7` et `LEVEL_5`. Le leaderboard ne fabrique ni nom, ni avatar: il retourne
+le sujet utilisateur canonique; le front doit résoudre le profil via `user-service`.
+La gateway a été étendue pour router `/api/v1/me/leaderboard/**`.
 
-| Module | Tests | Échecs |
-|---|---:|---:|
-| security-hardening-starter | 9 | 0 |
-| auth-service | 9 | 0 |
-| catalog-service | 32 | 0 |
-| content-service | 20 | 0 |
-| messaging-service | 21 | 0 |
-| admin-service | 3 | 0 |
-| api-gateway | 4 | 0 |
-| **Total** | **98** | **0** |
+### État exhaustif des 23 besoins du rapport frontend
 
-Vérifications HTTP confirmées :
+| # | Besoin signalé | État vérifié | Décision/contrat |
+|---:|---|---|---|
+| 1 | Désactivation/réactivation | **Implémenté** | désactivation authentifiée; réactivation à la connexion valide |
+| 2 | Changement de mot de passe | **Déjà présent** | `PUT /auth/password`, ancien et nouveau mot de passe, révocation des refresh tokens |
+| 3 | Sessions/appareils | **Partiel implémenté** | liste et révocation des sessions; métadonnées appareil/IP/user-agent encore absentes |
+| 4 | Workflow 2FA | **Absent** | nécessite stockage des secrets, chiffrement, QR/TOTP, recovery codes et politique de challenge |
+| 5 | Vérification/changement de téléphone | **Absent** | aucun fournisseur SMS ni contrat OTP téléphone n'est configuré |
+| 6 | Confidentialité détaillée | **Partiel déjà présent** | `GET/PUT /users/settings` couvre visibilité, activité, abonnés, notifications, suggestions et messages inconnus; statut en ligne, tags et réglages de recherche restent à définir |
+| 7 | Suggestions par contacts | **Absent** | `/users/suggestions` couvre les amis d'amis, pas l'import consenti et haché du carnet d'adresses |
+| 8 | Paramètres sociaux | **Déjà présent** | `GET/PUT /users/settings` avec DTO `privacy`, `notifications`, `preferences` |
+| 9 | Suggestion de lieu utilisateur | **Absent** | workflow de modération et modèle de brouillon à définir avant d'exposer une écriture publique |
+| 10 | Favoris de lieux | **Absent comme API dédiée** | les collections existent, mais aucune collection système « favoris » n'est contractualisée |
+| 11 | Note/priorité d'une collection | **Déjà présent** | `PATCH /collections/{collectionId}/places/{assetId}` |
+| 12 | Participants/invitations/amis proches | **Partiel implémenté** | participants confirmés ajoutés; invitations, acceptation/refus et groupes proches restent absents |
+| 13 | Sauvegarde événement/expérience | **Absent** | aucune règle canonique entre collections, favoris et événements n'est figée |
+| 14 | Offres partenaires | **Absent** | aucun agrégat/service d'offre, cycle de validation ou schéma n'existe |
+| 15 | Supprimer/archiver conversation | **Absent** | le modèle Cassandra actuel ne définit pas d'archivage par participant |
+| 16 | Messages épinglés | **Absent** | schéma et règles d'autorisation à ajouter à la messagerie |
+| 17 | Conversation en sourdine | **Absent** | préférence par participant non modélisée |
+| 18 | Recherche/export conversation | **Absent** | index de recherche, pagination d'export et politique de confidentialité non définis |
+| 19 | Appels audio/vidéo | **Absent** | nécessite signalisation, historique, présence et infrastructure STUN/TURN/WebRTC |
+| 20 | Réponses/likes commentaire | **Implémenté** | `parentId` existait; like/unlike/statut ajoutés |
+| 21 | Catalogue/stats/leaderboard badges | **Implémenté** | quatre routes `/me` ajoutées avec données persistées réelles |
+| 22 | Push multi-appareil | **Absent** | le `pushToken` unique reste transitoire; registre d'appareils et révocation par appareil requis |
+| 23 | Challenge de paiement mobile réel | **Absent** | le fournisseur de paiement est simulé; aucun SDK/provider ni webhook réel n'est configuré |
 
-- santé Gateway : `200`;
-- OpenAPI mobile : `200`;
-- handshake HTTP WebSocket : `400`, attendu sans upgrade WebSocket;
-- `place-service /api/v1/regions` direct : `200`;
-- `event-service /api/v1/events/upcoming` direct : `200`;
-- inscription invalide directe vers auth-service : `400` métier, donc route anonyme exposée par le service.
+**Bilan:** les 23 lignes ne sont pas toutes implémentées. Six familles sont désormais
+complètement couvertes (`1`, `2`, `8`, `11`, `20`, `21`), trois sont partiellement
+couvertes (`3`, `6`, `12`) et quatorze restent absentes faute de contrat de domaine,
+de schéma persistant ou de fournisseur externe. Aucun endpoint factice n'a été ajouté
+pour masquer ces dépendances.
 
-### Dernière reconstruction obligatoire
+### Build et validation
 
-Le JAR Gateway contenant le matcher public explicite est compilé et ses tests passent. La limite d'exécution Docker de la session a empêché uniquement sa dernière réinjection dans le conteneur. Depuis `yeyamo-api` :
-
-```powershell
-docker compose build api-gateway
-docker compose up -d --no-deps --force-recreate api-gateway
-powershell -ExecutionPolicy Bypass -File .\scripts\smoke-mobile-local.ps1 -RunAuthFlow
-```
-
-Résultats attendus :
-
-- `/mobile-api/openapi.json`, `/api/v1/regions`, `/api/v1/categories`,
-  `/api/v1/events/upcoming` et `/api/v1/catalog/assets` : `200`;
-- `/api/v1/auth/me` sans JWT : `401`;
-- register, login, refresh, `auth/me` avec JWT et logout : succès;
-- profil, feed, notifications et collections avec le JWT de smoke : `200`.
-
-Le script affiche désormais toutes les lignes `[FAIL]` avant de terminer, et non plus uniquement la première.
-
-## Bilan final de consommation mobile — 24 juillet 2026
-
-Cette section remplace les anciennes consignes relatives à `EXPO_PUBLIC_USE_MOCKS`.
-
-### Règle de séparation des données
-
-Le mobile conserve exactement deux sessions de démonstration :
-
-- **Entrer en mode démo** : utilisateur simple et données mock;
-- **Se connecter en tant que partenaire démo** : partenaire et dashboard mock.
-
-Le mode est enregistré dans SecureStore avec `SESSION_MODE` (`demo-user`, `demo-partner` ou `backend`). La saisie normale du formulaire de connexion, l'inscription normale et la connexion sociale utilisent toujours le backend. Les caches TanStack Query incluent la source `demo` ou `backend`, afin qu'une donnée de démonstration ne puisse pas être réutilisée dans une session réelle. La variable `EXPO_PUBLIC_USE_MOCKS` a été retirée.
-
-### Configuration locale du dépôt mobile
-
-Les deux dépôts restent indépendants. Aucun import, chemin relatif ou script du mobile ne dépend de l'emplacement de `yeyamo-api`.
-
-```dotenv
-# Appareil physique : IPv4 LAN de la machine qui exécute Docker
-EXPO_PUBLIC_API_BASE_URL=http://192.168.88.241:8083
-EXPO_PUBLIC_MESSAGING_WS_URL=ws://192.168.88.241:8104/ws/messaging
-EXPO_PUBLIC_APP_ENV=development
-```
-
-Remplacer `192.168.88.241` si l'adresse IPv4 du PC change :
-
-- Android Emulator : `http://10.0.2.2:8083` et `ws://10.0.2.2:8104/ws/messaging`;
-- iOS Simulator ou Web sur le PC : `http://127.0.0.1:8083`;
-- appareil physique : IPv4 LAN du PC; le téléphone et le PC doivent être sur le même réseau.
-
-### API effectivement consommées par les interfaces mobiles
-
-| Domaine mobile | Endpoints utilisés |
-|---|---|
-| Authentification | `POST /auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `GET /auth/me`, vérification email request/confirm, password forgot/reset, OAuth Google/Apple, `PUT /auth/password` |
-| Profil | `GET/PUT /users/me`, `PATCH /users/me/preferences`, `GET /posts/me`, `/bookings/me`, `/events/me`, `/users/social/stats`, avis d'un utilisateur |
-| Réseau social | recherche, abonnés, abonnements, suggestions, activité, follow/unfollow, suppression d'un abonné, lecture/mise à jour des réglages sociaux |
-| Feed et publications | `GET /feed`, détail post + compteurs + commentaires, like/unlike, favorite/unfavorite, ajout de commentaire, upload média, création du brouillon, publication et suppression |
-| Stories | liste, détail, création, marquage vu |
-| Exploration | régions, catégories, trending discovery, recherche discovery, lieux proches et détail d'un lieu |
-| Événements | prochains événements, détail, mes participations, inscription et désinscription |
-| Collections | liste privée/publique, détail, résumés, création, modification, suppression, ajout/mise à jour/retrait d'un lieu |
-| Notifications | liste, non lues, compteur, marquage lu, tout marquer lu, suppression |
-| Messagerie | liste/création des conversations, historique, envoi, marquage lu et réception STOMP sur `/user/queue/messaging` |
-| Gamification | `GET /me/badges` et `GET /me/xp` |
-| Partenaire | `GET /partners/me` et dashboard analytique `GET /analytics/partners/{partnerId}/dashboard`; adaptateurs create/update/submit prêts |
-
-Les formulaires de publication et de modification d'avatar envoient maintenant réellement les médias avant de publier ou d'enregistrer l'URL. Le mot de passe oublié utilise le vrai couple `forgot` puis `reset`. La recherche de profils, le follow et la création d'une conversation ne sont plus simulés.
-
-### Endpoints backend existants mais non consommés
-
-Ils ne sont pas appelés car aucune interface mobile actuelle ne porte encore le parcours complet correspondant :
-
-- gestion avancée des conversations : membres, quitter un groupe, édition et suppression d'un message;
-- édition/archivage/visibilité d'un post, recherche par hashtag ou asset;
-- édition/suppression d'un commentaire, partage, CRUD des avis, check-ins et liste `/saves`;
-- métadonnées, miniature et suppression d'un média;
-- détail d'une région, villes, districts et opérations d'administration géographique;
-- création/mise à jour/statut d'un événement et événements d'un lieu;
-- références et assets du catalogue en gestion;
-- recommandations personnalisées;
-- disponibilité, création, détail, historique et annulation d'une réservation; gestion des créneaux;
-- paiements, remboursements et webhooks;
-- documents partenaire, soumission de validation et recherche publique de partenaires;
-- préférences de notification et enregistrement d'un push token;
-- missions, récompenses détaillées, classements et gestion des missions;
-- parrainage (codes, invitations, attribution, historique et récompenses);
-- blocage/déblocage et liste des utilisateurs bloqués;
-- analytics région/place/utilisateur;
-- endpoints d'administration, modération et ingestion, qui ne doivent pas être exposés dans l'application utilisateur standard.
-
-### API absentes ou contrat insuffisant pour les écrans actuels
-
-Ces écrans n'utilisent aucune fausse donnée en session réelle; ils restent vides ou affichent une indisponibilité explicite :
-
-| Besoin front | Manque backend |
-|---|---|
-| Dashboard « mes établissements » | endpoint filtré par propriétaire/partenaire authentifié |
-| Réservations reçues par un partenaire | boîte de réception provider/partner; `/bookings/me` ne retourne que les réservations du client |
-| Événements gérés par un partenaire | endpoint des événements créés/administrés, distinct de `/events/me` qui représente les participations |
-| Avis du dashboard partenaire et réponse à un avis | agrégation par partenaire/établissement et endpoint de réponse |
-| Expérience riche | prix, durée, difficulté, distance, dépôt, inclusions, disponibilité et avis agrégés; le catalogue générique ne fournit pas ce contrat |
-| Publications d'un profil public | liste des posts par `authorId` |
-| Sécurité du compte | sessions actives, révocation d'une session et 2FA |
-| Préférences étendues | règles « qui peut écrire/taguer/voir », contenu sensible, rayon, accessibilité et genre/ville |
-| Synchronisation de contacts | import/hachage de contacts et suggestions correspondantes |
-| Favori d'événement | endpoint save/unsave d'un événement |
-| Offres partenaire | CRUD d'offres/promotions |
-| Analytics de trafic | ventilation par source; le dashboard analytique fournit seulement les agrégats journaliers |
-
-Deux écarts front empêchent encore de brancher les créations partenaire sans inventer de données :
-
-1. l'inscription partenaire ne demande aucun mot de passe alors que la création de la fiche `/partners` exige d'abord une session authentifiée;
-2. les pickers lieu/événement stockent des libellés, alors que les contrats exigent les identifiants `categoryId`, `regionId`, `cityId`, `placeId` et des dates ISO.
-
-Ces parcours restent donc non envoyés plutôt que d'appeler le backend avec des identifiants fabriqués.
-
-### Vérifications réalisées
-
-| Vérification | Résultat |
-|---|---|
-| Expo | SDK **54.0.0** confirmé; aucune migration vers SDK 56 |
-| TypeScript | `npx tsc --noEmit` : succès, 0 erreur |
-| Configuration Expo | `npx expo config --type public` : succès |
-| Bundle Android | `npx expo export --platform android --clear` : succès, 2 092 modules, bundle Hermes généré |
-| Gateway health | `GET :8083/actuator/health` : `200` |
-| OpenAPI mobile | `GET :8083/mobile-api/openapi.json` : `200` |
-| Routes publiques de l'image Gateway active | régions, catégories, événements, login et register retournent encore `401` |
-
-Le dernier point ne provient pas du mobile : le conteneur Gateway actif utilise encore l'ancienne image de sécurité. Les tests du code Gateway corrigé passent, mais cette image doit être réinjectée avant la recette réelle.
-
-### Comment tester l'application avec les API
-
-1. Depuis `yeyamo-api`, reconstruire uniquement la dernière Gateway puis exécuter le smoke test :
-
-```powershell
-docker compose build api-gateway
-docker compose up -d --no-deps --force-recreate api-gateway
-powershell -ExecutionPolicy Bypass -File .\scripts\smoke-mobile-local.ps1 -RunAuthFlow
-```
-
-2. Vérifier que les lectures publiques et l'authentification ne retournent plus `401` :
-
-```powershell
-curl.exe -i http://localhost:8083/api/v1/regions
-curl.exe -i http://localhost:8083/api/v1/categories
-curl.exe -i http://localhost:8083/api/v1/events/upcoming
-```
-
-3. Dans le dépôt `yeyamo-mobile`, renseigner l'IPv4 correcte dans `.env`, puis :
-
-```powershell
-npm install
-npx tsc --noEmit
-npx expo start --clear
-```
-
-4. Tester séparément :
-
-- bouton démo utilisateur : toutes les données restent mock;
-- bouton démo partenaire : dashboard et données partenaire restent mock;
-- inscription normale : register, vérification email, profil puis données backend uniquement;
-- connexion normale : feed, stories, explorer, profil, notifications, collections et chat utilisent la Gateway;
-- publication : choisir un média, publier, puis vérifier le post dans le feed;
-- deux comptes réels : créer une conversation, envoyer un message et vérifier la réception STOMP.
-
-Verdict mobile : **intégration du socle utilisateur prête côté code**, mais **recette réseau réelle bloquée par l'ancienne image Gateway encore active**. Les écrans listés dans « API absentes » ne peuvent pas être déclarés intégrés tant que les contrats correspondants n'existent pas.
+- Suites et tests ciblés réussis: `auth-service` **10 tests**, `interaction-service`
+  **27 tests**, `gamification-service` **15 tests**, `event-service` **5 tests**;
+  aucun échec ni erreur.
+- Validation ciblée des nouveaux comportements: **11 tests réussis**.
+- JAR Spring Boot reconstruits pour `auth-service`, `event-service`,
+  `interaction-service` et `gamification-service`.
+- Images Docker locales reconstruites sans téléchargement externe à partir de
+  `yeyamo-api-java21-runtime:local`.
+- Services recréés avec la gateway afin de charger le routage du leaderboard.
+- État Docker final des services modifiés et de la gateway:
+  `auth-service`, `event-service`, `interaction-service`, `gamification-service`
+  et `api-gateway` sont tous `healthy` et enregistrés dans Eureka.
+- Smoke tests authentifiés via `http://localhost:8083`: login `200`, sessions
+  `200`, révocation d'une session `204`, catalogue de badges `200` (7 entrées),
+  statistiques `200`, leaderboard `200`; les UUID inconnus sur participants
+  et likes retournent bien le `404` métier du service cible.
+- Cycle compte vérifié sur l'instance reconstruite: désactivation `204`, puis
+  connexion avec le bon mot de passe `200` et compte réactivé.

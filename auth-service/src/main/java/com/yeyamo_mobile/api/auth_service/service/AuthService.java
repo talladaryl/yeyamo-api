@@ -1,6 +1,7 @@
 package com.yeyamo_mobile.api.auth_service.service;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.yeyamo_mobile.api.auth_service.dto.AuthResponse;
 import com.yeyamo_mobile.api.auth_service.dto.ChangePasswordRequest;
+import com.yeyamo_mobile.api.auth_service.dto.DeactivateAccountRequest;
 import com.yeyamo_mobile.api.auth_service.dto.EmailRequest;
 import com.yeyamo_mobile.api.auth_service.dto.LoginRequest;
 import com.yeyamo_mobile.api.auth_service.dto.OAuthLoginRequest;
@@ -21,6 +23,7 @@ import com.yeyamo_mobile.api.auth_service.dto.OtpVerificationRequest;
 import com.yeyamo_mobile.api.auth_service.dto.PasswordResetRequest;
 import com.yeyamo_mobile.api.auth_service.dto.RefreshTokenRequest;
 import com.yeyamo_mobile.api.auth_service.dto.RegisterRequest;
+import com.yeyamo_mobile.api.auth_service.dto.SessionResponse;
 import com.yeyamo_mobile.api.auth_service.dto.UserResponse;
 import com.yeyamo_mobile.api.auth_service.enums.LabelRole;
 import com.yeyamo_mobile.api.auth_service.enums.Roles;
@@ -122,6 +125,19 @@ public class AuthService {
             throw invalidCredentials();
         }
 
+        if (user.getStatus() == UserStatus.PENDING) {
+            throw new ApiException("EMAIL_NOT_VERIFIED",
+                    "Veuillez verifier votre email avant de vous connecter", HttpStatus.FORBIDDEN);
+        }
+        if (user.getStatus() == UserStatus.INACTIVE) {
+            if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+                loginAttemptService.failed(identifier);
+                throw invalidCredentials();
+            }
+            user.setStatus(UserStatus.ACTIVE);
+            userRepository.saveAndFlush(user);
+        }
+
         try {
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(identifier, request.password()));
         } catch (AuthenticationException failure) {
@@ -129,9 +145,6 @@ public class AuthService {
             throw invalidCredentials();
         }
 
-        if (user.getStatus() == UserStatus.PENDING) {
-            throw new ApiException("EMAIL_NOT_VERIFIED", "Veuillez verifier votre email avant de vous connecter", HttpStatus.FORBIDDEN);
-        }
         loginAttemptService.succeeded(identifier);
 
         user.setLastLoginAt(Instant.now());
@@ -188,6 +201,28 @@ public class AuthService {
         userRepository.save(user);
         refreshTokenService.revokeAll(user);
         eventOutbox.passwordChanged(user, correlationId);
+    }
+
+    @Transactional
+    public void deactivate(User user, DeactivateAccountRequest request) {
+        if (user == null || request == null
+                || !passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
+            throw new ApiException("INVALID_CURRENT_PASSWORD",
+                    "Mot de passe actuel invalide", HttpStatus.BAD_REQUEST);
+        }
+        user.setStatus(UserStatus.INACTIVE);
+        userRepository.save(user);
+        refreshTokenService.revokeAll(user);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SessionResponse> sessions(User user) {
+        return refreshTokenService.sessions(user);
+    }
+
+    @Transactional
+    public void revokeSession(User user, Long sessionId) {
+        refreshTokenService.revoke(user, sessionId);
     }
 
     public UserResponse me(User user) {

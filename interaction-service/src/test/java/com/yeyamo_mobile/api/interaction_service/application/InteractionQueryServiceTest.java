@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import com.yeyamo_mobile.api.interaction_service.application.port.InteractionCachePort;
 import com.yeyamo_mobile.api.interaction_service.domain.model.RelationType;
 import com.yeyamo_mobile.api.interaction_service.domain.port.*;
+import com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.SpringReviewRepository;
 
 class InteractionQueryServiceTest {
 
@@ -29,7 +30,8 @@ class InteractionQueryServiceTest {
         when(relations.find(postId, "viewer", RelationType.LIKE)).thenReturn(Optional.empty());
         when(relations.find(postId, "viewer", RelationType.FAVORITE)).thenReturn(Optional.empty());
 
-        InteractionSummary result = new InteractionQueryService(relations, comments, shares, checkIns, cache)
+        InteractionSummary result = new InteractionQueryService(
+                relations, comments, shares, checkIns, mock(SpringReviewRepository.class), cache)
                 .summary(postId, "viewer");
 
         assertEquals(12, result.likes());
@@ -48,7 +50,8 @@ class InteractionQueryServiceTest {
         InteractionCachePort cache = mock(InteractionCachePort.class);
         when(cache.getCounts(postId)).thenReturn(Optional.of(new InteractionSummary.Counts(5, 4, 3)));
 
-        InteractionSummary result = new InteractionQueryService(relations, comments, shares, checkIns, cache)
+        InteractionSummary result = new InteractionQueryService(
+                relations, comments, shares, checkIns, mock(SpringReviewRepository.class), cache)
                 .summary(postId, null);
 
         assertEquals(5, result.likes());

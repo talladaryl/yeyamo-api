@@ -12,6 +12,8 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.yeyamo_mobile.api.auth_service.dto.ChangePasswordRequest;
+import com.yeyamo_mobile.api.auth_service.dto.DeactivateAccountRequest;
+import com.yeyamo_mobile.api.auth_service.enums.UserStatus;
 import com.yeyamo_mobile.api.auth_service.event.AuthEventOutbox;
 import com.yeyamo_mobile.api.auth_service.exception.ApiException;
 import com.yeyamo_mobile.api.auth_service.models.User;
@@ -64,6 +66,19 @@ class AuthServicePasswordTests {
                 new ChangePasswordRequest("wrong-password", "new-password-123"), null));
 
         assertEquals("INVALID_CURRENT_PASSWORD", exception.getCode());
+    }
+
+    @Test
+    void deactivatesAccountAndRevokesRefreshSessions() {
+        User user = user();
+        user.setStatus(UserStatus.ACTIVE);
+        when(encoder.matches("current-password", "old-hash")).thenReturn(true);
+
+        service.deactivate(user, new DeactivateAccountRequest("current-password"));
+
+        assertEquals(UserStatus.INACTIVE, user.getStatus());
+        verify(users).save(user);
+        verify(refreshTokens).revokeAll(user);
     }
 
     private User user() {

@@ -1,5 +1,6 @@
 package com.yeyamo_mobile.api.auth_service.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,4 +19,8 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
     Optional<RefreshToken> findLockedByTokenHash(String tokenHash);
 
     void deleteByUser(User user);
+
+    List<RefreshToken> findByUserOrderByIdDesc(User user);
+
+    Optional<RefreshToken> findByIdAndUser(Long id, User user);
 }

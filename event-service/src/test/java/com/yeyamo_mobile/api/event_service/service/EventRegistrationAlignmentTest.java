@@ -69,6 +69,25 @@ class EventRegistrationAlignmentTest {
         assertEquals(List.of(event.getId()), result.stream().map(e -> e.id()).toList());
     }
 
+    @Test
+    void listsOnlyConfirmedParticipantsOfTheRequestedEvent() {
+        Event event = publishedEvent();
+        EventRegistration registration = new EventRegistration();
+        registration.setId(UUID.randomUUID());
+        registration.setEvent(event);
+        registration.setUserId("42");
+        registration.setStatus(RegistrationStatus.CONFIRMED);
+        registration.setRegisteredAt(Instant.now());
+        when(events.findById(event.getId())).thenReturn(Optional.of(event));
+        when(registrations.findByEventIdAndStatusOrderByRegisteredAtAsc(
+                eq(event.getId()), eq(RegistrationStatus.CONFIRMED), any(Pageable.class)))
+                .thenReturn(List.of(registration));
+
+        var result = service.findParticipants(event.getId(), 100);
+
+        assertEquals(List.of("42"), result.stream().map(participant -> participant.userId()).toList());
+    }
+
     private Event publishedEvent() {
         Event event = new Event();
         event.setId(UUID.randomUUID());

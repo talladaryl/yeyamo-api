@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.yeyamo_mobile.api.event_service.dto.EventRequest;
+import com.yeyamo_mobile.api.event_service.dto.EventParticipantResponse;
 import com.yeyamo_mobile.api.event_service.dto.EventResponse;
 import com.yeyamo_mobile.api.event_service.dto.EventStatusRequest;
 import com.yeyamo_mobile.api.event_service.dto.EventSummaryResponse;
@@ -175,6 +176,17 @@ public class EventService {
                 .stream()
                 .map(EventRegistration::getEvent)
                 .map(EventSummaryResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<EventParticipantResponse> findParticipants(UUID eventId, int limit) {
+        findEventOrThrow(eventId);
+        return registrationRepository.findByEventIdAndStatusOrderByRegisteredAtAsc(
+                        eventId, RegistrationStatus.CONFIRMED,
+                        org.springframework.data.domain.PageRequest.of(0, Math.max(1, Math.min(200, limit))))
+                .stream()
+                .map(EventParticipantResponse::from)
                 .toList();
     }
 

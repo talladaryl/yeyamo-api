@@ -1,2 +1,225 @@
-package com.yeyamo_mobile.api.gamification_service.infrastructure.persistence;import java.time.*;import java.util.*;import org.springframework.stereotype.Component;import com.yeyamo_mobile.api.gamification_service.application.port.GamificationRepositoryPort;import com.yeyamo_mobile.api.gamification_service.domain.*;
-@Component public class JpaGamificationAdapter implements GamificationRepositoryPort{private final ProfileRepository profiles;private final XpLedgerRepository ledger;private final CounterRepository counters;private final BadgeRepository badges;private final StampRepository stamps;private final RewardRepository rewards;public JpaGamificationAdapter(ProfileRepository p,XpLedgerRepository l,CounterRepository c,BadgeRepository b,StampRepository s,RewardRepository r){profiles=p;ledger=l;counters=c;badges=b;stamps=s;rewards=r;}public AwardResult award(XpActivity a){ProfileEntity p=profiles.findLockedByUserId(a.userId()).orElseGet(()->newProfile(a.userId()));Progress before=progress(p);if(ledger.existsByEventId(a.eventId())||ledger.existsByUserIdAndReasonAndSourceId(a.userId(),a.reason(),a.sourceId()))return new AwardResult(false,before,before);XpLedgerEntity entry=new XpLedgerEntity();entry.id=UUID.randomUUID();entry.eventId=a.eventId();entry.userId=a.userId();entry.points=a.points();entry.reason=a.reason();entry.sourceId=a.sourceId();entry.occurredAt=a.occurredAt();entry.createdAt=Instant.now();ledger.save(entry);p.totalXp+=a.points();p.level=Progress.levelFor(p.totalXp);LocalDate date=a.occurredAt().atZone(ZoneOffset.UTC).toLocalDate();if(p.lastActivityDate==null)p.currentStreak=1;else if(date.equals(p.lastActivityDate.plusDays(1)))p.currentStreak++;else if(!date.equals(p.lastActivityDate))p.currentStreak=1;if(p.lastActivityDate==null||date.isAfter(p.lastActivityDate))p.lastActivityDate=date;p.longestStreak=Math.max(p.longestStreak,p.currentStreak);p.updatedAt=Instant.now();profiles.save(p);return new AwardResult(true,before,progress(p));}public long incrementCounter(String user,String type){CounterId id=new CounterId(user,type);CounterEntity c=counters.findById(id).orElseGet(()->{var n=new CounterEntity();n.id=id;return n;});c.value++;c.updatedAt=Instant.now();return counters.save(c).value;}public Map<String,Long>counters(String user){Map<String,Long>r=new HashMap<>();counters.findByIdUserId(user).forEach(c->r.put(c.id.type,c.value));return r;}public boolean grantBadge(String user,BadgeDefinition d,UUID event){if(badges.existsByUserIdAndBadgeCode(user,d.code()))return false;BadgeEntity e=new BadgeEntity();e.id=UUID.randomUUID();e.userId=user;e.badgeCode=d.code();e.name=d.name();e.description=d.description();e.earnedAt=Instant.now();e.sourceEventId=event;badges.save(e);return true;}public boolean stamp(String user,String destination,UUID event){if(stamps.existsByUserIdAndDestinationId(user,destination))return false;StampEntity e=new StampEntity();e.id=UUID.randomUUID();e.userId=user;e.destinationId=destination;e.stampedAt=Instant.now();e.sourceEventId=event;stamps.save(e);return true;}public Optional<Reward>grantReward(String user,String code,String title,String source){if(rewards.existsByUserIdAndRewardCodeAndSource(user,code,source))return Optional.empty();RewardEntity e=new RewardEntity();e.id=UUID.randomUUID();e.userId=user;e.rewardCode=code;e.title=title;e.status=RewardStatus.AVAILABLE;e.grantedAt=Instant.now();e.source=source;return Optional.of(reward(rewards.save(e)));}public Reward claimReward(String user,UUID id){RewardEntity e=rewards.findById(id).filter(r->r.userId.equals(user)).orElseThrow(()->new NoSuchElementException("Reward not found"));if(e.status!=RewardStatus.AVAILABLE)throw new IllegalStateException("Reward is not available");e.status=RewardStatus.CLAIMED;e.claimedAt=Instant.now();return reward(rewards.save(e));}public Progress progress(String user){return profiles.findById(user).map(this::progress).orElse(new Progress(user,0,1,0,0,null,Instant.now()));}public List<Badge>badges(String user){return badges.findByUserIdOrderByEarnedAtDesc(user).stream().map(e->new Badge(e.id,e.userId,e.badgeCode,e.name,e.description,e.earnedAt)).toList();}public List<PassportStamp>passport(String user){return stamps.findByUserIdOrderByStampedAtDesc(user).stream().map(e->new PassportStamp(e.id,e.userId,e.destinationId,e.stampedAt)).toList();}public List<Reward>rewards(String user){return rewards.findByUserIdOrderByGrantedAtDesc(user).stream().map(this::reward).toList();}private ProfileEntity newProfile(String user){ProfileEntity p=new ProfileEntity();p.userId=user;p.level=1;p.updatedAt=Instant.now();return p;}private Progress progress(ProfileEntity p){return new Progress(p.userId,p.totalXp,p.level,p.currentStreak,p.longestStreak,p.lastActivityDate,p.updatedAt);}private Reward reward(RewardEntity e){return new Reward(e.id,e.userId,e.rewardCode,e.title,e.status,e.grantedAt,e.claimedAt,e.source);}}
+package com.yeyamo_mobile.api.gamification_service.infrastructure.persistence;
+
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Component;
+
+import com.yeyamo_mobile.api.gamification_service.application.port.GamificationRepositoryPort;
+import com.yeyamo_mobile.api.gamification_service.domain.AwardResult;
+import com.yeyamo_mobile.api.gamification_service.domain.Badge;
+import com.yeyamo_mobile.api.gamification_service.domain.BadgeDefinition;
+import com.yeyamo_mobile.api.gamification_service.domain.PassportStamp;
+import com.yeyamo_mobile.api.gamification_service.domain.Progress;
+import com.yeyamo_mobile.api.gamification_service.domain.Reward;
+import com.yeyamo_mobile.api.gamification_service.domain.RewardStatus;
+import com.yeyamo_mobile.api.gamification_service.domain.XpActivity;
+
+@Component
+public class JpaGamificationAdapter implements GamificationRepositoryPort {
+    private final ProfileRepository profiles;
+    private final XpLedgerRepository ledger;
+    private final CounterRepository counters;
+    private final BadgeRepository badges;
+    private final StampRepository stamps;
+    private final RewardRepository rewards;
+
+    public JpaGamificationAdapter(ProfileRepository profiles, XpLedgerRepository ledger,
+            CounterRepository counters, BadgeRepository badges, StampRepository stamps,
+            RewardRepository rewards) {
+        this.profiles = profiles;
+        this.ledger = ledger;
+        this.counters = counters;
+        this.badges = badges;
+        this.stamps = stamps;
+        this.rewards = rewards;
+    }
+
+    @Override
+    public AwardResult award(XpActivity activity) {
+        ProfileEntity profile = profiles.findLockedByUserId(activity.userId())
+                .orElseGet(() -> newProfile(activity.userId()));
+        Progress before = progress(profile);
+        if (ledger.existsByEventId(activity.eventId())
+                || ledger.existsByUserIdAndReasonAndSourceId(
+                        activity.userId(), activity.reason(), activity.sourceId())) {
+            return new AwardResult(false, before, before);
+        }
+        XpLedgerEntity entry = new XpLedgerEntity();
+        entry.id = UUID.randomUUID();
+        entry.eventId = activity.eventId();
+        entry.userId = activity.userId();
+        entry.points = activity.points();
+        entry.reason = activity.reason();
+        entry.sourceId = activity.sourceId();
+        entry.occurredAt = activity.occurredAt();
+        entry.createdAt = Instant.now();
+        ledger.save(entry);
+
+        profile.totalXp += activity.points();
+        profile.level = Progress.levelFor(profile.totalXp);
+        LocalDate date = activity.occurredAt().atZone(ZoneOffset.UTC).toLocalDate();
+        if (profile.lastActivityDate == null) {
+            profile.currentStreak = 1;
+        } else if (date.equals(profile.lastActivityDate.plusDays(1))) {
+            profile.currentStreak++;
+        } else if (!date.equals(profile.lastActivityDate)) {
+            profile.currentStreak = 1;
+        }
+        if (profile.lastActivityDate == null || date.isAfter(profile.lastActivityDate)) {
+            profile.lastActivityDate = date;
+        }
+        profile.longestStreak = Math.max(profile.longestStreak, profile.currentStreak);
+        profile.updatedAt = Instant.now();
+        profiles.save(profile);
+        return new AwardResult(true, before, progress(profile));
+    }
+
+    @Override
+    public long incrementCounter(String user, String type) {
+        CounterId id = new CounterId(user, type);
+        CounterEntity counter = counters.findById(id).orElseGet(() -> {
+            CounterEntity created = new CounterEntity();
+            created.id = id;
+            return created;
+        });
+        counter.value++;
+        counter.updatedAt = Instant.now();
+        return counters.save(counter).value;
+    }
+
+    @Override
+    public Map<String, Long> counters(String user) {
+        Map<String, Long> result = new HashMap<>();
+        counters.findByIdUserId(user).forEach(counter -> result.put(counter.id.type, counter.value));
+        return result;
+    }
+
+    @Override
+    public boolean grantBadge(String user, BadgeDefinition definition, UUID eventId) {
+        if (badges.existsByUserIdAndBadgeCode(user, definition.code())) {
+            return false;
+        }
+        BadgeEntity entity = new BadgeEntity();
+        entity.id = UUID.randomUUID();
+        entity.userId = user;
+        entity.badgeCode = definition.code();
+        entity.name = definition.name();
+        entity.description = definition.description();
+        entity.earnedAt = Instant.now();
+        entity.sourceEventId = eventId;
+        badges.save(entity);
+        return true;
+    }
+
+    @Override
+    public boolean stamp(String user, String destination, UUID eventId) {
+        if (stamps.existsByUserIdAndDestinationId(user, destination)) {
+            return false;
+        }
+        StampEntity entity = new StampEntity();
+        entity.id = UUID.randomUUID();
+        entity.userId = user;
+        entity.destinationId = destination;
+        entity.stampedAt = Instant.now();
+        entity.sourceEventId = eventId;
+        stamps.save(entity);
+        return true;
+    }
+
+    @Override
+    public Optional<Reward> grantReward(String user, String code, String title, String source) {
+        if (rewards.existsByUserIdAndRewardCodeAndSource(user, code, source)) {
+            return Optional.empty();
+        }
+        RewardEntity entity = new RewardEntity();
+        entity.id = UUID.randomUUID();
+        entity.userId = user;
+        entity.rewardCode = code;
+        entity.title = title;
+        entity.status = RewardStatus.AVAILABLE;
+        entity.grantedAt = Instant.now();
+        entity.source = source;
+        return Optional.of(reward(rewards.save(entity)));
+    }
+
+    @Override
+    public Reward claimReward(String user, UUID id) {
+        RewardEntity entity = rewards.findById(id)
+                .filter(reward -> reward.userId.equals(user))
+                .orElseThrow(() -> new NoSuchElementException("Reward not found"));
+        if (entity.status != RewardStatus.AVAILABLE) {
+            throw new IllegalStateException("Reward is not available");
+        }
+        entity.status = RewardStatus.CLAIMED;
+        entity.claimedAt = Instant.now();
+        return reward(rewards.save(entity));
+    }
+
+    @Override
+    public Progress progress(String user) {
+        return profiles.findById(user).map(this::progress)
+                .orElse(new Progress(user, 0, 1, 0, 0, null, Instant.now()));
+    }
+
+    @Override
+    public List<Badge> badges(String user) {
+        return badges.findByUserIdOrderByEarnedAtDesc(user).stream()
+                .map(entity -> new Badge(entity.id, entity.userId, entity.badgeCode,
+                        entity.name, entity.description, entity.earnedAt))
+                .toList();
+    }
+
+    @Override
+    public List<PassportStamp> passport(String user) {
+        return stamps.findByUserIdOrderByStampedAtDesc(user).stream()
+                .map(entity -> new PassportStamp(
+                        entity.id, entity.userId, entity.destinationId, entity.stampedAt))
+                .toList();
+    }
+
+    @Override
+    public List<Reward> rewards(String user) {
+        return rewards.findByUserIdOrderByGrantedAtDesc(user).stream().map(this::reward).toList();
+    }
+
+    @Override
+    public List<Progress> leaderboard(int limit) {
+        return profiles.findAllByOrderByTotalXpDescUserIdAsc(
+                        PageRequest.of(0, Math.max(1, Math.min(100, limit))))
+                .stream().map(this::progress).toList();
+    }
+
+    @Override
+    public long rank(String user) {
+        Progress current = progress(user);
+        return profiles.countByTotalXpGreaterThan(current.totalXp()) + 1;
+    }
+
+    private ProfileEntity newProfile(String user) {
+        ProfileEntity profile = new ProfileEntity();
+        profile.userId = user;
+        profile.level = 1;
+        profile.updatedAt = Instant.now();
+        return profile;
+    }
+
+    private Progress progress(ProfileEntity profile) {
+        return new Progress(profile.userId, profile.totalXp, profile.level,
+                profile.currentStreak, profile.longestStreak,
+                profile.lastActivityDate, profile.updatedAt);
+    }
+
+    private Reward reward(RewardEntity entity) {
+        return new Reward(entity.id, entity.userId, entity.rewardCode, entity.title,
+                entity.status, entity.grantedAt, entity.claimedAt, entity.source);
+    }
+}

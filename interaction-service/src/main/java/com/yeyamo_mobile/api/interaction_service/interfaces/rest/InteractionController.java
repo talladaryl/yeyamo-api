@@ -4,7 +4,7 @@ import com.yeyamo_mobile.api.interaction_service.application.*;import com.yeyamo
 import io.swagger.v3.oas.annotations.*;import io.swagger.v3.oas.annotations.security.SecurityRequirement;import io.swagger.v3.oas.annotations.tags.Tag;import jakarta.validation.Valid;import jakarta.validation.constraints.*;
 @RestController @RequestMapping("/api/v1/interactions")@Validated @Tag(name="Interactions",description="Likes, comments, favorites and shares")
 public class InteractionController{
- private final InteractionCommandService commands;private final InteractionQueryService queries;public InteractionController(InteractionCommandService c,InteractionQueryService q){commands=c;queries=q;}
+ private final InteractionCommandService commands;private final InteractionQueryService queries;private final CommentLikeService commentLikes;public InteractionController(InteractionCommandService c,InteractionQueryService q,CommentLikeService commentLikes){commands=c;queries=q;this.commentLikes=commentLikes;}
  @PutMapping("/posts/{postId}/like")@Operation(summary="Like a post",security=@SecurityRequirement(name="bearerAuth"))
  public CommandResponse like(@PathVariable UUID postId,@RequestHeader("Idempotency-Key")@NotBlank String key,@RequestHeader(value="X-Correlation-Id",required=false)String correlation,Authentication auth){return CommandResponse.from(commands.addRelation(postId,auth.getName(),RelationType.LIKE,key,correlation));}
  @DeleteMapping("/posts/{postId}/like")@Operation(summary="Remove a like",security=@SecurityRequirement(name="bearerAuth"))
@@ -28,6 +28,12 @@ public class InteractionController{
  public InteractionSummary summary(@PathVariable UUID postId,Authentication auth){return queries.summary(postId,auth==null?null:auth.getName());}
  @GetMapping("/posts/{postId}/comments")@Operation(summary="Read active comments")
  public List<CommentResponse> comments(@PathVariable UUID postId,@RequestParam(defaultValue="50")@Min(1)@Max(100)int limit){return queries.comments(postId,limit).stream().map(CommentResponse::from).toList();}
+ @PutMapping("/comments/{id}/like")@Operation(summary="Like a comment",security=@SecurityRequirement(name="bearerAuth"))
+ public CommentLikeResponse likeComment(@PathVariable UUID id,Authentication auth){return CommentLikeResponse.from(commentLikes.like(id,auth.getName()));}
+ @DeleteMapping("/comments/{id}/like")@Operation(summary="Remove a comment like",security=@SecurityRequirement(name="bearerAuth"))
+ public CommentLikeResponse unlikeComment(@PathVariable UUID id,Authentication auth){return CommentLikeResponse.from(commentLikes.unlike(id,auth.getName()));}
+ @GetMapping("/comments/{id}/likes")
+ public CommentLikeResponse commentLikeStatus(@PathVariable UUID id,Authentication auth){return CommentLikeResponse.from(commentLikes.status(id,auth==null?null:auth.getName()));}
  
  // ─── REVIEWS ─────────────────────────────────────────────────────────────────
  

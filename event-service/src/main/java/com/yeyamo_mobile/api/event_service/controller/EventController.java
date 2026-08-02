@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.security.core.Authentication;
 
 import com.yeyamo_mobile.api.event_service.dto.EventRequest;
+import com.yeyamo_mobile.api.event_service.dto.EventParticipantResponse;
 import com.yeyamo_mobile.api.event_service.dto.EventResponse;
 import com.yeyamo_mobile.api.event_service.dto.EventStatusRequest;
 import com.yeyamo_mobile.api.event_service.dto.EventSummaryResponse;
@@ -66,6 +67,13 @@ public class EventController {
     @GetMapping("/{id}")
     public EventResponse getById(@PathVariable UUID id) {
         return eventService.getById(id);
+    }
+
+    @GetMapping("/{id}/participants")
+    public List<EventParticipantResponse> participants(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "100") @Min(1) @Max(200) int limit) {
+        return eventService.findParticipants(id, limit);
     }
 
     @PutMapping("/{id}")
