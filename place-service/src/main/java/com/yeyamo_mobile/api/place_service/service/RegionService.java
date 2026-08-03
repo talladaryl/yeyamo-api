@@ -11,6 +11,8 @@ import com.yeyamo_mobile.api.place_service.dto.RegionResponse;
 import com.yeyamo_mobile.api.place_service.exception.ApiException;
 import com.yeyamo_mobile.api.place_service.models.Region;
 import com.yeyamo_mobile.api.place_service.repository.RegionRepository;
+import com.yeyamo_mobile.api.place_service.repository.CountryRepository;
+import com.yeyamo.foundation.domain.CountryReference;
 import com.yeyamo_mobile.api.place_service.util.SlugUtil;
 
 @Service
@@ -20,10 +22,11 @@ public class RegionService {
     private final RegionRepository regionRepository;
     private final com.yeyamo_mobile.api.place_service.repository.CityRepository cityRepository;
     private final com.yeyamo_mobile.api.place_service.repository.PlaceRepository placeRepository;
+    private final CountryRepository countryRepository;
 
-    public RegionService(RegionRepository regionRepository,com.yeyamo_mobile.api.place_service.repository.CityRepository cityRepository,com.yeyamo_mobile.api.place_service.repository.PlaceRepository placeRepository) {
+    public RegionService(RegionRepository regionRepository,com.yeyamo_mobile.api.place_service.repository.CityRepository cityRepository,com.yeyamo_mobile.api.place_service.repository.PlaceRepository placeRepository, CountryRepository countryRepository) {
         this.regionRepository = regionRepository;
-        this.cityRepository=cityRepository;this.placeRepository=placeRepository;
+        this.cityRepository=cityRepository;this.placeRepository=placeRepository;this.countryRepository=countryRepository;
     }
     public RegionResponse setActive(Long id,boolean active){Region region=getEntityById(id);region.setActive(active);return RegionResponse.from(regionRepository.save(region));}
     public void delete(Long id){Region region=getEntityById(id);if(cityRepository.existsByRegionId(id)||placeRepository.existsByRegionId(id))throw new ApiException("REGION_IN_USE","La region est referencee et ne peut pas etre supprimee",HttpStatus.CONFLICT);regionRepository.delete(region);}
@@ -60,6 +63,7 @@ public class RegionService {
         region.setName(request.getName());
         region.setSlug(slug);
         region.setCode(request.getCode());
+        region.setCountryCode(resolveCountryCode(request.getCountryCode(), "CM"));
         region.setDescription(request.getDescription());
         region.setCoverImage(request.getCoverImage());
         return RegionResponse.from(regionRepository.save(region));
@@ -75,6 +79,7 @@ public class RegionService {
         region.setName(request.getName());
         region.setSlug(slug);
         region.setCode(request.getCode());
+        region.setCountryCode(resolveCountryCode(request.getCountryCode(), region.getCountryCode()));
         region.setDescription(request.getDescription());
         region.setCoverImage(request.getCoverImage());
         return RegionResponse.from(regionRepository.save(region));
@@ -85,5 +90,19 @@ public class RegionService {
             return slug;
         }
         return SlugUtil.slugify(name);
+    }
+
+    private String resolveCountryCode(String requestedCode, String fallbackCode) {
+        String value = requestedCode == null || requestedCode.isBlank() ? fallbackCode : requestedCode;
+        String code;
+        try {
+            code = new CountryReference(value).countryCode();
+        } catch (IllegalArgumentException exception) {
+            throw new ApiException("COUNTRY_CODE_INVALID", exception.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+        if (!countryRepository.existsById(code)) {
+            throw new ApiException("COUNTRY_NOT_FOUND", "Pays introuvable", HttpStatus.BAD_REQUEST);
+        }
+        return code;
     }
 }

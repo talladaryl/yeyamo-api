@@ -128,7 +128,7 @@ public class PlaceService {
     public Page<AdminPlaceResponse> adminSearch(String search, PlaceStatus status, Long categoryId, Long regionId,
             Long cityId, Long districtId, UUID partnerId, Boolean verified, Instant createdFrom, Instant createdTo,
             Pageable pageable) {
-        Specification<Place> specification = Specification.where(null);
+        Specification<Place> specification = Specification.where((Specification<Place>) null);
         if (search != null && !search.isBlank()) specification = specification.and((root, query, cb) -> cb.like(cb.lower(root.get("name")), "%" + search.trim().toLowerCase() + "%"));
         if (status != null) specification = specification.and((root, query, cb) -> cb.equal(root.get("status"), status));
         if (categoryId != null) specification = specification.and((root, query, cb) -> cb.equal(root.get("category").get("id"), categoryId));

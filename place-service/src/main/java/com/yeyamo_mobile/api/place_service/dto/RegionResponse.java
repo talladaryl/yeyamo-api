@@ -7,6 +7,7 @@ public record RegionResponse(
         String name,
         String slug,
         String code,
+        String countryCode,
         String description,
         String coverImage,
         boolean active
@@ -17,6 +18,7 @@ public record RegionResponse(
                 region.getName(),
                 region.getSlug(),
                 region.getCode(),
+                region.getCountryCode(),
                 region.getDescription(),
                 region.getCoverImage(),
                 region.isActive()

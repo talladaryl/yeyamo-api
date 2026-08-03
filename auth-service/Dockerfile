@@ -7,5 +7,5 @@ COPY --chown=spring:spring target/auth-service-0.0.1-SNAPSHOT.jar app.jar
 USER spring
 ENV SERVER_PORT=8082
 EXPOSE 8082
-HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 CMD curl --fail --silent http://localhost:8082/actuator/health/readiness >/dev/null || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=360s --retries=3 CMD curl --fail --silent http://localhost:8082/actuator/health/readiness >/dev/null || exit 1
 ENTRYPOINT ["java","-jar","app.jar"]

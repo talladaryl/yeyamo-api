@@ -16,6 +16,9 @@ public class RegionRequest {
     @Size(max = 10)
     private String code;
 
+    @Size(min = 2, max = 2)
+    private String countryCode;
+
     private String description;
 
     private String coverImage;
@@ -46,6 +49,14 @@ public class RegionRequest {
 
     public String getDescription() {
         return description;
+    }
+
+    public String getCountryCode() {
+        return countryCode;
+    }
+
+    public void setCountryCode(String countryCode) {
+        this.countryCode = countryCode;
     }
 
     public void setDescription(String description) {

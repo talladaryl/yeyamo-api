@@ -1,0 +1,4 @@
+[submodule "cloud-conf-yeyamo"]
+	path = cloud-conf-yeyamo
+	url = https://github.com/FulCoding/cloud-conf-yeyamo.git
+	branch = daryl

@@ -25,7 +25,7 @@ services:
       POSTGRES_MULTIPLE_DATABASES: |
         yeyamo_auth,yeyamo_user,yeyamo_partner,yeyamo_admin,yeyamo_catalog,
         yeyamo_place,yeyamo_content,yeyamo_interaction,yeyamo_event,
-        yeyamo_booking,yeyamo_payment,yeyamo_notification,yeyamo_moderation,yeyamo_support,
+        yeyamo_booking,yeyamo_payment,yeyamo_notification,yeyamo_moderation,yeyamo_support,yeyamo_culture,
         yeyamo_referral,yeyamo_gamification,yeyamo_mission,yeyamo_ingestion,
         yeyamo_feed,yeyamo_media,yeyamo_discovery,yeyamo_recommendation,
         yeyamo_campaign,yeyamo_ads,yeyamo_ticket,yeyamo_commerce,yeyamo_analytics
@@ -58,7 +58,7 @@ services:
       POSTGRES_MULTIPLE_DATABASES: |
         yeyamo_auth,yeyamo_user,yeyamo_partner,yeyamo_admin,yeyamo_catalog,
         yeyamo_place,yeyamo_content,yeyamo_interaction,yeyamo_event,
-        yeyamo_booking,yeyamo_payment,yeyamo_notification,yeyamo_moderation,yeyamo_support,
+        yeyamo_booking,yeyamo_payment,yeyamo_notification,yeyamo_moderation,yeyamo_support,yeyamo_culture,
         yeyamo_referral,yeyamo_gamification,yeyamo_mission,yeyamo_ingestion,
         yeyamo_feed,yeyamo_media,yeyamo_discovery,yeyamo_recommendation,
         yeyamo_campaign,yeyamo_ads,yeyamo_ticket,yeyamo_commerce,yeyamo_analytics
@@ -271,6 +271,7 @@ services:
 
   auth-service:
     build: ./auth-service
+    restart: unless-stopped
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -285,6 +286,9 @@ services:
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_PORT: 6379
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      MANAGEMENT_HEALTH_MAIL_ENABLED: "false"
       JWT_SECRET: local-docker-secret-change-me-1234567890
       YEYAMO_BOOTSTRAP_ADMIN_ENABLED: ${YEYAMO_BOOTSTRAP_ADMIN_ENABLED:-false}
       YEYAMO_BOOTSTRAP_ADMIN_EMAIL: ${YEYAMO_BOOTSTRAP_ADMIN_EMAIL:-}
@@ -903,6 +907,36 @@ services:
       - "8114:8114"
     depends_on:
       postgres:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
+
+  culture-service:
+    build:
+      context: .
+      dockerfile: culture-service/Dockerfile
+    environment:
+      <<: *java-service-env
+      SERVER_PORT: "8115"
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_culture
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: local-docker-secret-change-me-1234567890
+    ports:
+      - "8115:8115"
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      kafka:
         condition: service_healthy
       registry-service:
         condition: service_healthy

@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.culture_service.infrastructure.outbox;import java.util.*;import org.springframework.data.jpa.repository.JpaRepository;public interface CultureOutboxRepository extends JpaRepository<CultureOutbox,UUID>{List<CultureOutbox> findTop100ByPublishedAtIsNullOrderByOccurredAtAsc();}

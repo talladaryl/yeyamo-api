@@ -1,0 +1,3 @@
+package com.yeyamo_mobile.api.culture_service.domain;
+import jakarta.persistence.*;import java.time.LocalDate;import java.util.UUID;
+@Entity @Table(name="daily_word_selections") public class DailyWordSelection{@Id@GeneratedValue(strategy=GenerationType.IDENTITY)private Long id;@Column(name="selection_date",nullable=false)private LocalDate selectionDate;@Column(name="country_code",nullable=false)private String countryCode;@Column(name="language_code")private String languageCode;@Column(name="content_id",nullable=false)private UUID contentId;protected DailyWordSelection(){}public UUID getContentId(){return contentId;}}

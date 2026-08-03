@@ -37,6 +37,9 @@ public class Region {
     @Column(nullable = false, unique = true, length = 10)
     private String code;
 
+    @Column(name = "country_code", length = 2)
+    private String countryCode;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 
