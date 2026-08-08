@@ -4,5 +4,10 @@ public enum AssetType {
     DESTINATION,
     PLACE,
     EXPERIENCE,
-    EVENT
+    EVENT,
+    ARTWORK,
+    CULTURAL_OBJECT,
+    MONUMENT,
+    MUSEUM_ITEM,
+    OTHER
 }

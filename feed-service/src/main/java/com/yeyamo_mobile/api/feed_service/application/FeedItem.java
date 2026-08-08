@@ -16,6 +16,9 @@ public record FeedItem(
     String authorId,
     String caption,
     UUID catalogAssetId,
+    String cardType,
+    String referenceType,
+    String referenceId,
     List<UUID> mediaIds,
     List<String> hashtags,
     Instant publishedAt,
@@ -49,10 +52,13 @@ public record FeedItem(
             long comments,
             long shares,
             double rankingScore) {
-        
+        return organic(postId,authorId,caption,catalogAssetId,catalogAssetId==null?"SOCIAL":"PLACE",catalogAssetId==null?"NONE":"PLACE",catalogAssetId==null?null:catalogAssetId.toString(),mediaIds,hashtags,publishedAt,likes,comments,shares,rankingScore);
+    }
+
+    public static FeedItem organic(UUID postId,String authorId,String caption,UUID catalogAssetId,String cardType,String referenceType,String referenceId,List<UUID>mediaIds,List<String>hashtags,Instant publishedAt,long likes,long comments,long shares,double rankingScore) {
         return new FeedItem(
             "ORGANIC",
-            postId, authorId, caption, catalogAssetId, mediaIds, hashtags,
+            postId, authorId, caption, catalogAssetId, cardType, referenceType, referenceId, mediaIds, hashtags,
             publishedAt, likes, comments, shares, rankingScore,
             null, null, null, null, null, null, null
         );
@@ -72,7 +78,7 @@ public record FeedItem(
         
         return new FeedItem(
             "SPONSORED",
-            null, null, null, null, null, null, null, 0, 0, 0, 0,
+            null, null, null, null, null, null, null, null, null, null, 0, 0, 0, 0,
             deliveryId, campaignId, promotedEntityType, promotedEntityId,
             creative, bidAmount, trackingToken
         );
@@ -86,4 +92,3 @@ public record FeedItem(
         return "ORGANIC".equals(itemType);
     }
 }
-

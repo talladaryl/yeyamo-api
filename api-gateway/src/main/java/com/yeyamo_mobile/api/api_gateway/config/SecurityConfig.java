@@ -84,7 +84,13 @@ public class SecurityConfig {
                 || path.matches("^/api/v1/interactions/posts/.*$")
                 || path.matches("^/api/v1/posts/[0-9a-fA-F-]{36}$")
                 || path.matches("^/api/v1/users(?:/[0-9a-fA-F-]{36})?$")
-                || path.matches("^/api/v1/partners(?:/[0-9a-fA-F-]{36})?$");
+                || path.matches("^/api/v1/partners(?:/[0-9a-fA-F-]{36})?$")
+                || path.matches("^/api/v1/culture(?:/.*)?$")
+                || path.matches("^/api/v1/culture-graph(?:/.*)?$")
+                || path.matches("^/api/v1/artworks(?:/.*)?$")
+                || path.matches("^/api/v1/artisans(?:/.*)?$")
+                || path.matches("^/api/v1/artisan-specialties(?:/.*)?$")
+                || path.matches("^/api/v1/artwork-offers/.+$");
     }
 
     @Bean

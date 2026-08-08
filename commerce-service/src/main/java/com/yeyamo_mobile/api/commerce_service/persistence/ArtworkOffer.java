@@ -1,0 +1,6 @@
+package com.yeyamo_mobile.api.commerce_service.persistence;
+import jakarta.persistence.*;import java.math.*;import java.time.*;import java.util.*;
+@Entity @Table(name="artwork_offers") public class ArtworkOffer{
+ public enum SaleType{FIXED_PRICE,ON_REQUEST,CUSTOM_ORDER,AUCTION_FUTURE} public enum Status{DRAFT,ACTIVE,PAUSED,SOLD_OUT,DISABLED}
+ @Id public UUID id;@Column(name="artwork_id",unique=true)public UUID artworkId;@Column(name="artisan_partner_id")public String artisanPartnerId;@Enumerated(EnumType.STRING)public SaleType saleType;public BigDecimal amount;@Column(name="currency_code")public String currencyCode;@Column(name="available_quantity")public int availableQuantity;@Column(name="reserved_quantity")public int reservedQuantity;@Column(name="country_code")public String countryCode;@Column(name="international_shipping")public boolean internationalShipping;@Column(name="custom_order_allowed")public boolean customOrderAllowed;@Enumerated(EnumType.STRING)public Status status;@Column(name="created_at")public Instant createdAt;@Column(name="updated_at")public Instant updatedAt;@Version public long version;@PrePersist void c(){createdAt=updatedAt=Instant.now();}@PreUpdate void u(){updatedAt=Instant.now();}
+}

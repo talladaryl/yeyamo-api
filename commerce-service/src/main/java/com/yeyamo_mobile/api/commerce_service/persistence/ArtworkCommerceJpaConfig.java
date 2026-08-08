@@ -1,0 +1,1 @@
+package com.yeyamo_mobile.api.commerce_service.persistence;import org.springframework.context.annotation.Configuration;import org.springframework.data.jpa.repository.config.EnableJpaRepositories;@Configuration@EnableJpaRepositories(basePackageClasses=ArtworkCommerceRepositories.class,considerNestedRepositories=true)public class ArtworkCommerceJpaConfig{}

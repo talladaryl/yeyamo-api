@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: ticket-service-postgres-test
+    environment:
+      POSTGRES_DB: ticket_service_test
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-test:
+    image: redis:7-alpine
+    container_name: ticket-service-redis-test
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka-test:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: ticket-service-kafka-test
+    ports:
+      - "9093:9093"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka-test:29092,PLAINTEXT_HOST://localhost:9093'
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka-test:29093'
+      KAFKA_LISTENERS: 'PLAINTEXT://kafka-test:29092,CONTROLLER://kafka-test:29093,PLAINTEXT_HOST://0.0.0.0:9093'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9093"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  ticket-service-test:
+    build:
+      context: ..
+      dockerfile: ticket-service/Dockerfile.local
+    container_name: ticket-service-test
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+      kafka-test:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: test
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-test:5432/ticket_service_test
+      SPRING_DATASOURCE_USERNAME: test_user
+      SPRING_DATASOURCE_PASSWORD: test_password
+      SPRING_DATA_REDIS_HOST: redis-test
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka-test:29092
+    ports:
+      - "8093:8093"
+    command: ["mvn", "test"]

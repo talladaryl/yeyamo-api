@@ -1,13 +1,13 @@
 package com.yeyamo_mobile.api.content_service.application;
 import java.util.*;import org.springframework.stereotype.Service;import org.springframework.transaction.annotation.Transactional;
-import com.yeyamo_mobile.api.content_service.infrastructure.outbox.ContentOutboxPort;import com.yeyamo_mobile.api.content_service.domain.model.*;
+import com.yeyamo_mobile.api.content_service.infrastructure.outbox.ContentOutboxPort;import com.yeyamo_mobile.api.content_service.application.port.ReferenceVisibilityPort;import com.yeyamo_mobile.api.content_service.domain.model.*;
 import com.yeyamo_mobile.api.content_service.domain.port.PostRepository;
 @Service
 public class PostApplicationService{
- private final PostRepository repository;private final ContentOutboxPort outbox;public PostApplicationService(PostRepository r,ContentOutboxPort o){repository=r;outbox=o;}
- @Transactional public Post createDraft(String authorId,PostCommand c,String correlationId){Post p=Post.draft(authorId,c.caption(),c.visibility(),c.catalogAssetId(),c.mediaIds(),c.hashtags());
+ private final PostRepository repository;private final ContentOutboxPort outbox;private final ReferenceVisibilityPort references;public PostApplicationService(PostRepository r,ContentOutboxPort o,ReferenceVisibilityPort references){repository=r;outbox=o;this.references=references;}
+ @Transactional public Post createDraft(String authorId,PostCommand c,String correlationId){references.requirePublic(c.referenceType(),c.referenceId());Post p=Post.draft(authorId,c.caption(),c.visibility(),c.catalogAssetId(),c.mediaIds(),c.hashtags());p.reference(c.referenceType(),c.referenceId());
   p=repository.save(p);outbox.append("content.post.created",p,correlationId,authorId);return p;}
- @Transactional public Post updateDraft(UUID id,String actorId,boolean admin,PostCommand c,String correlationId){Post p=owned(id,actorId,admin);p.updateDraft(c.caption(),c.visibility(),c.catalogAssetId(),c.mediaIds(),c.hashtags());
+ @Transactional public Post updateDraft(UUID id,String actorId,boolean admin,PostCommand c,String correlationId){references.requirePublic(c.referenceType(),c.referenceId());Post p=owned(id,actorId,admin);p.updateDraft(c.caption(),c.visibility(),c.catalogAssetId(),c.mediaIds(),c.hashtags());p.reference(c.referenceType(),c.referenceId());
   p=repository.save(p);outbox.append("content.post.updated",p,correlationId,actorId);return p;}
  @Transactional public Post publish(UUID id,String actorId,boolean admin,String correlationId){Post p=owned(id,actorId,admin);p.publish();p=repository.save(p);outbox.append("content.post.published",p,correlationId,actorId);return p;}
  @Transactional public Post changeVisibility(UUID id,String actorId,boolean admin,PostVisibility visibility,String correlationId){Post p=owned(id,actorId,admin);p.changeVisibility(visibility);p=repository.save(p);

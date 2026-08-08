@@ -34,7 +34,8 @@ class FeedQueryServiceTests {
             projection, 
             cache, 
             new PersonalizedRankingStrategy(),
-            adInjectionService
+            adInjectionService,
+            new FeedMixProperties()
         );
         
         FeedPage page = service.feed("u1", 0, 10);
@@ -71,4 +72,3 @@ class FeedQueryServiceTests {
         public void invalidate() { value = null; }
     }
 }
-

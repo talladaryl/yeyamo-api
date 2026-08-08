@@ -23,6 +23,7 @@
         <module>admin-service</module>
         <module>catalog-service</module>
         <module>culture-service</module>
+        <module>graph-service</module>
         <module>ingestion-service</module>
         <module>media-service</module>
         <module>content-service</module>

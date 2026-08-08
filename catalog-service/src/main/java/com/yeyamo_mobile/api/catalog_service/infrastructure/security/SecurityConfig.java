@@ -32,6 +32,9 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health/**", "/actuator/info", "/v3/api-docs/**",
                                 "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/catalog/assets/manage/**").hasAnyRole("ADMIN", "SUPER_ADMIN", "PARTNER")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/artworks/**", "/api/v1/artisans/*/artworks").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/artwork-materials/**", "/api/v1/artwork-techniques/**").permitAll()
+                        .requestMatchers("/api/v1/artworks/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/catalog/**").permitAll()
                         .requestMatchers("/api/v1/catalog/**").hasAnyRole("ADMIN", "SUPER_ADMIN", "PARTNER")
                         .anyRequest().authenticated())

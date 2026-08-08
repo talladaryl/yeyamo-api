@@ -1,0 +1,3 @@
+package com.yeyamo_mobile.api.graph_service.infrastructure;
+import jakarta.annotation.PostConstruct;import org.springframework.data.neo4j.core.Neo4jClient;import org.springframework.stereotype.Component;
+@Component public class GraphConstraints{private final Neo4jClient neo;public GraphConstraints(Neo4jClient n){neo=n;}@PostConstruct void initialize(){for(String label:GraphProjectionService.NODE_LABELS)neo.query("CREATE CONSTRAINT "+label.toLowerCase()+"_id IF NOT EXISTS FOR (n:"+label+") REQUIRE n.id IS UNIQUE").run();neo.query("CREATE CONSTRAINT processed_event_id IF NOT EXISTS FOR (e:ProcessedEvent) REQUIRE e.id IS UNIQUE").run();neo.query("CREATE CONSTRAINT rebuild_job_id IF NOT EXISTS FOR (j:GraphRebuildJob) REQUIRE j.id IS UNIQUE").run();}}

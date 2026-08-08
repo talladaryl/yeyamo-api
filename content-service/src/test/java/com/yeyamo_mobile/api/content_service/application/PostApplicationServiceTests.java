@@ -8,7 +8,7 @@ class PostApplicationServiceTests{
    public void append(String e,Post p,String c,String a){events.add(e);}
    public void append(String e,String agg,String act,String c,Map<String,String> pay){}
   };
-  PostApplicationService service=new PostApplicationService(repo,outbox);
+  PostApplicationService service=new PostApplicationService(repo,outbox,(type,id)->{});
   Post post=service.createDraft("author",new PostCommand("Hello",PostVisibility.PUBLIC,null,List.of(),Set.of("travel")),"c");service.publish(post.getId(),"author",false,"c");
   assertEquals(List.of("content.post.created","content.post.published"),events);assertEquals(PostStatus.PUBLISHED,repo.data.get(post.getId()).getStatus());}
  @Test void protectsOwnership(){MemoryPosts repo=new MemoryPosts();
@@ -16,14 +16,14 @@ class PostApplicationServiceTests{
    public void append(String e,Post p,String c,String a){}
    public void append(String e,String agg,String act,String c,Map<String,String> pay){}
   };
-  PostApplicationService service=new PostApplicationService(repo,outbox);Post post=service.createDraft("owner",new PostCommand("x",null,null,null,null),null);
+  PostApplicationService service=new PostApplicationService(repo,outbox,(type,id)->{});Post post=service.createDraft("owner",new PostCommand("x",null,null,null,null),null);
   assertThrows(ContentException.class,()->service.publish(post.getId(),"intruder",false,null));service.publish(post.getId(),"admin",true,null);}
  @Test void hidesPrivateAndDraftPosts(){MemoryPosts repo=new MemoryPosts();
   ContentOutboxPort outbox=new ContentOutboxPort(){
    public void append(String e,Post p,String c,String a){}
    public void append(String e,String agg,String act,String c,Map<String,String> pay){}
   };
-  PostApplicationService service=new PostApplicationService(repo,outbox);Post post=service.createDraft("owner",new PostCommand("x",PostVisibility.PRIVATE,null,null,null),null);
+  PostApplicationService service=new PostApplicationService(repo,outbox,(type,id)->{});Post post=service.createDraft("owner",new PostCommand("x",PostVisibility.PRIVATE,null,null,null),null);
   assertThrows(ContentException.class,()->service.publicPost(post.getId()));}
  static class MemoryPosts implements PostRepository{
   final Map<UUID,Post>data=new HashMap<>();public Post save(Post p){data.put(p.getId(),p);return p;}public Optional<Post>findById(UUID id){return Optional.ofNullable(data.get(id));}

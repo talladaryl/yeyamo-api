@@ -32,9 +32,9 @@ public class CatalogAssetEntity {
     @Column(length = 160) private String city;
     @Column(length = 160) private String district;
     @Column(length = 300) private String address;
-    @Column(nullable = false) private Double latitude;
-    @Column(nullable = false) private Double longitude;
-    @Column(columnDefinition = "geometry(Point,4326)", nullable = false) private Point location;
+    private Double latitude;
+    private Double longitude;
+    @Column(columnDefinition = "geometry(Point,4326)") private Point location;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 32) private AssetStatus status;
     @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;

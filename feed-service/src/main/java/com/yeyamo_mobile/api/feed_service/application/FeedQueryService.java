@@ -15,16 +15,18 @@ public class FeedQueryService {
     private final FeedCachePort cache;
     private final RankingStrategy ranking;
     private final AdInjectionService adInjectionService;
+    private final FeedMixProperties mix;
     
     public FeedQueryService(
             FeedProjectionPort p,
             FeedCachePort c,
             RankingStrategy r,
-            AdInjectionService adInjectionService) {
+            AdInjectionService adInjectionService, FeedMixProperties mix) {
         this.projections = p;
         this.cache = c;
         this.ranking = r;
         this.adInjectionService = adInjectionService;
+        this.mix = mix;
     }
  
     @Transactional(readOnly = true)
@@ -64,7 +66,7 @@ public class FeedQueryService {
         int candidateLimit = Math.min(1000, Math.max(200, (page + 1) * size * 10));
         
         List<FeedItem> ranked = projections.candidates(candidateLimit).stream()
-            .map(c -> organicItem(c, ranking.score(c, affinity, now)))
+            .map(c -> organicItem(c, ranking.score(c, affinity, now) * mix.weight(c.post().referenceType())))
             .sorted(Comparator.comparingDouble(FeedItem::rankingScore).reversed()
                 .thenComparing(FeedItem::publishedAt, Comparator.reverseOrder()))
             .toList();
@@ -85,6 +87,9 @@ public class FeedQueryService {
             p.authorId(),
             p.caption(),
             p.catalogAssetId(),
+            cardType(p.referenceType()),
+            p.referenceType(),
+            p.referenceId(),
             p.mediaIds(),
             p.hashtags(),
             p.publishedAt(),
@@ -94,5 +99,14 @@ public class FeedQueryService {
             Math.round(score * 100d) / 100d
         );
     }
-}
 
+    private String cardType(String referenceType) {
+        return switch (referenceType == null ? "NONE" : referenceType) {
+            case "ARTWORK" -> "ARTWORK";
+            case "CULTURE_CONTENT", "LANGUAGE_LESSON" -> "CULTURE_CONTENT";
+            case "CULTURE_CHALLENGE" -> "CULTURE_CHALLENGE";
+            case "ARTISAN" -> "ARTISAN_SPOTLIGHT";
+            default -> "SOCIAL";
+        };
+    }
+}

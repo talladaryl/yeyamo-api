@@ -1,0 +1,15 @@
+# Local development Dockerfile with hot reload
+FROM eclipse-temurin:21-jdk-alpine
+
+WORKDIR /app
+
+# Install Maven
+RUN apk add --no-cache maven
+
+# Copy source
+COPY pom.xml ./
+COPY src ./src
+
+EXPOSE 8093
+
+CMD ["mvn", "spring-boot:run"]

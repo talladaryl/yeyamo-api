@@ -56,6 +56,10 @@ class MobileIntegrationContractTest {
         assertTrue(SecurityConfig.isPublicMobileRequest(request("GET", "/api/v1/regions")));
         assertTrue(SecurityConfig.isPublicMobileRequest(request("GET", "/api/v1/events/upcoming")));
         assertTrue(SecurityConfig.isPublicMobileRequest(request("GET", "/api/v1/catalog/assets")));
+        assertTrue(SecurityConfig.isPublicMobileRequest(request("GET", "/api/v1/culture/contents")));
+        assertTrue(SecurityConfig.isPublicMobileRequest(request("GET", "/api/v1/culture-graph/discover")));
+        assertTrue(SecurityConfig.isPublicMobileRequest(request("GET", "/api/v1/artworks")));
+        assertTrue(SecurityConfig.isPublicMobileRequest(request("GET", "/api/v1/artisans")));
 
         assertTrue(!SecurityConfig.isPublicMobileRequest(request("GET", "/api/v1/auth/me")));
         assertTrue(!SecurityConfig.isPublicMobileRequest(request("POST", "/api/v1/auth/logout")));

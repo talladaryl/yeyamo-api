@@ -1,6 +1,6 @@
 package com.yeyamo_mobile.api.content_service.interfaces.rest;
 import java.util.*;import org.springframework.http.*;import org.springframework.security.core.*;import org.springframework.web.bind.annotation.*;
-import com.yeyamo_mobile.api.content_service.application.*;import io.swagger.v3.oas.annotations.*;import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import com.yeyamo_mobile.api.content_service.application.*;import com.yeyamo_mobile.api.content_service.domain.model.PostReferenceType;import io.swagger.v3.oas.annotations.*;import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;import io.swagger.v3.oas.annotations.tags.Tag;import jakarta.validation.Valid;import jakarta.validation.constraints.*;
 @RestController @RequestMapping("/api/v1/posts") @Tag(name="Posts",description="Drafts and social publications")
 public class PostController{
@@ -29,6 +29,6 @@ public class PostController{
  public List<PostResponse> hashtag(@PathVariable String tag,@RequestParam(defaultValue="50")@Min(1)@Max(100)int limit){return service.byHashtag(tag,limit).stream().map(PostResponse::from).toList();}
  @Operation(summary="Find public posts linked to a catalog asset")@GetMapping("/catalog/{assetId}")
  public List<PostResponse> catalog(@PathVariable UUID assetId,@RequestParam(defaultValue="50")@Min(1)@Max(100)int limit){return service.byCatalogAsset(assetId,limit).stream().map(PostResponse::from).toList();}
- private PostCommand command(PostRequest r){return new PostCommand(r.caption(),r.visibility(),r.catalogAssetId(),r.mediaIds(),r.hashtags());}
+ private PostCommand command(PostRequest r){PostReferenceType type=r.referenceType()!=null?r.referenceType():r.catalogAssetId()!=null?PostReferenceType.PLACE:PostReferenceType.NONE;String id=r.referenceId()!=null?r.referenceId():r.catalogAssetId()!=null?r.catalogAssetId().toString():null;return new PostCommand(r.caption(),r.visibility(),r.catalogAssetId(),r.mediaIds(),r.hashtags(),type,id);}
  private boolean admin(Authentication a){return a.getAuthorities().stream().map(GrantedAuthority::getAuthority).anyMatch(v->v.equals("ROLE_ADMIN")||v.equals("ROLE_SUPER_ADMIN")||v.equals("ROLE_MODERATOR"));}
 }

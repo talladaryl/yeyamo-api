@@ -6,20 +6,67 @@ import com.yeyamo_mobile.api.discovery_service.domain.model.DiscoveryType;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
-@RestController @RequestMapping("/api/v1/discovery")
+@RestController
+@RequestMapping("/api/v1/discovery")
 public class DiscoveryController {
+
     private final DiscoveryQueryService queries;
-    public DiscoveryController(DiscoveryQueryService queries){this.queries=queries;}
-    @GetMapping("/search") @Operation(summary="Search discoverable places and content",security=@SecurityRequirement(name="bearerAuth"))
-    public DiscoveryPage search(@RequestParam(required=false,name="q") String query,@RequestParam(required=false) DiscoveryType type,
-            @RequestParam(required=false) String categoryCode,@RequestParam(required=false) String regionCode,
-            @RequestParam(required=false,name="lat") Double latitude,@RequestParam(required=false,name="lng") Double longitude,
-            @RequestParam(required=false) Double radiusKm,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size) {
-        return queries.search(new DiscoverySearch(query,type,categoryCode,regionCode,latitude,longitude,radiusKm,page,size,false));
+
+    public DiscoveryController(DiscoveryQueryService queries) { this.queries = queries; }
+
+    /**
+     * Full-text search with all filters.
+     * Culture & Artisan params: languageCode, cultureType, materialId, techniqueId,
+     * availability, verified, countryCode, adminLevel1Id, cityId.
+     */
+    @GetMapping("/search")
+    @Operation(summary = "Search discoverable places, content, artworks and culture",
+               security = @SecurityRequirement(name = "bearerAuth"))
+    public DiscoveryPage search(
+            @RequestParam(required = false, name = "q")             String query,
+            @RequestParam(required = false)                         DiscoveryType type,
+            @RequestParam(required = false)                         String categoryCode,
+            @RequestParam(required = false)                         String regionCode,
+            // geo
+            @RequestParam(required = false, name = "lat")           Double latitude,
+            @RequestParam(required = false, name = "lng")           Double longitude,
+            @RequestParam(required = false)                         Double radiusKm,
+            // culture & artisan
+            @RequestParam(required = false)                         String countryCode,
+            @RequestParam(required = false)                         String adminLevel1Id,
+            @RequestParam(required = false)                         String cityId,
+            @RequestParam(required = false)                         String languageCode,
+            @RequestParam(required = false)                         String cultureType,
+            @RequestParam(required = false)                         String materialId,
+            @RequestParam(required = false)                         String techniqueId,
+            @RequestParam(required = false)                         Boolean availability,
+            @RequestParam(required = false)                         Boolean verified,
+            // pagination
+            @RequestParam(defaultValue = "0")                       int page,
+            @RequestParam(defaultValue = "20")                      int size) {
+
+        return queries.search(new DiscoverySearch(
+                query, type, categoryCode, regionCode,
+                latitude, longitude, radiusKm,
+                page, size, false,
+                countryCode, adminLevel1Id, cityId,
+                languageCode, cultureType, materialId, techniqueId,
+                availability, verified));
     }
-    @GetMapping("/trending") @Operation(summary="List trending places and content",security=@SecurityRequirement(name="bearerAuth"))
-    public DiscoveryPage trending(@RequestParam(required=false) DiscoveryType type,@RequestParam(required=false) String regionCode,
-            @RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size) {
-        return queries.search(new DiscoverySearch(null,type,null,regionCode,null,null,null,page,size,true));
+
+    @GetMapping("/trending")
+    @Operation(summary = "List trending places and content",
+               security = @SecurityRequirement(name = "bearerAuth"))
+    public DiscoveryPage trending(
+            @RequestParam(required = false)     DiscoveryType type,
+            @RequestParam(required = false)     String regionCode,
+            @RequestParam(required = false)     String countryCode,
+            @RequestParam(defaultValue = "0")   int page,
+            @RequestParam(defaultValue = "20")  int size) {
+        return queries.search(new DiscoverySearch(
+                null, type, null, regionCode,
+                null, null, null,
+                page, size, true,
+                countryCode, null, null, null, null, null, null, null, null));
     }
 }

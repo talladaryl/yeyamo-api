@@ -1,0 +1,3 @@
+CREATE TABLE generic_interactions(id UUID PRIMARY KEY,target_type VARCHAR(32) NOT NULL,target_id VARCHAR(100) NOT NULL,user_id VARCHAR(120) NOT NULL,interaction_type VARCHAR(24) NOT NULL,body TEXT,channel VARCHAR(60),status VARCHAR(24) NOT NULL,created_at TIMESTAMPTZ NOT NULL,updated_at TIMESTAMPTZ NOT NULL,version BIGINT NOT NULL DEFAULT 0);
+CREATE UNIQUE INDEX uk_generic_interaction_toggle ON generic_interactions(target_type,target_id,user_id,interaction_type) WHERE interaction_type IN ('LIKE','FAVORITE','FOLLOW');
+CREATE INDEX idx_generic_interaction_target ON generic_interactions(target_type,target_id,created_at DESC);

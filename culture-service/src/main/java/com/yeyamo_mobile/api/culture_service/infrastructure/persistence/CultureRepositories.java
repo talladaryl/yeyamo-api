@@ -10,4 +10,5 @@ public final class CultureRepositories {private CultureRepositories(){}
  public interface Progress extends JpaRepository<LanguageProgress,UUID>{Optional<LanguageProgress> findByUserIdAndLessonId(String user,UUID lesson);List<LanguageProgress> findByUserIdOrderByStartedAtDesc(String user);List<LanguageProgress> findByUserIdAndLanguageCodeOrderByStartedAtDesc(String user,String language);}
  public interface Attempts extends JpaRepository<LanguageAttempt,UUID>{}
  public interface DailyWords extends JpaRepository<DailyWordSelection,Long>{Optional<DailyWordSelection> findBySelectionDateAndCountryCodeAndLanguageCode(LocalDate date,String country,String language);Optional<DailyWordSelection> findFirstBySelectionDateAndCountryCodeAndLanguageCodeIsNull(LocalDate date,String country);}
+ public interface Audits extends JpaRepository<CultureAuditEvent,UUID>{}
 }

@@ -1,285 +1,232 @@
-# Ticket Service
+# YeYamo Ticket Service
 
-Microservice autonome gérant la billetterie des événements YeYamo.
+Microservice autonome pour la gestion de la billetterie événementielle sur la plateforme YeYamo.
 
-## Responsabilités
+## Fonctionnalités
 
-### Gestion Inventaire
-- ✅ Création et configuration des ventes de billets
-- ✅ Types de billets avec prix et quantités
-- ✅ Réservation temporaire (holds) avec TTL
-- ✅ Verrouillage optimiste pour éviter survente
-- ✅ Libération automatique des holds expirés
+### Pour les Partenaires
+- ✅ Activer la billetterie pour un événement
+- ✅ Créer plusieurs types de billets avec prix et quantités
+- ✅ Gérer le personnel d'événement (staff)
+- ✅ Scanner les QR codes pour contrôler l'accès
+- ✅ Consulter les statistiques de vente et d'entrée
 
-### Gestion Commandes
-- ✅ Création de commandes avec idempotence
-- ✅ Intégration paiement (payment-service)
-- ✅ Émission de billets après paiement confirmé
-- ✅ Compensation en cas d'échec
-- ✅ Remboursements métier
-
-### QR Code Sécurisé
-- ✅ Génération de tokens signés (asymétrique)
-- ✅ Rotation des clés (keyId)
-- ✅ Expiration et révocation
-- ✅ Protection falsification
-- ✅ Validation côté serveur uniquement
-
-### Contrôle d'Accès
-- ✅ Scan de billets avec validation atomique
-- ✅ Détection double-scan
-- ✅ Gestion du staff événement
-- ✅ Logs d'entrée pour analytics
-- ✅ Statistiques de présence
+### Pour les Utilisateurs
+- ✅ Parcourir les types de billets disponibles
+- ✅ Créer une commande de billets
+- ✅ Payer via integration avec payment-service
+- ✅ Recevoir des billets avec QR code sécurisé
+- ✅ Afficher et gérer ses billets
+- ✅ Recevoir des notifications
 
 ## Architecture
 
-```
-ticket-service/
-├── domain/
-│   ├── model/                  # Entités métier
-│   ├── service/                # Logique métier
-│   └── port/                   # Interfaces (hexagonal)
-├── application/
-│   ├── TicketSaleService       # Configuration ventes
-│   ├── TicketOrderService      # Gestion commandes
-│   ├── TicketIssuanceService   # Émission billets
-│   ├── QrTokenService          # Génération QR sécurisés
-│   ├── ScanService             # Validation check-in
-│   └── StaffManagementService  # Gestion staff
-├── infrastructure/
-│   ├── persistence/            # JPA repositories
-│   ├── messaging/              # Kafka consumers/producers
-│   ├── outbox/                 # Transactional outbox
-│   ├── crypto/                 # JWT signing, key rotation
-│   └── client/                 # Clients externes
-└── interfaces/
-    └── rest/                   # REST controllers
-```
+### Responsabilités
+- Gestion de l'inventaire avec verrouillage distribué (Redis/Redisson)
+- Réservations temporaires (holds) avec TTL
+- Création et validation de commandes
+- Émission de billets avec QR codes signés (JWT RSA)
+- Validation atomique des scans (prévention double-entrée)
+- Gestion du personnel événementiel
+- Publication d'événements via Transactional Outbox Pattern
 
-## Entités Principales
+### Sécurité QR Code
+- **Signatures asymétriques** : RS256 (RSA-SHA256)
+- **Rotation des clés** : tous les 90 jours
+- **Token opaque** : aucune donnée personnelle dans le QR
+- **Hash stocké** : SHA-256 du token pour révocation
+- **Validation serveur** : vérification signature + statut
+- **Protection falsification** : impossible de créer un faux QR
 
-### TicketSaleConfiguration
-Configuration globale des ventes pour un événement.
+### Concurrence et Intégrité
+- **Verrouillage optimiste** : version sur TicketType
+- **Verrouillage pessimiste** : PESSIMISTIC_WRITE pour scan
+- **Locks distribués** : Redisson pour les opérations d'inventaire
+- **Idempotence** : clés d'idempotence sur holds et ordres
+- **Atomic operations** : Transaction ACID pour scan
 
-### TicketType
-Type de billet avec prix, quantité, zones d'accès.
-- **Verrouillage optimiste** (`@Version`) pour éviter survente
+## Technologies
 
-### TicketHold
-Réservation temporaire (panier) avec expiration automatique.
-- TTL configurable (défaut: 10 minutes)
-- Libération automatique via scheduled job
+- **Java 21** & **Spring Boot 4.1.0**
+- **PostgreSQL** : base de données principale
+- **Redis/Redisson** : verrouillage distribué
+- **Kafka** : événements asynchrones
+- **JWT (JJWT)** : signature des QR codes
+- **Flyway** : migrations de schéma
+- **Testcontainers** : tests d'intégration
 
-### TicketOrder
-Commande de billets avec statut paiement.
-- Idempotence garantie via `idempotencyKey`
+## Prérequis
 
-### Ticket
-Billet émis avec statut et serial number unique.
+- Java 21+
+- Maven 3.9+
+- PostgreSQL 16+
+- Redis 7+
+- Kafka 3.6+
 
-### TicketQrCredential
-Credentials QR sécurisés (JWT signé).
-- Stockage du hash du token
-- Révocation possible
+## Configuration
 
-### TicketScan
-Log de chaque scan (succès ou échec).
+### Variables d'environnement
 
-### EventStaffAssignment
-Assignment du staff autorisé à scanner.
+```bash
+# Database
+DB_USERNAME=yeyamo
+DB_PASSWORD=your_password
 
-## Règles Métier Critiques
+# Redis
+SPRING_DATA_REDIS_HOST=localhost
+SPRING_DATA_REDIS_PORT=6379
 
-### Inventaire
-1. **Pas de survente**: `quantity_sold <= quantity_total`
-2. **Réservation atomique**: Transaction + optimistic locking
-3. **Hold avec TTL**: Expiration automatique après 10min
-4. **Compensation**: Libération en cas d'échec paiement
+# Kafka
+SPRING_KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 
-### QR Token (JWT)
-```json
-{
-  "jti": "unique-token-id",
-  "sub": "ticket-id",
-  "iss": "ticket-service",
-  "exp": 1234567890,
-  "kid": "key-2024-01",
-  "evt": "event-123",
-  "typ": "TICKET_QR"
-}
+# OAuth2
+SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://localhost:8081/realms/yeyamo
 ```
 
-**Validation**:
-1. Vérifier signature avec clé publique (kid)
-2. Vérifier expiration
-3. Vérifier révocation (table ticket_qr_credentials)
-4. Vérifier ticket status = VALID
-5. Vérifier event_id match
-6. **Transaction atomique**: Update ticket.status = USED
+### Base de données
 
-### Scan Atomique
+Créer la base de données :
 ```sql
-UPDATE tickets 
-SET status = 'USED', used_at = NOW(), version = version + 1
-WHERE id = ? AND status = 'VALID' AND version = ?
+CREATE DATABASE ticket_service_db;
+CREATE USER yeyamo WITH PASSWORD 'yeyamo123';
+GRANT ALL PRIVILEGES ON DATABASE ticket_service_db TO yeyamo;
 ```
 
-Si `rowsAffected == 0` → déjà utilisé ou invalide.
+## Démarrage
 
-## Intégrations
+### Développement local
 
-### Event Service
-- **API interne**: `GET /internal/events/{id}` (vérification existence)
-- **Kafka**: Consomme `event.published`, `event.cancelled`
+```bash
+# Démarrer les dépendances
+docker-compose up -d postgres redis kafka
 
-### Payment Service
-- **Publish**: `payment.requested` (avec order details)
-- **Consume**: `payment.confirmed`, `payment.failed`
-
-### Notification Service
-- **Publish**: `ticket.issued`, `ticket.cancelled`, `ticket.reminder`
-
-### Analytics Service
-- **Publish**: `ticket.sold`, `ticket.scanned`, `revenue.recorded`
-
-## APIs Principales
-
-### Partner APIs
-
-```
-POST   /api/v1/tickets/sales/configure
-GET    /api/v1/tickets/sales/{eventId}
-POST   /api/v1/tickets/sales/{eventId}/types
-PUT    /api/v1/tickets/sales/types/{id}
-
-POST   /api/v1/tickets/staff
-GET    /api/v1/tickets/staff/event/{eventId}
-DELETE /api/v1/tickets/staff/{id}
-
-GET    /api/v1/tickets/orders/event/{eventId}
-GET    /api/v1/tickets/analytics/event/{eventId}
+# Lancer le service
+cd ticket-service
+mvn spring-boot:run
 ```
 
-### User APIs
+### Avec Docker
 
-```
-POST   /api/v1/tickets/hold
-POST   /api/v1/tickets/orders
-GET    /api/v1/tickets/orders/{id}
-GET    /api/v1/tickets/my-tickets
+```bash
+# Build
+docker build -t yeyamo/ticket-service:latest .
 
-GET    /api/v1/tickets/{id}/qr
-```
-
-### Scanner APIs
-
-```
-POST   /api/v1/tickets/scan
-GET    /api/v1/tickets/scans/event/{eventId}
-GET    /api/v1/tickets/scans/stats/{eventId}
+# Run
+docker run -p 8093:8093 \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/ticket_service_db \
+  -e SPRING_DATA_REDIS_HOST=host.docker.internal \
+  -e SPRING_KAFKA_BOOTSTRAP_SERVERS=host.docker.internal:9092 \
+  yeyamo/ticket-service:latest
 ```
 
 ## Tests
 
-### Tests Unitaires
-- Service layer avec mocks
-- Validation business rules
+### Tests unitaires et d'intégration
+```bash
+mvn test
+```
 
-### Tests d'Intégration (Testcontainers)
-- PostgreSQL container
-- Test transactions concurrentes
-- Test double scan
-- Test QR falsifié
-- Test hold expiration
+### Tests avec Testcontainers
+```bash
+# Les tests démarrent automatiquement PostgreSQL, Redis, Kafka
+mvn verify
+```
 
-### Tests de Charge
-- JMeter ou Gatling
-- Scénarios:
-  - Achat concurrent (100 users, 10 tickets restants)
-  - Scan concurrent (même ticket scanné 2x simultanément)
+### Tests de charge sur scan
+```bash
+docker-compose -f docker-compose.test.yml up
+```
 
-## Sécurité
+## API Documentation
 
-### QR Token Keys
-- **RSA 2048** pour signature
-- Clés stockées dans KeyStore ou Vault
-- Rotation tous les 90 jours
-- Multiple keys actives (old + new)
+Documentation OpenAPI disponible à : `http://localhost:8093/swagger-ui.html`
 
-### Staff Authentication
-- JWT utilisateur vérifié
-- Scope: `ticket:scan`
-- Vérification assignment dans `event_staff_assignments`
+### Endpoints principaux
 
-### PII Protection
-- QR ne contient **aucune donnée personnelle**
-- Uniquement token opaque signé
-- Données retrieved côté serveur après validation
+#### Utilisateurs
+- `POST /api/v1/tickets/orders` - Créer une commande
+- `GET /api/v1/tickets/orders/{orderId}` - Détails commande
+- `GET /api/v1/tickets/events/{eventId}` - Mes billets pour un événement
+- `GET /api/v1/tickets/{ticketId}/qr` - Obtenir QR code
+
+#### Partenaires
+- `POST /api/v1/partner/tickets/configurations` - Configurer billetterie
+- `POST /api/v1/partner/tickets/configurations/{id}/activate` - Activer ventes
+- `POST /api/v1/partner/tickets/staff` - Assigner personnel
+- `POST /api/v1/partner/tickets/scan` - Scanner un billet
+- `GET /api/v1/partner/tickets/events/{eventId}/scan-stats` - Statistiques
+
+## Événements Kafka
+
+### Publiés
+- `ticket.order.created` - Commande créée
+- `ticket.payment.confirmed` - Paiement confirmé
+- `ticket.issued` - Billet émis
+- `ticket.used` - Billet utilisé (scan)
+- `ticket.cancelled` - Billet annulé
+- `ticket.refunded` - Billet remboursé
+
+### Consommés
+- `payment.confirmed` - Confirmation de paiement
+- `payment.failed` - Échec de paiement
+- `event.updated` - Mise à jour événement
 
 ## Monitoring
 
-### Métriques
-```
-ticket_sales_total{event_id, ticket_type}
-ticket_holds_active
-ticket_holds_expired_total
-ticket_scans_total{result, event_id}
-ticket_qr_generation_duration
-ticket_scan_validation_duration
-```
+### Actuator Endpoints
+- `/actuator/health` - Santé du service
+- `/actuator/metrics` - Métriques
+- `/actuator/prometheus` - Métriques Prometheus
 
-### Alerts
-- Survente détectée (should never happen)
-- Scan failure rate > 5%
-- Hold expiration rate > 50%
-- QR validation failures
+### Métriques clés
+- Taux de réussite des scans
+- Temps de réponse scan (cible < 200ms)
+- Inventaire disponible par événement
+- Billets vendus par type
+- Tentatives de scan échouées
 
-## Configuration
+## Maintenance
 
-### Environnement
-```properties
-# Database
-spring.datasource.url=jdbc:postgresql://postgres:5432/ticket_db
+### Nettoyage des holds expirés
+Automatique toutes les 5 minutes via scheduler.
 
-# Kafka
-spring.kafka.bootstrap-servers=kafka:9092
+### Nettoyage des événements outbox
+Automatique quotidiennement à 2h du matin.
 
-# Business Rules
-yeyamo.tickets.hold-ttl-minutes=10
-yeyamo.tickets.max-per-buyer=10
-yeyamo.tickets.service-fee-percent=5
+### Rotation des clés QR
+Automatique tous les 90 jours (configurable).
 
-# QR Security
-yeyamo.tickets.qr.key-rotation-days=90
-yeyamo.tickets.qr.token-ttl-days=30
-yeyamo.tickets.qr.algorithm=RS256
+## Troubleshooting
 
-# Scheduler
-yeyamo.tickets.scheduler.release-holds-cron=0 */5 * * * *
-```
+### Le scan est lent
+- Vérifier les connexions Redis (locks distribués)
+- Vérifier les indexes PostgreSQL
+- Augmenter le pool de connexions
 
-## Déploiement
+### Overselling (survente)
+- Vérifier que Redis fonctionne (locks)
+- Vérifier les versions optimistes (TicketType.version)
+- Consulter les logs de conflits
 
-```bash
-# Build
-mvn clean package
+### QR invalide
+- Vérifier la rotation des clés
+- Vérifier que le token n'est pas expiré
+- Vérifier que le credential n'est pas révoqué
 
-# Docker
-docker build -t yeyamo/ticket-service:latest .
+## Sécurité
 
-# Run
-docker-compose up -d ticket-service
-```
+### Checklist production
+- [ ] Changer les mots de passe par défaut
+- [ ] Activer SSL/TLS pour PostgreSQL
+- [ ] Activer SSL/TLS pour Redis
+- [ ] Configurer Kafka SASL
+- [ ] Limiter les accès réseau (firewall)
+- [ ] Activer audit logging
+- [ ] Configurer backup automatique
+- [ ] Tester la procédure de restauration
+- [ ] Configurer alertes monitoring
+- [ ] Review des clés de signature
 
-## Future Enhancements (Phase 2)
+## Licence
 
-- [ ] Mode offline scan avec sync
-- [ ] Transfert de billets (peer-to-peer)
-- [ ] Upgrade de billets
-- [ ] Attente list (waitlist)
-- [ ] Dynamic pricing
-- [ ] Promotions et discount codes
-- [ ] Group bookings
-- [ ] Season passes
-- [ ] Recurring events support
+Propriétaire - YeYamo © 2024

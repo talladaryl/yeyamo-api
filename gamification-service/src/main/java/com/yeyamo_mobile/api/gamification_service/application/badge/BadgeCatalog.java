@@ -7,13 +7,20 @@ import com.yeyamo_mobile.api.gamification_service.domain.BadgeDefinition;
 
 public final class BadgeCatalog {
     private static final List<BadgeDefinition> DEFINITIONS = List.of(
-            new BadgeDefinition("FIRST_POST", "Premier récit", "Publier un premier contenu"),
-            new BadgeDefinition("EXPLORER", "Explorateur", "Effectuer un premier check-in"),
-            new BadgeDefinition("TRAVELER_5", "Voyageur", "Visiter cinq destinations"),
-            new BadgeDefinition("SOCIAL_10", "Sociable", "Réaliser dix interactions"),
-            new BadgeDefinition("FIRST_BOOKING", "Premier voyage réservé", "Confirmer une première réservation"),
-            new BadgeDefinition("STREAK_7", "Série de 7 jours", "Être actif sept jours consécutifs"),
-            new BadgeDefinition("LEVEL_5", "Niveau 5", "Atteindre le niveau 5")
+            new BadgeDefinition("FIRST_POST",            "Premier récit",          "Publier un premier contenu"),
+            new BadgeDefinition("EXPLORER",              "Explorateur",            "Effectuer un premier check-in"),
+            new BadgeDefinition("TRAVELER_5",            "Voyageur",               "Visiter cinq destinations"),
+            new BadgeDefinition("SOCIAL_10",             "Sociable",               "Réaliser dix interactions"),
+            new BadgeDefinition("FIRST_BOOKING",         "Premier voyage réservé", "Confirmer une première réservation"),
+            new BadgeDefinition("STREAK_7",              "Série de 7 jours",       "Être actif sept jours consécutifs"),
+            new BadgeDefinition("LEVEL_5",               "Niveau 5",               "Atteindre le niveau 5"),
+            // Culture & Artisan
+            new BadgeDefinition("LANGUAGE_EXPLORER",    "Language Explorer",    "Complete 10 language lessons"),
+            new BadgeDefinition("HERITAGE_CONTRIBUTOR", "Heritage Contributor", "Contribute 5 cultural items"),
+            new BadgeDefinition("STORY_KEEPER",         "Story Keeper",         "Record 3 oral histories"),
+            new BadgeDefinition("CULTURAL_TRANSLATOR",  "Cultural Translator",  "Get 10 translations verified"),
+            new BadgeDefinition("ARTISAN_SUPPORTER",    "Artisan Supporter",    "Complete 5 artwork stories"),
+            new BadgeDefinition("CULTURE_AMBASSADOR",   "Culture Ambassador",   "Earn 500 XP from culture actions")
     );
 
     private BadgeCatalog() {

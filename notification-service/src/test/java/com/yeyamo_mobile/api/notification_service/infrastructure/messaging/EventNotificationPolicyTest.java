@@ -52,4 +52,18 @@ class EventNotificationPolicyTest {
                 + "\",\"eventType\":\"user.created\",\"eventVersion\":2,\"payload\":{\"userId\":\"1\"}}");
         assertThrows(IllegalArgumentException.class, () -> policy.map(event));
     }
+
+    @Test
+    void mapsCultureAndArtworkEventsToThePublishedNotificationTypes() throws Exception {
+        var culture = policy.map(mapper.readTree("{\"eventId\":\"" + UUID.randomUUID()
+                + "\",\"eventType\":\"CultureContributionApproved\",\"eventVersion\":1,\"payload\":{\"contributorId\":\"creator-1\"}}"));
+        var order = policy.map(mapper.readTree("{\"eventId\":\"" + UUID.randomUUID()
+                + "\",\"eventType\":\"ArtworkOrderCreated\",\"eventVersion\":1,\"payload\":{\"artisanPartnerId\":\"artisan-1\"}}"));
+        var follow = policy.map(mapper.readTree("{\"eventId\":\"" + UUID.randomUUID()
+                + "\",\"eventType\":\"ArtisanFollowed\",\"eventVersion\":1,\"payload\":{\"targetId\":\"artisan-2\"}}"));
+
+        assertEquals("CULTURE_CONTRIBUTION_APPROVED", culture.getFirst().eventType());
+        assertEquals("ARTWORK_ORDER_CREATED", order.getFirst().eventType());
+        assertEquals("ARTISAN_FOLLOWED", follow.getFirst().eventType());
+    }
 }

@@ -143,25 +143,25 @@ services:
 
     networks:
       - yeyamo-network
-  # neo4j:
-  #   image: neo4j:5.24-community
-  #   environment:
-  #     NEO4J_AUTH: neo4j/neo4jpassword
-  #     NEO4J_server_memory_heap_initial__size: 512m
-  #     NEO4J_server_memory_heap_max__size: 512m
-  #   ports:
-  #     - "7474:7474"
-  #     - "7687:7687"
-  #   volumes:
-  #     - neo4j-data:/data
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 20
-  #     start_period: 40s
-  #   networks:
-  #     - yeyamo-network
+  neo4j:
+    image: neo4j:5.24-community
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-CHANGE_ME_LOCAL}
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 512m
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p '$${NEO4J_AUTH#*/}' 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    networks:
+      - yeyamo-network
 
   kafka:
     image: redpandadata/redpanda:v24.3.6
@@ -879,7 +879,13 @@ services:
       - /bin/sh
       - -ec
       - |
-        rpk topic create payment.commands.DLT payment.events.DLT booking.events.DLT partner-events.DLT ticket.events.DLT admin.audit.events.DLT --brokers kafka:9092 || true
+        rpk topic create \
+          payment.commands.DLT payment.events.DLT \
+          booking.events.DLT partner-events.DLT \
+          ticket.events.DLT admin.audit.events.DLT \
+          culture.events artisan.events catalog.events commerce.events interaction.events \
+          partner-events moderation.events \
+          --brokers kafka:9092 || true
     depends_on:
       kafka:
         condition: service_healthy
@@ -1194,27 +1200,34 @@ services:
   #   networks:
   #     - yeyamo-network
 
-  # graph-service:
-  #   build: ./graph-service
-  #   environment:
-  #     CONFIG_SERVER_URL: http://config-server:8080
-      # CONFIG_SERVER_USERNAME: admin
-      # CONFIG_SERVER_PASSWORD: admin123
-  #     EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
-  #     SPRING_NEO4J_URI: bolt://neo4j:7687
-  #     SPRING_NEO4J_AUTHENTICATION_USERNAME: neo4j
-  #     SPRING_NEO4J_AUTHENTICATION_PASSWORD: neo4jpassword
-  #     KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-  #     JWT_SECRET: local-docker-secret-change-me-1234567890
-  #   depends_on:
-  #     neo4j:
-  #       condition: service_healthy
-  #     kafka:
-  #       condition: service_healthy
-  #     registry-service:
-  #       condition: service_healthy
-  #   networks:
-  #     - yeyamo-network
+  graph-service:
+    build: ./graph-service
+    deploy: *java-limits
+    environment:
+      <<: *java-service-env
+      SERVER_PORT: "8116"
+      CONFIG_SERVER_URL: http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USERNAME: neo4j
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-CHANGE_ME_LOCAL}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: ${JWT_SECRET:-local-docker-secret-change-me-1234567890}
+    ports:
+      - "8116:8116"
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+    networks:
+      - yeyamo-network
 
   # social-service:
   #   build: ./social-service
@@ -1246,7 +1259,7 @@ volumes:
   cassandra-data:
   redis-data:
   opensearch-data:
-  # neo4j-data:
+  neo4j-data:
   media-storage:
 
 # ============================================

@@ -1,0 +1,11 @@
+singleServerConfig:
+  address: "redis://localhost:6379"
+  connectionPoolSize: 10
+  connectionMinimumIdleSize: 5
+  timeout: 3000
+  retryAttempts: 3
+  retryInterval: 1500
+threads: 16
+nettyThreads: 32
+codec: !<org.redisson.codec.JsonJacksonCodec> {}
+transportMode: "NIO"
