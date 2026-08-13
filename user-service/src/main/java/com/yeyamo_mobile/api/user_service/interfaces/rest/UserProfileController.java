@@ -21,6 +21,9 @@ import org.springframework.web.bind.annotation.RestController;
 import com.yeyamo_mobile.api.user_service.application.UserProfileService;
 import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.MyProfileResponse;
 import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.PublicProfileResponse;
+import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.UpdateDiscoveryPreferencesRequest;
+import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.UpdateLanguageRequest;
+import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.UpdateLocationRequest;
 import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.UpdatePreferencesRequest;
 import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.UpdateProfileRequest;
 
@@ -53,6 +56,44 @@ public class UserProfileController {
         return MyProfileResponse.from(service.updatePreferences(authentication.getName(),
                 request.notificationsEnabled(), request.locationSharingEnabled(), request.preferredRegionId(),
                 correlationId));
+    }
+
+    /**
+     * Update user location (country, city, administrative areas, timezone).
+     * Endpoint: PATCH /api/v1/users/me/location
+     */
+    @PatchMapping("/me/location")
+    public MyProfileResponse updateLocation(@Valid @RequestBody UpdateLocationRequest request,
+            Authentication authentication,
+            @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
+        return MyProfileResponse.from(service.updateLocation(authentication.getName(),
+                request.countryCode(), request.adminLevel1Id(), request.adminLevel2Id(),
+                request.cityId(), request.localityId(), request.timezone(), correlationId));
+    }
+
+    /**
+     * Update user language preferences (preferred language and content languages).
+     * Endpoint: PATCH /api/v1/users/me/language
+     */
+    @PatchMapping("/me/language")
+    public MyProfileResponse updateLanguage(@Valid @RequestBody UpdateLanguageRequest request,
+            Authentication authentication,
+            @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
+        return MyProfileResponse.from(service.updateLanguagePreferences(authentication.getName(),
+                request.preferredLanguageCode(), request.contentLanguages(), correlationId));
+    }
+
+    /**
+     * Update discovery preferences (content countries, local radius, African content, currency).
+     * Endpoint: PATCH /api/v1/users/me/discovery-preferences
+     */
+    @PatchMapping("/me/discovery-preferences")
+    public MyProfileResponse updateDiscoveryPreferences(@Valid @RequestBody UpdateDiscoveryPreferencesRequest request,
+            Authentication authentication,
+            @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
+        return MyProfileResponse.from(service.updateDiscoveryPreferences(authentication.getName(),
+                request.contentCountries(), request.localRadiusKm(), request.discoverAfricanContent(),
+                request.preferredCurrencyCode(), correlationId));
     }
 
     @DeleteMapping("/me")

@@ -1,17 +1,23 @@
 package com.yeyamo_mobile.api.user_service.infrastructure.persistence;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 import com.yeyamo_mobile.api.user_service.domain.model.Language;
 import com.yeyamo_mobile.api.user_service.domain.model.ProfileStatus;
 import com.yeyamo_mobile.api.user_service.domain.model.ProfileVisibility;
 
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
@@ -38,6 +44,30 @@ public class UserProfileEntity {
     @Column(name = "notify_activity_updates", nullable = false) private boolean notifyActivityUpdates;
     @Column(name = "allow_suggestions", nullable = false) private boolean allowSuggestions;
     @Column(name = "allow_messages_from_strangers", nullable = false) private boolean allowMessagesFromStrangers;
+    
+    // Multi-country geographic fields
+    @Column(name = "country_code", length = 2) private String countryCode;
+    @Column(name = "admin_level_1_id") private UUID adminLevel1Id;
+    @Column(name = "admin_level_2_id") private UUID adminLevel2Id;
+    @Column(name = "city_id") private UUID cityId;
+    @Column(name = "locality_id") private UUID localityId;
+    @Column(name = "preferred_language_code", length = 10) private String preferredLanguageCode;
+    @Column(length = 50) private String timezone;
+    @Column(name = "preferred_currency_code", length = 3) private String preferredCurrencyCode;
+    
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_content_countries", joinColumns = @JoinColumn(name = "profile_id"))
+    @Column(name = "country_code", length = 2)
+    private Set<String> contentCountries = new HashSet<>();
+    
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_content_languages", joinColumns = @JoinColumn(name = "profile_id"))
+    @Column(name = "language_code", length = 10)
+    private Set<String> contentLanguages = new HashSet<>();
+    
+    @Column(name = "local_radius_km") private Integer localRadiusKm;
+    @Column(name = "discover_african_content", nullable = false) private boolean discoverAfricanContent;
+    
     @Column(name = "created_at", nullable = false) private Instant createdAt;
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
     @Column(name = "deleted_at") private Instant deletedAt;
@@ -83,6 +113,43 @@ public class UserProfileEntity {
     public void setAllowSuggestions(boolean value) { this.allowSuggestions = value; }
     public boolean isAllowMessagesFromStrangers() { return allowMessagesFromStrangers; }
     public void setAllowMessagesFromStrangers(boolean value) { this.allowMessagesFromStrangers = value; }
+    
+    // Geographic getters/setters
+    public String getCountryCode() { return countryCode; }
+    public void setCountryCode(String countryCode) { this.countryCode = countryCode; }
+    public UUID getAdminLevel1Id() { return adminLevel1Id; }
+    public void setAdminLevel1Id(UUID adminLevel1Id) { this.adminLevel1Id = adminLevel1Id; }
+    public UUID getAdminLevel2Id() { return adminLevel2Id; }
+    public void setAdminLevel2Id(UUID adminLevel2Id) { this.adminLevel2Id = adminLevel2Id; }
+    public UUID getCityId() { return cityId; }
+    public void setCityId(UUID cityId) { this.cityId = cityId; }
+    public UUID getLocalityId() { return localityId; }
+    public void setLocalityId(UUID localityId) { this.localityId = localityId; }
+    public String getPreferredLanguageCode() { return preferredLanguageCode; }
+    public void setPreferredLanguageCode(String preferredLanguageCode) { 
+        this.preferredLanguageCode = preferredLanguageCode; 
+    }
+    public String getTimezone() { return timezone; }
+    public void setTimezone(String timezone) { this.timezone = timezone; }
+    public String getPreferredCurrencyCode() { return preferredCurrencyCode; }
+    public void setPreferredCurrencyCode(String preferredCurrencyCode) { 
+        this.preferredCurrencyCode = preferredCurrencyCode; 
+    }
+    public Set<String> getContentCountries() { return contentCountries; }
+    public void setContentCountries(Set<String> contentCountries) { 
+        this.contentCountries = contentCountries; 
+    }
+    public Set<String> getContentLanguages() { return contentLanguages; }
+    public void setContentLanguages(Set<String> contentLanguages) { 
+        this.contentLanguages = contentLanguages; 
+    }
+    public Integer getLocalRadiusKm() { return localRadiusKm; }
+    public void setLocalRadiusKm(Integer localRadiusKm) { this.localRadiusKm = localRadiusKm; }
+    public boolean isDiscoverAfricanContent() { return discoverAfricanContent; }
+    public void setDiscoverAfricanContent(boolean discoverAfricanContent) { 
+        this.discoverAfricanContent = discoverAfricanContent; 
+    }
+    
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant value) { this.createdAt = value; }
     public Instant getUpdatedAt() { return updatedAt; }

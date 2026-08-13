@@ -1,6 +1,8 @@
 package com.yeyamo_mobile.api.user_service.domain.model;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 public class UserProfile {
@@ -24,6 +26,21 @@ public class UserProfile {
     private boolean notifyActivityUpdates;
     private boolean allowSuggestions;
     private boolean allowMessagesFromStrangers;
+    
+    // Multi-country geographic fields
+    private String countryCode;
+    private UUID adminLevel1Id;
+    private UUID adminLevel2Id;
+    private UUID cityId;
+    private UUID localityId;
+    private String preferredLanguageCode;
+    private String timezone;
+    private String preferredCurrencyCode;
+    private Set<String> contentCountries = new HashSet<>();
+    private Set<String> contentLanguages = new HashSet<>();
+    private Integer localRadiusKm;
+    private boolean discoverAfricanContent;
+    
     private Instant createdAt;
     private Instant updatedAt;
     private Instant deletedAt;
@@ -48,6 +65,7 @@ public class UserProfile {
         profile.notifyActivityUpdates = true;
         profile.allowSuggestions = true;
         profile.allowMessagesFromStrangers = true;
+        profile.discoverAfricanContent = true;
         profile.createdAt = now;
         profile.updatedAt = now;
         return profile;
@@ -67,6 +85,32 @@ public class UserProfile {
         this.notificationsEnabled = notificationsEnabled;
         this.locationSharingEnabled = locationSharingEnabled;
         this.preferredRegionId = preferredRegionId;
+        this.updatedAt = Instant.now();
+    }
+
+    public void updateLocation(String countryCode, UUID adminLevel1Id, UUID adminLevel2Id, 
+            UUID cityId, UUID localityId, String timezone) {
+        if (countryCode != null) this.countryCode = countryCode;
+        this.adminLevel1Id = adminLevel1Id;
+        this.adminLevel2Id = adminLevel2Id;
+        this.cityId = cityId;
+        this.localityId = localityId;
+        if (timezone != null) this.timezone = timezone;
+        this.updatedAt = Instant.now();
+    }
+
+    public void updateLanguagePreferences(String preferredLanguageCode, Set<String> contentLanguages) {
+        if (preferredLanguageCode != null) this.preferredLanguageCode = preferredLanguageCode;
+        if (contentLanguages != null) this.contentLanguages = new HashSet<>(contentLanguages);
+        this.updatedAt = Instant.now();
+    }
+
+    public void updateDiscoveryPreferences(Set<String> contentCountries, Integer localRadiusKm, 
+            boolean discoverAfricanContent, String preferredCurrencyCode) {
+        if (contentCountries != null) this.contentCountries = new HashSet<>(contentCountries);
+        this.localRadiusKm = localRadiusKm;
+        this.discoverAfricanContent = discoverAfricanContent;
+        if (preferredCurrencyCode != null) this.preferredCurrencyCode = preferredCurrencyCode;
         this.updatedAt = Instant.now();
     }
 
@@ -132,6 +176,7 @@ public class UserProfile {
         return value.trim();
     }
 
+    // Getters and Setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public String getAuthUserId() { return authUserId; }
@@ -172,6 +217,43 @@ public class UserProfile {
     public void setAllowSuggestions(boolean value) { this.allowSuggestions = value; }
     public boolean isAllowMessagesFromStrangers() { return allowMessagesFromStrangers; }
     public void setAllowMessagesFromStrangers(boolean value) { this.allowMessagesFromStrangers = value; }
+    
+    // Geographic getters/setters
+    public String getCountryCode() { return countryCode; }
+    public void setCountryCode(String countryCode) { this.countryCode = countryCode; }
+    public UUID getAdminLevel1Id() { return adminLevel1Id; }
+    public void setAdminLevel1Id(UUID adminLevel1Id) { this.adminLevel1Id = adminLevel1Id; }
+    public UUID getAdminLevel2Id() { return adminLevel2Id; }
+    public void setAdminLevel2Id(UUID adminLevel2Id) { this.adminLevel2Id = adminLevel2Id; }
+    public UUID getCityId() { return cityId; }
+    public void setCityId(UUID cityId) { this.cityId = cityId; }
+    public UUID getLocalityId() { return localityId; }
+    public void setLocalityId(UUID localityId) { this.localityId = localityId; }
+    public String getPreferredLanguageCode() { return preferredLanguageCode; }
+    public void setPreferredLanguageCode(String preferredLanguageCode) { 
+        this.preferredLanguageCode = preferredLanguageCode; 
+    }
+    public String getTimezone() { return timezone; }
+    public void setTimezone(String timezone) { this.timezone = timezone; }
+    public String getPreferredCurrencyCode() { return preferredCurrencyCode; }
+    public void setPreferredCurrencyCode(String preferredCurrencyCode) { 
+        this.preferredCurrencyCode = preferredCurrencyCode; 
+    }
+    public Set<String> getContentCountries() { return contentCountries; }
+    public void setContentCountries(Set<String> contentCountries) { 
+        this.contentCountries = contentCountries; 
+    }
+    public Set<String> getContentLanguages() { return contentLanguages; }
+    public void setContentLanguages(Set<String> contentLanguages) { 
+        this.contentLanguages = contentLanguages; 
+    }
+    public Integer getLocalRadiusKm() { return localRadiusKm; }
+    public void setLocalRadiusKm(Integer localRadiusKm) { this.localRadiusKm = localRadiusKm; }
+    public boolean isDiscoverAfricanContent() { return discoverAfricanContent; }
+    public void setDiscoverAfricanContent(boolean discoverAfricanContent) { 
+        this.discoverAfricanContent = discoverAfricanContent; 
+    }
+    
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

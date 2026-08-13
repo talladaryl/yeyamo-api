@@ -58,6 +58,7 @@ public class AuthService {
     private final LoginAttemptService loginAttemptService;
     private final AuthEventOutbox eventOutbox;
     private final AntiBotVerifier antiBotVerifier;
+    private final CountryValidationService countryValidationService;
 
     public AuthService(
             UserRepository userRepository,
@@ -72,7 +73,8 @@ public class AuthService {
             EmailService emailService,
             LoginAttemptService loginAttemptService,
             AuthEventOutbox eventOutbox,
-            AntiBotVerifier antiBotVerifier
+            AntiBotVerifier antiBotVerifier,
+            CountryValidationService countryValidationService
     ) {
         this.userRepository = userRepository;
         this.oAuthAccountRepository = oAuthAccountRepository;
@@ -87,12 +89,22 @@ public class AuthService {
         this.loginAttemptService = loginAttemptService;
         this.eventOutbox = eventOutbox;
         this.antiBotVerifier = antiBotVerifier;
+        this.countryValidationService = countryValidationService;
     }
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
         validateRegisterRequest(request);
         antiBotVerifier.verify(request.turnstileToken(), AntiBotAction.REGISTER, null);
+
+        // Validate country and registration eligibility
+        CountryValidationService.CountryValidationResult country = 
+                countryValidationService.validateRegistrationEligibility(request.countryCode(), false);
+
+        // Validate city if provided
+        if (request.cityId() != null) {
+            countryValidationService.validateCity(request.countryCode(), request.cityId());
+        }
 
         if (hasText(request.email()) && userRepository.existsByEmail(clean(request.email()))) {
             throw new ApiException("EMAIL_ALREADY_USED", "Cet email est déjà utilisé", HttpStatus.CONFLICT);
@@ -107,6 +119,20 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setStatus(hasText(request.email()) ? UserStatus.PENDING : UserStatus.ACTIVE);
         user.getRoles().add(defaultUserRole());
+        
+        // Set geographic fields
+        user.setCountryCode(request.countryCode());
+        user.setCityId(request.cityId());
+        user.setPreferredLanguageCode(
+                hasText(request.preferredLanguageCode()) 
+                        ? request.preferredLanguageCode() 
+                        : country.defaultLanguageCode()
+        );
+        user.setTimezone(
+                hasText(request.timezone()) 
+                        ? request.timezone() 
+                        : country.defaultTimezone()
+        );
 
         User savedUser = userRepository.save(user);
         eventOutbox.userCreated(savedUser, null);
@@ -382,6 +408,9 @@ public class AuthService {
         }
         if (!hasText(request.password()) || request.password().length() < 12) {
             throw new ApiException("WEAK_PASSWORD", "Le mot de passe doit contenir au moins 12 caractères", HttpStatus.BAD_REQUEST);
+        }
+        if (!hasText(request.countryCode())) {
+            throw new ApiException("COUNTRY_REQUIRED", "Code pays requis", HttpStatus.BAD_REQUEST);
         }
     }
 

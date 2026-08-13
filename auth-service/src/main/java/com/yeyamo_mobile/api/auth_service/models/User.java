@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 import org.springframework.data.annotation.CreatedDate;
 
@@ -59,6 +60,19 @@ public class User{
             inverseJoinColumns = @JoinColumn(name = "role_id")
     )
     private Set<Role> roles = new HashSet<>();
+
+    // Geographic fields for multi-country support
+    @Column(name = "country_code", length = 2)
+    private String countryCode;
+
+    @Column(name = "city_id")
+    private UUID cityId;
+
+    @Column(name = "preferred_language_code", length = 10)
+    private String preferredLanguageCode;
+
+    @Column(name = "timezone", length = 50)
+    private String timezone;
 
     @CreatedDate
     @Column(name="created_at",nullable =false,updatable = false )

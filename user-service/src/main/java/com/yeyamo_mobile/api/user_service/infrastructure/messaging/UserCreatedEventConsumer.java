@@ -35,7 +35,25 @@ public class UserCreatedEventConsumer {
         JsonNode payload = event.path("payload");
         String authUserId = first(payload, "userId", "id", "authUserId");
         String displayName = firstOptional(payload, "displayName", "name", "email");
-        profileService.createFromIdentity(authUserId, displayName, text(event, "correlationId"));
+        
+        // Get geographic data from auth-service event
+        String countryCode = text(payload, "countryCode");
+        String cityIdStr = text(payload, "cityId");
+        String preferredLanguageCode = text(payload, "preferredLanguageCode");
+        String timezone = text(payload, "timezone");
+        
+        UUID cityId = null;
+        if (cityIdStr != null && !cityIdStr.isBlank()) {
+            try {
+                cityId = UUID.fromString(cityIdStr);
+            } catch (IllegalArgumentException ignored) {
+                // Log and continue without cityId
+            }
+        }
+        
+        // Create profile with geographic data
+        profileService.createFromIdentityWithLocation(authUserId, displayName, countryCode, 
+                cityId, preferredLanguageCode, timezone, text(event, "correlationId"));
         processedEvents.save(new ProcessedEventEntity(eventId, "user.created"));
     }
 
