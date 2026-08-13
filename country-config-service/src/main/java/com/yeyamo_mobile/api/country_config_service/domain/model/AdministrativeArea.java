@@ -1,9 +1,9 @@
 package com.yeyamo_mobile.api.country_config_service.domain.model;
 
-import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
-import org.hibernate.annotations.Type;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -89,7 +89,7 @@ public class AdministrativeArea {
      * Localized names in different languages
      * Example: {"fr": "Littoral", "en": "Littoral", "local": "Ndé"}
      */
-    @Type(JsonBinaryType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private Map<String, String> localizedNames = new HashMap<>();
 

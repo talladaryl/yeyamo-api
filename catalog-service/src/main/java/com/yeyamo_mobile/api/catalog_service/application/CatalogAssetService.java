@@ -5,25 +5,39 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import com.yeyamo_mobile.api.catalog_service.application.port.CatalogOutboxPort;
 import com.yeyamo_mobile.api.catalog_service.domain.model.*;
 import com.yeyamo_mobile.api.catalog_service.domain.port.CatalogAssetRepository;
+import com.yeyamo_mobile.shared.country.CountryConfigClient;
+import com.yeyamo_mobile.shared.country.CountryConfigClient.CountryFeature;
 
 @Service @Transactional
 public class CatalogAssetService {
     private final CatalogAssetRepository repository;
     private final CatalogOutboxPort outbox;
+    private final CountryConfigClient countries;
     public CatalogAssetService(CatalogAssetRepository repository,CatalogOutboxPort outbox){
-        this.repository=repository;this.outbox=outbox;
+        this(repository,outbox,null);
+    }
+    @Autowired public CatalogAssetService(CatalogAssetRepository repository,CatalogOutboxPort outbox,CountryConfigClient countries){
+        this.repository=repository;this.outbox=outbox;this.countries=countries;
     }
     public CatalogAsset create(AssetType type,UUID ownerId,String name,String requestedSlug,String description,
             String categoryCode,String regionCode,String city,String district,String address,
             double latitude,double longitude,String correlationId,String actorId){
+        return create(type, ownerId, name, requestedSlug, description, categoryCode, null, regionCode,
+                city, district, address, latitude, longitude, correlationId, actorId);
+    }
+    public CatalogAsset create(AssetType type,UUID ownerId,String name,String requestedSlug,String description,
+            String categoryCode,String countryCode,String regionCode,String city,String district,String address,
+            double latitude,double longitude,String correlationId,String actorId){
+        validatePlaceCountry(type, countryCode);
         String slug=slug(requestedSlug,name);
         ensureSlug(slug,null);
         CatalogAsset asset=CatalogAsset.create(type,ownerId,"catalog",null,name,slug,description,
-                categoryCode,regionCode,city,district,address,new GeoPoint(latitude,longitude));
+                categoryCode,countryCode,regionCode,city,district,address,new GeoPoint(latitude,longitude));
         CatalogAsset saved=repository.save(asset);
         outbox.append("catalog.asset.created",saved,correlationId,actorId);
         return saved;
@@ -31,9 +45,16 @@ public class CatalogAssetService {
     public CatalogAsset update(UUID id,String name,String requestedSlug,String description,String categoryCode,
             String regionCode,String city,String district,String address,double latitude,double longitude,
             String correlationId,String actorId){
+        return update(id, name, requestedSlug, description, categoryCode, null, regionCode, city, district,
+                address, latitude, longitude, correlationId, actorId);
+    }
+    public CatalogAsset update(UUID id,String name,String requestedSlug,String description,String categoryCode,
+            String countryCode,String regionCode,String city,String district,String address,double latitude,double longitude,
+            String correlationId,String actorId){
         CatalogAsset asset=getRequired(id);
+        validatePlaceCountry(asset.getType(), countryCode == null ? asset.getCountryCode() : countryCode);
         String slug=slug(requestedSlug,name); ensureSlug(slug,id);
-        asset.update(name,slug,description,categoryCode,regionCode,city,district,address,
+        asset.update(name,slug,description,categoryCode,countryCode,regionCode,city,district,address,
                 new GeoPoint(latitude,longitude));
         CatalogAsset saved=repository.save(asset);
         outbox.append("catalog.asset.updated",saved,correlationId,actorId);
@@ -102,4 +123,11 @@ public class CatalogAssetService {
         return normalized;
     }
     private String shortSuffix(String value){String normalized=value.replaceAll("[^A-Za-z0-9]","").toLowerCase(Locale.ROOT);return normalized.substring(0,Math.min(8,normalized.length()));}
+    private void validatePlaceCountry(AssetType type, String countryCode){
+        if(type != AssetType.PLACE) return;
+        if(countryCode == null || countryCode.isBlank()) throw new CatalogException("COUNTRY_REQUIRED","countryCode is required for a place");
+        if(countries == null) throw new CatalogException("COUNTRY_CONFIGURATION_UNAVAILABLE","Country validation is required for a place");
+        try { countries.validateAnyFeature(countryCode, java.util.List.of(CountryFeature.CONTENT_PUBLISHING, CountryFeature.PLACE_PUBLISHING)); }
+        catch(CountryConfigClient.CountryConfigException exception){ throw new CatalogException("COUNTRY_CONFIGURATION_REJECTED",exception.getMessage()); }
+    }
 }

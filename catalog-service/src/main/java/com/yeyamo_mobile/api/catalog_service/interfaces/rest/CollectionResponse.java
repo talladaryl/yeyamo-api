@@ -2,6 +2,7 @@ package com.yeyamo_mobile.api.catalog_service.interfaces.rest;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import com.yeyamo_mobile.api.catalog_service.application.CollectionService;
 import com.yeyamo_mobile.api.catalog_service.domain.model.CatalogAsset;
@@ -14,6 +15,9 @@ public record CollectionResponse(
     String description,
     boolean isPublic,
     UUID coverAssetId,
+    Set<String> targetCountries,
+    Set<String> targetLanguages,
+    String scope,
     Instant createdAt,
     Instant updatedAt,
     List<CatalogAssetResponse> places,
@@ -29,6 +33,9 @@ public record CollectionResponse(
             collection.getDescription(),
             collection.isPublic(),
             collection.getCoverAssetId(),
+            collection.getTargetCountries(),
+            collection.getTargetLanguages(),
+            collection.getScope().name(),
             collection.getCreatedAt(),
             collection.getUpdatedAt(),
             null, // Pas de lieux pour la liste simple
@@ -49,6 +56,9 @@ public record CollectionResponse(
             collection.getDescription(),
             collection.isPublic(),
             collection.getCoverAssetId(),
+            collection.getTargetCountries(),
+            collection.getTargetLanguages(),
+            collection.getScope().name(),
             collection.getCreatedAt(),
             collection.getUpdatedAt(),
             places,

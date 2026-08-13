@@ -3,6 +3,8 @@ package com.yeyamo_mobile.api.country_config_service.dto;
 public record FeatureFlagsDto(
     Boolean registrationEnabled,
     Boolean contentPublishingEnabled,
+    Boolean placePublishingEnabled,
+    Boolean eventFeatureEnabled,
     Boolean partnerOnboardingEnabled,
     Boolean paymentsEnabled,
     Boolean bookingEnabled,

@@ -55,6 +55,8 @@ public class RecommendationQueryService {
         RecommendationProfile profile = projections.profile(user);
 
         List<RecommendationItem> ranked = projections.activeCandidates(500).stream()
+                .filter(candidate -> matchesCountry(candidate, profile))
+                .filter(candidate -> matchesLanguage(candidate, profile, context))
                 .map(c -> item(c, profile, context))
                 .sorted(Comparator.comparingDouble((RecommendationItem i) -> i.score().total())
                                   .reversed()
@@ -92,4 +94,18 @@ public class RecommendationQueryService {
     }
 
     private double round(double value) { return Math.round(value * 100d) / 100d; }
+
+    private boolean matchesCountry(Candidate candidate, RecommendationProfile profile) {
+        if (candidate.countryCode() == null || candidate.countryCode().isBlank()) return true;
+        Set<String> countries = new HashSet<>(profile.contentCountries());
+        if (profile.countryCode() != null && !profile.countryCode().isBlank()) countries.add(profile.countryCode());
+        return countries.isEmpty() || countries.contains(candidate.countryCode());
+    }
+
+    private boolean matchesLanguage(Candidate candidate, RecommendationProfile profile, RecommendationContext context) {
+        if (candidate.languageCode() == null || candidate.languageCode().isBlank()) return true;
+        Set<String> languages = new HashSet<>(profile.contentLanguages());
+        languages.addAll(context.languageCodes());
+        return languages.isEmpty() || languages.contains(candidate.languageCode());
+    }
 }

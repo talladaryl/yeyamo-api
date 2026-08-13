@@ -21,7 +21,8 @@ class CountryValidationServiceTests {
 
     private CountryValidationService service;
     private RestClient restClient;
-    private RestClient.RequestHeadersUriSpec<?> requestHeadersUriSpec;
+    @SuppressWarnings("rawtypes")
+    private RestClient.RequestHeadersUriSpec requestHeadersUriSpec;
     private RestClient.ResponseSpec responseSpec;
 
     @BeforeEach
@@ -170,6 +171,19 @@ class CountryValidationServiceTests {
 
         UUID cityId = UUID.randomUUID();
         assertDoesNotThrow(() -> service.validateCity("CM", cityId));
+    }
+
+    @Test
+    void validateCity_cityOutsideCountry_isRejected() {
+        when(restClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
+        when(responseSpec.body(any(ParameterizedTypeReference.class))).thenReturn(null);
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> service.validateCity("CM", UUID.randomUUID()));
+        assertEquals("CITY_NOT_FOUND_OR_INVALID", exception.getCode());
     }
 
     @Test

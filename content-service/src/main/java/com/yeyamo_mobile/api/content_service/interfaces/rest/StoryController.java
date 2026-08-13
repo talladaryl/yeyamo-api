@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.yeyamo_mobile.api.content_service.application.StoryService;
 import com.yeyamo_mobile.api.content_service.infrastructure.persistence.StoryEntity;
+import com.yeyamo_mobile.shared.geography.GeographicFields;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -109,6 +110,7 @@ public class StoryController {
                 request.mediaId(),
                 request.caption(),
                 duration,
+                geography(request),
                 correlationId
         );
         
@@ -131,5 +133,14 @@ public class StoryController {
         
         String authorId = auth.getName();
         service.delete(id, authorId, correlationId);
+    }
+
+    private GeographicFields geography(StoryRequest request) {
+        if (request.countryCode() == null || request.countryCode().isBlank()) return null;
+        GeographicFields geography = new GeographicFields(request.countryCode());
+        geography.setLocation(request.adminLevel1Id(), request.adminLevel2Id(), request.cityId(), request.localityId());
+        geography.setCoordinates(request.latitude(), request.longitude());
+        geography.setLanguageCode(request.languageCode());
+        return geography;
     }
 }

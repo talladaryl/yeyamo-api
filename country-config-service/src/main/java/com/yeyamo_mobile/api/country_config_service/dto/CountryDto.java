@@ -18,6 +18,8 @@ public record CountryDto(
     CountryLaunchStatus launchStatus,
     Boolean registrationEnabled,
     Boolean contentPublishingEnabled,
+    Boolean placePublishingEnabled,
+    Boolean eventFeatureEnabled,
     Boolean partnerOnboardingEnabled,
     Boolean paymentsEnabled,
     Boolean bookingEnabled,

@@ -13,6 +13,7 @@ public class CatalogAsset {
     private String slug;
     private String description;
     private String categoryCode;
+    private String countryCode;
     private String regionCode;
     private String city;
     private String district;
@@ -26,6 +27,13 @@ public class CatalogAsset {
     public static CatalogAsset create(AssetType type, UUID ownerId, String source, String externalId,
             String name, String slug, String description, String categoryCode, String regionCode,
             String city, String district, String address, GeoPoint location) {
+        return create(type, ownerId, source, externalId, name, slug, description, categoryCode,
+                null, regionCode, city, district, address, location);
+    }
+
+    public static CatalogAsset create(AssetType type, UUID ownerId, String source, String externalId,
+            String name, String slug, String description, String categoryCode, String countryCode, String regionCode,
+            String city, String district, String address, GeoPoint location) {
         CatalogAsset asset = new CatalogAsset();
         asset.id = UUID.randomUUID();
         asset.type = require(type, "type");
@@ -36,6 +44,7 @@ public class CatalogAsset {
         asset.slug = requireText(slug, "slug");
         asset.description = trimToNull(description);
         asset.categoryCode = trimToNull(categoryCode);
+        asset.countryCode = trimToNull(countryCode);
         asset.regionCode = trimToNull(regionCode);
         asset.city = trimToNull(city);
         asset.district = trimToNull(district);
@@ -49,10 +58,16 @@ public class CatalogAsset {
 
     public void update(String name, String slug, String description, String categoryCode,
             String regionCode, String city, String district, String address, GeoPoint location) {
+        update(name, slug, description, categoryCode, null, regionCode, city, district, address, location);
+    }
+
+    public void update(String name, String slug, String description, String categoryCode, String countryCode,
+            String regionCode, String city, String district, String address, GeoPoint location) {
         this.name = requireText(name, "name");
         this.slug = requireText(slug, "slug");
         this.description = trimToNull(description);
         this.categoryCode = trimToNull(categoryCode);
+        if (countryCode != null) this.countryCode = trimToNull(countryCode);
         this.regionCode = trimToNull(regionCode);
         this.city = trimToNull(city);
         this.district = trimToNull(district);
@@ -123,6 +138,8 @@ public class CatalogAsset {
     public void setDescription(String description) { this.description = description; }
     public String getCategoryCode() { return categoryCode; }
     public void setCategoryCode(String categoryCode) { this.categoryCode = categoryCode; }
+    public String getCountryCode() { return countryCode; }
+    public void setCountryCode(String countryCode) { this.countryCode = countryCode == null ? null : countryCode.trim().toUpperCase(java.util.Locale.ROOT); }
     public String getRegionCode() { return regionCode; }
     public void setRegionCode(String regionCode) { this.regionCode = regionCode; }
     public String getCity() { return city; }

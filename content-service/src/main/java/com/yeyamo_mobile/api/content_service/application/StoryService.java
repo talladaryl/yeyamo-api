@@ -8,10 +8,14 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import com.yeyamo_mobile.api.content_service.infrastructure.client.UserServiceClient;
 import com.yeyamo_mobile.api.content_service.infrastructure.outbox.ContentOutboxPort;
 import com.yeyamo_mobile.api.content_service.infrastructure.persistence.*;
+import com.yeyamo_mobile.shared.country.CountryConfigClient;
+import com.yeyamo_mobile.shared.country.CountryConfigClient.CountryFeature;
+import com.yeyamo_mobile.shared.geography.GeographicFields;
 
 @Service
 public class StoryService {
@@ -20,22 +24,41 @@ public class StoryService {
     private final SpringDataStoryViewRepository viewRepository;
     private final UserServiceClient userServiceClient;
     private final ContentOutboxPort outbox;
+    private final CountryConfigClient countries;
 
     public StoryService(
             SpringDataStoryRepository storyRepository,
             SpringDataStoryViewRepository viewRepository,
             UserServiceClient userServiceClient,
             ContentOutboxPort outbox) {
+        this(storyRepository, viewRepository, userServiceClient, outbox, null);
+    }
+
+    @Autowired
+    public StoryService(
+            SpringDataStoryRepository storyRepository,
+            SpringDataStoryViewRepository viewRepository,
+            UserServiceClient userServiceClient,
+            ContentOutboxPort outbox,
+            CountryConfigClient countries) {
         this.storyRepository = storyRepository;
         this.viewRepository = viewRepository;
         this.userServiceClient = userServiceClient;
         this.outbox = outbox;
+        this.countries = countries;
     }
 
     // ─── CRÉATION ───────────────────────────────────────────────────────────────
 
     @Transactional
     public StoryEntity create(String authorId, UUID mediaId, String caption, int durationSeconds, String correlationId) {
+        return create(authorId, mediaId, caption, durationSeconds, null, correlationId);
+    }
+
+    @Transactional
+    public StoryEntity create(String authorId, UUID mediaId, String caption, int durationSeconds,
+            GeographicFields geography, String correlationId) {
+        validateGeography(geography);
         Instant now = Instant.now();
         Instant expiresAt = now.plus(24, ChronoUnit.HOURS); // Stories expirent après 24h
 
@@ -47,12 +70,16 @@ public class StoryService {
         story.setDurationSeconds(durationSeconds > 0 ? durationSeconds : 15);
         story.setCreatedAt(now);
         story.setExpiresAt(expiresAt);
+        story.setGeography(geography);
 
         StoryEntity saved = storyRepository.save(story);
 
         // Événement Kafka
-        outbox.append("content.story.created", saved.getId().toString(), authorId, correlationId,
-                java.util.Map.of("storyId", saved.getId().toString(), "authorId", authorId, "mediaId", mediaId.toString()));
+        java.util.Map<String, String> eventPayload = new java.util.LinkedHashMap<>();
+        eventPayload.put("storyId", saved.getId().toString()); eventPayload.put("authorId", authorId);
+        eventPayload.put("mediaId", mediaId.toString()); eventPayload.put("countryCode", geography == null ? null : geography.getCountryCode());
+        eventPayload.put("languageCode", geography == null ? null : geography.getLanguageCode());
+        outbox.append("content.story.created", saved.getId().toString(), authorId, correlationId, eventPayload);
 
         return saved;
     }
@@ -159,6 +186,17 @@ public class StoryService {
         }
         
         return expiredStories.size();
+    }
+
+    private void validateGeography(GeographicFields geography) {
+        if (geography == null) return;
+        if (countries == null) throw new ContentException("COUNTRY_CONFIGURATION_UNAVAILABLE", "Country validation is required for geolocated content");
+        try {
+            countries.validateFeature(geography.getCountryCode(), CountryFeature.CONTENT_PUBLISHING);
+            countries.validateCity(geography.getCountryCode(), geography.getCityId());
+        } catch (CountryConfigClient.CountryConfigException exception) {
+            throw new ContentException("COUNTRY_CONFIGURATION_REJECTED", exception.getMessage());
+        }
     }
 
     // ─── NESTED CLASSES ─────────────────────────────────────────────────────────

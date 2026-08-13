@@ -3,11 +3,13 @@ package com.yeyamo_mobile.api.user_service.application;
 import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.UUID;
+import java.time.ZoneId;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.yeyamo_mobile.api.user_service.application.exception.UserProfileException;
@@ -16,15 +18,23 @@ import com.yeyamo_mobile.api.user_service.domain.model.Language;
 import com.yeyamo_mobile.api.user_service.domain.model.ProfileVisibility;
 import com.yeyamo_mobile.api.user_service.domain.model.UserProfile;
 import com.yeyamo_mobile.api.user_service.domain.port.UserProfileRepository;
+import com.yeyamo_mobile.shared.country.CountryConfigClient;
 
 @Service
 public class UserProfileService {
     private final UserProfileRepository repository;
     private final OutboxPort outbox;
+    private final CountryConfigClient countries;
 
     public UserProfileService(UserProfileRepository repository, OutboxPort outbox) {
+        this(repository, outbox, null);
+    }
+
+    @Autowired
+    public UserProfileService(UserProfileRepository repository, OutboxPort outbox, CountryConfigClient countries) {
         this.repository = repository;
         this.outbox = outbox;
+        this.countries = countries;
     }
 
     @Transactional
@@ -105,9 +115,15 @@ public class UserProfileService {
     public UserProfile updateLocation(String authUserId, String countryCode, UUID adminLevel1Id, UUID adminLevel2Id,
             UUID cityId, UUID localityId, String timezone, String correlationId) {
         UserProfile profile = byAuthUserId(authUserId);
+        String selectedCountry = countryCode == null || countryCode.isBlank() ? profile.getCountryCode() : countryCode;
+        validateCountryAndCity(selectedCountry, cityId);
+        validateTimezone(timezone);
+        boolean countryChanged = countryCode != null && !countryCode.equals(profile.getCountryCode());
         profile.updateLocation(countryCode, adminLevel1Id, adminLevel2Id, cityId, localityId, timezone);
         UserProfile saved = repository.save(profile);
         appendLocationEvent("profile.location_updated", saved, authUserId, correlationId);
+        appendLocationEvent("UserLocationUpdated", saved, authUserId, correlationId);
+        if (countryChanged) appendLocationEvent("UserCountrySelected", saved, authUserId, correlationId);
         return saved;
     }
 
@@ -118,6 +134,7 @@ public class UserProfileService {
         profile.updateLanguagePreferences(preferredLanguageCode, contentLanguages);
         UserProfile saved = repository.save(profile);
         appendLanguageEvent("profile.language_updated", saved, authUserId, correlationId);
+        appendLanguageEvent("UserLanguageUpdated", saved, authUserId, correlationId);
         return saved;
     }
 
@@ -125,11 +142,13 @@ public class UserProfileService {
     public UserProfile updateDiscoveryPreferences(String authUserId, java.util.Set<String> contentCountries,
             Integer localRadiusKm, Boolean discoverAfricanContent, String preferredCurrencyCode, String correlationId) {
         UserProfile profile = byAuthUserId(authUserId);
+        validateContentCountries(contentCountries);
         profile.updateDiscoveryPreferences(contentCountries, localRadiusKm,
                 discoverAfricanContent != null ? discoverAfricanContent : profile.isDiscoverAfricanContent(),
                 preferredCurrencyCode);
         UserProfile saved = repository.save(profile);
         appendDiscoveryEvent("profile.discovery_preferences_updated", saved, authUserId, correlationId);
+        appendDiscoveryEvent("UserDiscoveryPreferencesUpdated", saved, authUserId, correlationId);
         return saved;
     }
 
@@ -149,6 +168,35 @@ public class UserProfileService {
         return new UserProfileException("PROFILE_NOT_FOUND", "Profil utilisateur introuvable", HttpStatus.NOT_FOUND);
     }
 
+    private void validateCountryAndCity(String countryCode, UUID cityId) {
+        if (countryCode == null || countryCode.isBlank()) {
+            if (cityId != null) throw new UserProfileException("COUNTRY_REQUIRED", "Un pays est requis pour choisir une ville", HttpStatus.BAD_REQUEST);
+            return;
+        }
+        if (countries == null) return; // compatibility constructor reserved for isolated domain tests
+        try {
+            countries.getCountry(countryCode);
+            countries.validateCity(countryCode, cityId);
+        } catch (CountryConfigClient.CountryConfigException exception) {
+            throw new UserProfileException("COUNTRY_CONFIGURATION_REJECTED", exception.getMessage(), HttpStatus.SERVICE_UNAVAILABLE);
+        }
+    }
+
+    private void validateContentCountries(java.util.Set<String> contentCountries) {
+        if (contentCountries == null || countries == null) return;
+        try {
+            contentCountries.forEach(countries::getCountry);
+        } catch (CountryConfigClient.CountryConfigException exception) {
+            throw new UserProfileException("COUNTRY_CONFIGURATION_REJECTED", exception.getMessage(), HttpStatus.SERVICE_UNAVAILABLE);
+        }
+    }
+
+    private void validateTimezone(String timezone) {
+        if (timezone == null || timezone.isBlank()) return;
+        try { ZoneId.of(timezone); }
+        catch (RuntimeException exception) { throw new UserProfileException("TIMEZONE_INVALID", "Fuseau horaire IANA invalide", HttpStatus.BAD_REQUEST); }
+    }
+
     private void append(String type, UserProfile p, String actor, String correlationId) {
         Map<String,Object> payload = new LinkedHashMap<>();
         payload.put("profileId", p.getId().toString()); payload.put("authUserId", p.getAuthUserId());
@@ -156,6 +204,8 @@ public class UserProfileService {
         payload.put("avatarUrl", p.getAvatarUrl());
         payload.put("language", p.getLanguage().name()); payload.put("notificationsEnabled", p.isNotificationsEnabled());
         payload.put("locationSharingEnabled", p.isLocationSharingEnabled()); payload.put("preferredRegionId", p.getPreferredRegionId());
+        payload.put("countryCode", p.getCountryCode());
+        payload.put("languageCode", p.getPreferredLanguageCode());
         outbox.append(type, p.getId(), actor, correlationId, payload);
     }
 
@@ -176,7 +226,9 @@ public class UserProfileService {
         Map<String,Object> payload = new LinkedHashMap<>();
         payload.put("profileId", p.getId().toString());
         payload.put("authUserId", p.getAuthUserId());
+        payload.put("countryCode", p.getCountryCode());
         payload.put("preferredLanguageCode", p.getPreferredLanguageCode());
+        payload.put("languageCode", p.getPreferredLanguageCode());
         payload.put("contentLanguages", p.getContentLanguages());
         outbox.append(type, p.getId(), actor, correlationId, payload);
     }
@@ -185,6 +237,8 @@ public class UserProfileService {
         Map<String,Object> payload = new LinkedHashMap<>();
         payload.put("profileId", p.getId().toString());
         payload.put("authUserId", p.getAuthUserId());
+        payload.put("countryCode", p.getCountryCode());
+        payload.put("languageCode", p.getPreferredLanguageCode());
         payload.put("contentCountries", p.getContentCountries());
         payload.put("localRadiusKm", p.getLocalRadiusKm());
         payload.put("discoverAfricanContent", p.isDiscoverAfricanContent());

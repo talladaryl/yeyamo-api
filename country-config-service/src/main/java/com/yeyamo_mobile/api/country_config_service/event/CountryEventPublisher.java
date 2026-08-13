@@ -84,6 +84,8 @@ public class CountryEventPublisher {
                 "features", Map.of(
                         "registrationEnabled", country.getRegistrationEnabled(),
                         "contentPublishingEnabled", country.getContentPublishingEnabled(),
+                        "placePublishingEnabled", country.getPlacePublishingEnabled(),
+                        "eventFeatureEnabled", country.getEventFeatureEnabled(),
                         "partnerOnboardingEnabled", country.getPartnerOnboardingEnabled(),
                         "paymentsEnabled", country.getPaymentsEnabled(),
                         "bookingEnabled", country.getBookingEnabled(),

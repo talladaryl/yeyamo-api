@@ -3,6 +3,7 @@ package com.yeyamo_mobile.api.content_service.infrastructure.persistence;
 import java.time.Instant;
 import java.util.UUID;
 import jakarta.persistence.*;
+import com.yeyamo_mobile.shared.geography.GeographicFields;
 
 @Entity
 @Table(name = "stories")
@@ -15,6 +16,7 @@ public class StoryEntity {
     @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
     @Column(name = "expires_at", nullable = false) private Instant expiresAt;
     @Column(name = "deleted_at") private Instant deletedAt;
+    @Embedded private GeographicFields geography;
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -32,4 +34,6 @@ public class StoryEntity {
     public void setExpiresAt(Instant expiresAt) { this.expiresAt = expiresAt; }
     public Instant getDeletedAt() { return deletedAt; }
     public void setDeletedAt(Instant deletedAt) { this.deletedAt = deletedAt; }
+    public GeographicFields getGeography() { return geography; }
+    public void setGeography(GeographicFields geography) { this.geography = geography; }
 }

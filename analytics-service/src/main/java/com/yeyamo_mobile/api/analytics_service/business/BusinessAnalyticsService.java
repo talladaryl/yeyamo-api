@@ -33,6 +33,7 @@ public class BusinessAnalyticsService {
     private final Counter duplicates;
     private final DistributionSummary lag;
     private final int minimumSegmentSize;
+    private TerritorialAnalyticsService territorial;
 
     public BusinessAnalyticsService(ObjectMapper json,
             AnalyticsInboxRepository inbox,
@@ -53,6 +54,9 @@ public class BusinessAnalyticsService {
         this.minimumSegmentSize = minimumSegmentSize;
     }
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setTerritorialAnalyticsService(TerritorialAnalyticsService territorial) { this.territorial = territorial; }
+
     @Transactional
     public void ingest(String raw) {
         try {
@@ -72,6 +76,7 @@ public class BusinessAnalyticsService {
             StoredAnalyticsEvent stored = store(
                 eventId, type, occurredAt, payload, raw);
             events.save(stored);
+            if (territorial != null) territorial.record(stored, payload);
             if (SUPPORTED.contains(type)) project(stored, payload);
             inbox.save(new AnalyticsInbox(eventId, type, occurredAt));
             lag.record(Math.max(0, Duration.between(occurredAt, Instant.now()).toSeconds()));
@@ -145,6 +150,13 @@ public class BusinessAnalyticsService {
         event.partnerId = text(payload, "partnerId", null);
         event.campaignId = text(payload, "campaignId", null);
         event.eventEntityId = first(payload, "eventId", "ticketEventId", "sourceEntityId");
+        event.countryCode = text(payload, "countryCode", null);
+        event.languageCode = text(payload, "languageCode", text(payload, "preferredLanguageCode", null));
+        event.adminLevel1Id = text(payload, "adminLevel1Id", null);
+        event.cityId = text(payload, "cityId", null);
+        event.userCountryCode = text(payload, "userCountryCode", null);
+        event.contentCountryCode = text(payload, "contentCountryCode", event.countryCode);
+        event.currencyCode = text(payload, "currencyCode", text(payload, "currency", null));
         event.payload = raw;
         event.storedAt = Instant.now();
         return event;

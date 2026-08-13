@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.yeyamo_mobile.api.event_service.dto.EventRequest;
@@ -22,6 +23,9 @@ import com.yeyamo_mobile.api.event_service.models.Event;
 import com.yeyamo_mobile.api.event_service.models.EventRegistration;
 import com.yeyamo_mobile.api.event_service.repository.EventRegistrationRepository;
 import com.yeyamo_mobile.api.event_service.repository.EventRepository;
+import com.yeyamo_mobile.shared.country.CountryConfigClient;
+import com.yeyamo_mobile.shared.country.CountryConfigClient.CountryFeature;
+import com.yeyamo_mobile.shared.geography.GeographicFields;
 
 @Service
 @Transactional
@@ -30,15 +34,27 @@ public class EventService {
     private final EventRepository eventRepository;
     private final EventRegistrationRepository registrationRepository;
     private final EventPublisher eventPublisher;
+    private final CountryConfigClient countries;
 
     public EventService(
             EventRepository eventRepository,
             EventRegistrationRepository registrationRepository,
             EventPublisher eventPublisher
     ) {
+        this(eventRepository, registrationRepository, eventPublisher, null);
+    }
+
+    @Autowired
+    public EventService(
+            EventRepository eventRepository,
+            EventRegistrationRepository registrationRepository,
+            EventPublisher eventPublisher,
+            CountryConfigClient countries
+    ) {
         this.eventRepository = eventRepository;
         this.registrationRepository = registrationRepository;
         this.eventPublisher = eventPublisher;
+        this.countries = countries;
     }
 
     @Transactional(readOnly = true)
@@ -67,6 +83,11 @@ public class EventService {
     public EventResponse create(EventRequest request, String correlationId, String actorId) {
         validateDates(request.getStartAt(), request.getEndAt());
         validateCapacity(request.getCapacity(), 0);
+        GeographicFields geography = geography(request);
+        validateCountryFeatures(request, geography);
+        if (!request.isVirtual() && request.getPlaceId() == null) {
+            throw new ApiException("PLACE_REQUIRED", "Un Ã©vÃ©nement physique doit Ãªtre associÃ© Ã  un lieu", HttpStatus.BAD_REQUEST);
+        }
 
         Event event = new Event();
         event.setPlaceId(request.getPlaceId());
@@ -77,6 +98,9 @@ public class EventService {
         event.setCapacity(request.getCapacity());
         event.setStatus(request.getStatus() != null ? request.getStatus() : EventStatus.PENDING);
         event.setRegisteredCount(0);
+        event.setVirtual(request.isVirtual());
+        event.setAccessibleCountries(request.getAccessibleCountries() == null ? new java.util.HashSet<>() : new java.util.HashSet<>(request.getAccessibleCountries()));
+        event.setGeography(geography);
 
         Event saved = eventRepository.save(event);
         eventPublisher.publishCreated(saved, correlationId, actorId);
@@ -255,6 +279,30 @@ public class EventService {
                     "Transition de statut non autorisee de " + current + " vers " + next,
                     HttpStatus.BAD_REQUEST
             );
+        }
+    }
+
+    private GeographicFields geography(EventRequest request) {
+        if (request.getCountryCode() == null || request.getCountryCode().isBlank()) return null;
+        GeographicFields geography = new GeographicFields(request.getCountryCode());
+        geography.setLocation(request.getAdminLevel1Id(), request.getAdminLevel2Id(), request.getCityId(), request.getLocalityId());
+        geography.setCoordinates(request.getLatitude(), request.getLongitude());
+        geography.setLanguageCode(request.getLanguageCode());
+        return geography;
+    }
+
+    private void validateCountryFeatures(EventRequest request, GeographicFields geography) {
+        if (geography == null) {
+            if (countries != null) throw new ApiException("COUNTRY_REQUIRED", "Un pays est requis pour crÃ©er un Ã©vÃ©nement", HttpStatus.BAD_REQUEST);
+            return;
+        }
+        if (countries == null) return;
+        try {
+            countries.validateFeature(geography.getCountryCode(), CountryFeature.CONTENT_PUBLISHING);
+            countries.validateFeature(geography.getCountryCode(), CountryFeature.EVENT_FEATURE);
+            countries.validateCity(geography.getCountryCode(), geography.getCityId());
+        } catch (CountryConfigClient.CountryConfigException exception) {
+            throw new ApiException("COUNTRY_CONFIGURATION_REJECTED", exception.getMessage(), HttpStatus.SERVICE_UNAVAILABLE);
         }
     }
 }

@@ -74,7 +74,7 @@ public class QrTokenService {
     public TokenValidationResult validateToken(String token) {
         try {
             // First parse without validation to get key ID
-            Jwt<?, ?> unverifiedToken = Jwts.parserBuilder()
+            Jwt<?, ?> unverifiedToken = Jwts.parser()
                     .build()
                     .parseClaimsJwt(token.substring(0, token.lastIndexOf('.') + 1));
             
@@ -85,7 +85,7 @@ public class QrTokenService {
             }
             
             // Now validate with proper public key
-            Claims claims = Jwts.parserBuilder()
+            Claims claims = Jwts.parser()
                     .setSigningKey(keyManager.getPublicKey(keyId))
                     .build()
                     .parseClaimsJws(token)

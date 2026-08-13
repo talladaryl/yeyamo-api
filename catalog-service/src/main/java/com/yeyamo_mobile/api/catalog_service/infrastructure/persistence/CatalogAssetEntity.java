@@ -28,6 +28,7 @@ public class CatalogAssetEntity {
     @Column(nullable = false, unique = true, length = 220) private String slug;
     @Column(columnDefinition = "TEXT") private String description;
     @Column(name = "category_code", length = 100) private String categoryCode;
+    @Column(name = "country_code", length = 2) private String countryCode;
     @Column(name = "region_code", length = 40) private String regionCode;
     @Column(length = 160) private String city;
     @Column(length = 160) private String district;
@@ -49,6 +50,7 @@ public class CatalogAssetEntity {
     public String getSlug() { return slug; } public void setSlug(String slug) { this.slug = slug; }
     public String getDescription() { return description; } public void setDescription(String description) { this.description = description; }
     public String getCategoryCode() { return categoryCode; } public void setCategoryCode(String categoryCode) { this.categoryCode = categoryCode; }
+    public String getCountryCode() { return countryCode; } public void setCountryCode(String countryCode) { this.countryCode = countryCode; }
     public String getRegionCode() { return regionCode; } public void setRegionCode(String regionCode) { this.regionCode = regionCode; }
     public String getCity() { return city; } public void setCity(String city) { this.city = city; }
     public String getDistrict() { return district; } public void setDistrict(String district) { this.district = district; }

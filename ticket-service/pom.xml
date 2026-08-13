@@ -20,6 +20,8 @@
 		<testcontainers.version>1.20.4</testcontainers.version>
 		<jjwt.version>0.12.6</jjwt.version>
 		<zxing.version>3.5.3</zxing.version>
+		<!-- Spring Boot does not manage Rest Assured's version. -->
+		<rest-assured.version>5.5.5</rest-assured.version>
 	</properties>
 	
 	<dependencies>
@@ -206,6 +208,7 @@
 		<dependency>
 			<groupId>io.rest-assured</groupId>
 			<artifactId>rest-assured</artifactId>
+			<version>${rest-assured.version}</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>

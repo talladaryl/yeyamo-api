@@ -174,10 +174,13 @@ public class CultureIndexManager {
         m.put("sourceId",             keyword());
         m.put("type",                 keyword());
         m.put("active",               Map.of("type", "boolean"));
+        m.put("contentType",          keyword());
+        m.put("launchVisibility",     keyword());
         // textual — multilingual analyser + keyword sub-field for exact filters
         m.put("title",                textWithKeyword());
         m.put("description",          analyzedOnly());
         m.put("translatedTitlesJson", analyzedOnly());   // searchable blob of all translations
+        m.put("aliases",              analyzedOnly());
         m.put("summary",              analyzedOnly());
         // filterable strings
         m.put("countryCode",          keyword());
@@ -191,6 +194,7 @@ public class CultureIndexManager {
         m.put("city",                 textWithKeyword());
         // geo
         m.put("location",             Map.of("type", "geo_point"));
+        m.put("coordinates",          Map.of("type", "geo_point"));
         // signals
         m.put("trendScore",           floatField());
         m.put("popularitySignal",     floatField());

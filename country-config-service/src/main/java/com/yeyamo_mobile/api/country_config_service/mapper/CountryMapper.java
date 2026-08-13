@@ -21,6 +21,8 @@ public class CountryMapper {
                 country.getLaunchStatus(),
                 country.getRegistrationEnabled(),
                 country.getContentPublishingEnabled(),
+                country.getPlacePublishingEnabled(),
+                country.getEventFeatureEnabled(),
                 country.getPartnerOnboardingEnabled(),
                 country.getPaymentsEnabled(),
                 country.getBookingEnabled(),

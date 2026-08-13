@@ -54,13 +54,13 @@ public class CatalogAssetController {
     public CatalogAssetResponse create(@Valid @RequestBody CatalogAssetRequest r,
             @RequestHeader(value="X-Correlation-Id",required=false) String correlationId,Authentication auth){
         return CatalogAssetResponse.from(service.create(r.type(),r.ownerId(),r.name(),r.slug(),r.description(),
-                r.categoryCode(),r.regionCode(),r.city(),r.district(),r.address(),r.latitude(),r.longitude(),
+                r.categoryCode(),r.countryCode(),r.regionCode(),r.city(),r.district(),r.address(),r.latitude(),r.longitude(),
                 correlationId,auth.getName()));
     }
     @PutMapping("/{id}") @Operation(summary="Update a catalog asset",security=@SecurityRequirement(name="bearerAuth")) public CatalogAssetResponse update(@PathVariable UUID id,@Valid @RequestBody CatalogAssetRequest r,
             @RequestHeader(value="X-Correlation-Id",required=false) String correlationId,Authentication auth){
         return CatalogAssetResponse.from(service.update(id,r.name(),r.slug(),r.description(),r.categoryCode(),
-                r.regionCode(),r.city(),r.district(),r.address(),r.latitude(),r.longitude(),correlationId,auth.getName()));
+                r.countryCode(),r.regionCode(),r.city(),r.district(),r.address(),r.latitude(),r.longitude(),correlationId,auth.getName()));
     }
     @PatchMapping("/{id}/status") @Operation(summary="Change catalog workflow status",security=@SecurityRequirement(name="bearerAuth")) public CatalogAssetResponse status(@PathVariable UUID id,
             @Valid @RequestBody StatusChangeRequest r,

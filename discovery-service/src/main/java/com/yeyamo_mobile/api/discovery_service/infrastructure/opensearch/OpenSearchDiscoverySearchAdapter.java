@@ -109,6 +109,7 @@ public class OpenSearchDiscoverySearchAdapter implements DiscoverySearchPort {
 
         // mandatory
         filter.add(Map.of("term", Map.of("active", true)));
+        filter.add(Map.of("terms", Map.of("launchVisibility.keyword", List.of("PUBLIC", "PUBLIC_HERITAGE"))));
 
         // -- type --
         if (c.type() != null)
@@ -123,6 +124,8 @@ public class OpenSearchDiscoverySearchAdapter implements DiscoverySearchPort {
         // -- culture & artisan filters --
         if (text(c.countryCode()) != null)
             filter.add(Map.of("term", Map.of("countryCode.keyword", c.countryCode())));
+        if (c.countries() != null && !c.countries().isEmpty())
+            filter.add(Map.of("terms", Map.of("countryCode.keyword", c.countries())));
         if (text(c.adminLevel1Id()) != null)
             filter.add(Map.of("term", Map.of("adminLevel1Id.keyword", c.adminLevel1Id())));
         if (text(c.cityId()) != null)
@@ -152,7 +155,7 @@ public class OpenSearchDiscoverySearchAdapter implements DiscoverySearchPort {
         if (text(c.query()) != null)
             must.add(Map.of("multi_match", Map.of(
                     "query",    c.query(),
-                    "fields",   List.of("title^4", "translatedTitlesJson^3",
+                    "fields",   List.of("title^4", "translatedTitlesJson^3", "aliases^3",
                                         "description", "city^2", "tags", "community"),
                     "fuzziness", "AUTO",
                     "operator",  "or")));
@@ -179,8 +182,10 @@ public class OpenSearchDiscoverySearchAdapter implements DiscoverySearchPort {
     @SuppressWarnings("unchecked")
     private Map<String, Object> toSource(DiscoveryDocument d) {
         Map<String, Object> m = mapper.convertValue(d, Map.class);
+        m.put("contentType", d.type().name());
+        m.put("launchVisibility", d.launchVisibility() == null ? "PUBLIC" : d.launchVisibility());
         if (d.latitude() != null)
-            m.put("location", Map.of("lat", d.latitude(), "lon", d.longitude()));
+            { Map<String, Object> point = Map.of("lat", d.latitude(), "lon", d.longitude()); m.put("location", point); m.put("coordinates", point); }
         return m;
     }
 
@@ -216,7 +221,9 @@ public class OpenSearchDiscoverySearchAdapter implements DiscoverySearchPort {
                 str(n, "availabilityStatus"),
                 bd(n, "priceMin"),
                 bd(n, "priceMax"),
-                n.path("popularitySignal").asDouble(0)
+                n.path("popularitySignal").asDouble(0),
+                str(n, "launchVisibility"),
+                str(n, "aliases")
         );
     }
 
@@ -229,7 +236,7 @@ public class OpenSearchDiscoverySearchAdapter implements DiscoverySearchPort {
                 d.translatedTitlesJson(), d.languageCodes(), d.community(), d.tags(),
                 d.materials(), d.techniques(), d.artisanId(),
                 d.verificationStatus(), d.availabilityStatus(),
-                d.priceMin(), d.priceMax(), d.popularitySignal());
+                d.priceMin(), d.priceMax(), d.popularitySignal(), d.launchVisibility(), d.aliases());
     }
 
     private String str(JsonNode n, String f) { JsonNode v = n.get(f); return (v == null || v.isNull()) ? null : v.asText(); }

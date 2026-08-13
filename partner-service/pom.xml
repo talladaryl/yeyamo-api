@@ -31,6 +31,7 @@
 		<spring-cloud.version>2025.1.2</spring-cloud.version>
 	</properties>
 	<dependencies>
+		<dependency><groupId>com.yeyamo</groupId><artifactId>shared-lib</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
 		<dependency><groupId>com.yeyamo</groupId><artifactId>domain-foundation</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

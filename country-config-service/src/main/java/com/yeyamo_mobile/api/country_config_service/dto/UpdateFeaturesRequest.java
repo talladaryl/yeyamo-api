@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotNull;
 public record UpdateFeaturesRequest(
     @NotNull Boolean registrationEnabled,
     @NotNull Boolean contentPublishingEnabled,
+    @NotNull Boolean placePublishingEnabled,
+    @NotNull Boolean eventFeatureEnabled,
     @NotNull Boolean partnerOnboardingEnabled,
     @NotNull Boolean paymentsEnabled,
     @NotNull Boolean bookingEnabled,

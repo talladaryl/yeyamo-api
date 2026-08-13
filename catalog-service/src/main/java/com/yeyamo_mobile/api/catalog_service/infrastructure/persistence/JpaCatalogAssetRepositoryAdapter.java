@@ -51,7 +51,7 @@ public class JpaCatalogAssetRepositoryAdapter implements CatalogAssetRepository 
         CatalogAssetEntity e = new CatalogAssetEntity();
         e.setId(a.getId()); e.setType(a.getType()); e.setOwnerId(a.getOwnerId());
         e.setSource(a.getSource()); e.setExternalId(a.getExternalId()); e.setName(a.getName());
-        e.setSlug(a.getSlug()); e.setDescription(a.getDescription()); e.setCategoryCode(a.getCategoryCode());
+        e.setSlug(a.getSlug()); e.setDescription(a.getDescription()); e.setCategoryCode(a.getCategoryCode()); e.setCountryCode(a.getCountryCode());
         e.setRegionCode(a.getRegionCode()); e.setCity(a.getCity()); e.setDistrict(a.getDistrict());
         e.setAddress(a.getAddress()); e.setLatitude(a.getLocation().latitude());
         e.setLongitude(a.getLocation().longitude());
@@ -64,7 +64,7 @@ public class JpaCatalogAssetRepositoryAdapter implements CatalogAssetRepository 
         CatalogAsset a = new CatalogAsset();
         a.setId(e.getId()); a.setType(e.getType()); a.setOwnerId(e.getOwnerId());
         a.setSource(e.getSource()); a.setExternalId(e.getExternalId()); a.setName(e.getName());
-        a.setSlug(e.getSlug()); a.setDescription(e.getDescription()); a.setCategoryCode(e.getCategoryCode());
+        a.setSlug(e.getSlug()); a.setDescription(e.getDescription()); a.setCategoryCode(e.getCategoryCode()); a.setCountryCode(e.getCountryCode());
         a.setRegionCode(e.getRegionCode()); a.setCity(e.getCity()); a.setDistrict(e.getDistrict());
         a.setAddress(e.getAddress()); a.setLocation(new GeoPoint(e.getLatitude(), e.getLongitude()));
         a.setStatus(e.getStatus()); a.setCreatedAt(e.getCreatedAt()); a.setUpdatedAt(e.getUpdatedAt());

@@ -15,6 +15,13 @@ public class StoredAnalyticsEvent {
     public String partnerId;
     public String campaignId;
     public String eventEntityId;
+    @Column(length = 2) public String countryCode;
+    @Column(length = 10) public String languageCode;
+    @Column(length = 120) public String adminLevel1Id;
+    @Column(length = 120) public String cityId;
+    @Column(length = 2) public String userCountryCode;
+    @Column(length = 2) public String contentCountryCode;
+    @Column(length = 3) public String currencyCode;
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb") public String payload;
     public Instant storedAt;

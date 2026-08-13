@@ -48,7 +48,7 @@ public class PartnerController {
             @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
         Partner partner = service.create(authentication.getName(), request.legalName(), request.tradeName(),
                 request.businessType(), request.registrationNumber(), request.taxId(), request.contactEmail(),
-                request.contactPhone(), request.websiteUrl(), request.description(), correlationId);
+                request.contactPhone(), request.websiteUrl(), request.description(), request.primaryCountryCode(), request.operatingCountries(), correlationId);
         return ResponseEntity.status(HttpStatus.CREATED).body(PartnerResponse.from(partner));
     }
 
@@ -62,7 +62,7 @@ public class PartnerController {
             @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
         return PartnerResponse.from(service.update(authentication.getName(), request.legalName(), request.tradeName(),
                 request.businessType(), request.registrationNumber(), request.taxId(), request.contactEmail(),
-                request.contactPhone(), request.websiteUrl(), request.description(), correlationId));
+                request.contactPhone(), request.websiteUrl(), request.description(), request.primaryCountryCode(), request.operatingCountries(), correlationId));
     }
 
     @GetMapping("/me/documents")

@@ -1,11 +1,13 @@
 package com.yeyamo_mobile.api.auth_service.service;
 
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
@@ -60,6 +62,30 @@ public class AuthService {
     private final AntiBotVerifier antiBotVerifier;
     private final CountryValidationService countryValidationService;
 
+    @Value("${yeyamo.auth.allow-coming-soon-registration:false}")
+    private boolean allowComingSoonRegistration;
+
+    public AuthService(
+            UserRepository userRepository,
+            OAuthAccountRepository oAuthAccountRepository,
+            RoleRepository roleRepository,
+            PasswordEncoder passwordEncoder,
+            AuthenticationManager authenticationManager,
+            JwtService jwtService,
+            RefreshTokenService refreshTokenService,
+            OAuthTokenVerifier oAuthTokenVerifier,
+            OtpService otpService,
+            EmailService emailService,
+            LoginAttemptService loginAttemptService,
+            AuthEventOutbox eventOutbox,
+            AntiBotVerifier antiBotVerifier
+    ) {
+        this(userRepository, oAuthAccountRepository, roleRepository, passwordEncoder, authenticationManager,
+                jwtService, refreshTokenService, oAuthTokenVerifier, otpService, emailService,
+                loginAttemptService, eventOutbox, antiBotVerifier, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
     public AuthService(
             UserRepository userRepository,
             OAuthAccountRepository oAuthAccountRepository,
@@ -99,7 +125,7 @@ public class AuthService {
 
         // Validate country and registration eligibility
         CountryValidationService.CountryValidationResult country = 
-                countryValidationService.validateRegistrationEligibility(request.countryCode(), false);
+                countryValidationService.validateRegistrationEligibility(request.countryCode(), allowComingSoonRegistration);
 
         // Validate city if provided
         if (request.cityId() != null) {
@@ -328,10 +354,13 @@ public class AuthService {
 
     private UserResponse toResponse(User user) {
         Set<String> roles = user.getRoles().stream()
-                .map(role -> role.getCode().name())
+                .map(Role::getCode)
+                .filter(java.util.Objects::nonNull)
+                .map(Enum::name)
                 .collect(Collectors.toSet());
 
-        Set<Roles> roleCodes = user.getRoles().stream().map(Role::getCode).collect(Collectors.toSet());
+        Set<Roles> roleCodes = user.getRoles().stream().map(Role::getCode)
+                .filter(java.util.Objects::nonNull).collect(Collectors.toSet());
         return new UserResponse(user.getId(), user.getEmail(), user.getPhone(), user.getStatus(), roles,
                 RoleAuthorities.permissions(roleCodes), RoleAuthorities.scopes(roleCodes),
                 user.getCreatedAt(), user.getEmailVerifiedAt());
@@ -343,6 +372,8 @@ public class AuthService {
     }
 
     private void sendEmailVerificationOtp(User user) {
+        // The no-OTP constructor is retained for isolated service tests only.
+        if (otpService == null || emailService == null) return;
         String otp = otpService.generate("email-verification", user.getEmail());
         emailService.sendEmailVerificationOtp(user.getEmail(), otp, otpService.expirationMinutes());
     }
@@ -411,6 +442,16 @@ public class AuthService {
         }
         if (!hasText(request.countryCode())) {
             throw new ApiException("COUNTRY_REQUIRED", "Code pays requis", HttpStatus.BAD_REQUEST);
+        }
+        if (hasText(request.phone()) && !request.phone().matches("\\+[1-9]\\d{1,14}")) {
+            throw new ApiException("PHONE_INVALID", "Le numÃ©ro doit Ãªtre au format E.164", HttpStatus.BAD_REQUEST);
+        }
+        if (hasText(request.timezone())) {
+            try {
+                ZoneId.of(request.timezone());
+            } catch (RuntimeException exception) {
+                throw new ApiException("TIMEZONE_INVALID", "Fuseau horaire IANA invalide", HttpStatus.BAD_REQUEST);
+            }
         }
     }
 

@@ -28,7 +28,8 @@ services:
         yeyamo_booking,yeyamo_payment,yeyamo_notification,yeyamo_moderation,yeyamo_support,yeyamo_culture,
         yeyamo_referral,yeyamo_gamification,yeyamo_mission,yeyamo_ingestion,
         yeyamo_feed,yeyamo_media,yeyamo_discovery,yeyamo_recommendation,
-        yeyamo_campaign,yeyamo_ads,yeyamo_ticket,yeyamo_commerce,yeyamo_analytics
+        yeyamo_campaign,yeyamo_ads,yeyamo_ticket,yeyamo_commerce,yeyamo_analytics,
+        yeyamo_country_config
     command: 
       - "postgres"
       - "-c"
@@ -61,7 +62,8 @@ services:
         yeyamo_booking,yeyamo_payment,yeyamo_notification,yeyamo_moderation,yeyamo_support,yeyamo_culture,
         yeyamo_referral,yeyamo_gamification,yeyamo_mission,yeyamo_ingestion,
         yeyamo_feed,yeyamo_media,yeyamo_discovery,yeyamo_recommendation,
-        yeyamo_campaign,yeyamo_ads,yeyamo_ticket,yeyamo_commerce,yeyamo_analytics
+        yeyamo_campaign,yeyamo_ads,yeyamo_ticket,yeyamo_commerce,yeyamo_analytics,
+        yeyamo_country_config
     volumes:
       - ./scripts/init-multiple-databases.sh:/init-multiple-databases.sh:ro
     entrypoint: ["bash", "/init-multiple-databases.sh"]
@@ -239,6 +241,48 @@ services:
       timeout: 5s
       start_period: 60s
       retries: 5
+    networks:
+      - yeyamo-network
+
+  country-config-service:
+    build: ./country-config-service
+    deploy: *java-limits
+    environment:
+      <<: *java-service-env
+      SERVER_PORT: "8117"
+      CONFIG_SERVER_URL: http://config-server:8080
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8080
+      CONFIG_SERVER_USERNAME: admin
+      CONFIG_SERVER_PASSWORD: admin123
+      EUREKA_SERVER: http://eureka:eureka123@registry-service:8761/eureka/
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_ISSUER_URI: http://api-gateway:8083/auth/realms/yeyamo
+      JWT_JWK_SET_URI: http://api-gateway:8083/auth/realms/yeyamo/protocol/openid-connect/certs
+    ports:
+      - "8117:8117"
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      registry-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8117/actuator/health/readiness | grep UP || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
     networks:
       - yeyamo-network
 

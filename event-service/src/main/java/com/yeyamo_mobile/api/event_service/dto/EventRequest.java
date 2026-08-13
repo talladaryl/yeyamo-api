@@ -10,6 +10,9 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.DecimalMax;
 
 public class EventRequest {
 
@@ -34,6 +37,17 @@ public class EventRequest {
     private Integer capacity;
 
     private EventStatus status;
+
+    private boolean virtual;
+    private java.util.Set<@Pattern(regexp = "[A-Z]{2}") String> accessibleCountries;
+    @Pattern(regexp = "[A-Z]{2}", message = "countryCode must be ISO 3166-1 alpha-2") private String countryCode;
+    private UUID adminLevel1Id;
+    private UUID adminLevel2Id;
+    private UUID cityId;
+    private UUID localityId;
+    @DecimalMin("-90.0") @DecimalMax("90.0") private Double latitude;
+    @DecimalMin("-180.0") @DecimalMax("180.0") private Double longitude;
+    @Size(max = 10) private String languageCode;
 
     public UUID getPlaceId() {
         return placeId;
@@ -90,4 +104,24 @@ public class EventRequest {
     public void setStatus(EventStatus status) {
         this.status = status;
     }
+    public boolean isVirtual() { return virtual; }
+    public void setVirtual(boolean virtual) { this.virtual = virtual; }
+    public java.util.Set<String> getAccessibleCountries() { return accessibleCountries; }
+    public void setAccessibleCountries(java.util.Set<String> accessibleCountries) { this.accessibleCountries = accessibleCountries; }
+    public String getCountryCode() { return countryCode; }
+    public void setCountryCode(String countryCode) { this.countryCode = countryCode; }
+    public UUID getAdminLevel1Id() { return adminLevel1Id; }
+    public void setAdminLevel1Id(UUID adminLevel1Id) { this.adminLevel1Id = adminLevel1Id; }
+    public UUID getAdminLevel2Id() { return adminLevel2Id; }
+    public void setAdminLevel2Id(UUID adminLevel2Id) { this.adminLevel2Id = adminLevel2Id; }
+    public UUID getCityId() { return cityId; }
+    public void setCityId(UUID cityId) { this.cityId = cityId; }
+    public UUID getLocalityId() { return localityId; }
+    public void setLocalityId(UUID localityId) { this.localityId = localityId; }
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
+    public String getLanguageCode() { return languageCode; }
+    public void setLanguageCode(String languageCode) { this.languageCode = languageCode; }
 }

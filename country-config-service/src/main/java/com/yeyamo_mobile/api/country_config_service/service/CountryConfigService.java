@@ -96,6 +96,8 @@ public class CountryConfigService {
         return new FeatureFlagsDto(
                 country.getRegistrationEnabled(),
                 country.getContentPublishingEnabled(),
+                country.getPlacePublishingEnabled(),
+                country.getEventFeatureEnabled(),
                 country.getPartnerOnboardingEnabled(),
                 country.getPaymentsEnabled(),
                 country.getBookingEnabled(),
@@ -182,6 +184,8 @@ public class CountryConfigService {
 
         country.setRegistrationEnabled(request.registrationEnabled());
         country.setContentPublishingEnabled(request.contentPublishingEnabled());
+        country.setPlacePublishingEnabled(request.placePublishingEnabled());
+        country.setEventFeatureEnabled(request.eventFeatureEnabled());
         country.setPartnerOnboardingEnabled(request.partnerOnboardingEnabled());
         country.setPaymentsEnabled(request.paymentsEnabled());
         country.setBookingEnabled(request.bookingEnabled());

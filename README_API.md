@@ -1,8 +1,8 @@
 # Référence API - Plateforme YeYamo
 
-> Audit statique du code effectué le **22 juillet 2026**. Les routes ci-dessous proviennent des contrôleurs Spring (`@RestController`) présents dans le dépôt, et non d'une liste d'API théorique.
+> Audit statique du code effectué le **13 août 2026**. Les routes ci-dessous proviennent des contrôleurs Spring (`@RestController`) présents dans le dépôt, et non d'une liste d'API théorique.
 
-Ce document recense les **235 endpoints REST effectivement implémentés**, répartis dans **23 services applicatifs**. Il précise aussi les règles d'accès, le routage via l'API Gateway et les modules qui ne publient actuellement aucun endpoint métier.
+Ce document recense les **245 endpoints REST effectivement implémentés**, répartis dans **23 services applicatifs**. Il précise aussi les règles d'accès, le routage via l'API Gateway et les modules qui ne publient actuellement aucun endpoint métier.
 
 ---
 
@@ -23,8 +23,8 @@ Ce document recense les **235 endpoints REST effectivement implémentés**, rép
 | Passerelle | `api-gateway` | 8083 | 1 endpoint de fallback |
 | Lieux | `place-service` | 8084 | 17 |
 | Événements | `event-service` | 8085 | 10 |
-| Utilisateurs / graphe social | `user-service` | 8086 | 21 |
-| Partenaires | `partner-service` | 8087 | 9 |
+| Utilisateurs / graphe social | `user-service` | 8086 | 24 |
+| Partenaires | `partner-service` | 8087 | 10 |
 | Catalogue / collections | `catalog-service` | 8088 | 24 |
 | Ingestion catalogue | `ingestion-service` | 8089 | 2 |
 | Contenu | `content-service` | 8090 | 16 |
@@ -34,7 +34,7 @@ Ce document recense les **235 endpoints REST effectivement implémentés**, rép
 | Notifications | `notification-service` | 8094 | 8 |
 | Recommandations | `recommendation-service` | 8095 | 1 |
 | Administration | `admin-service` | 8096 | 16 |
-| Analytics | `analytics-service` | 8097 | 9 |
+| Analytics | `analytics-service` | 8097 | 15 |
 | Missions | `mission-reward-service` | 8098 | 6 |
 | Parrainage | `referral-service` | 8099 | 9 |
 | Modération / confiance | `moderation-trust-service` | 8100 | 8 |
@@ -43,7 +43,7 @@ Ce document recense les **235 endpoints REST effectivement implémentés**, rép
 | Paiements | `payment-service` | 8103 | 5 |
 | Messagerie | `messaging-service` | 8104 | 11 |
 | Gamification | `gamification-service` | 8105 | 10 |
-| **Total métier** | **23 services** |  | **235** |
+| **Total métier** | **23 services** |  | **245** |
 
 Les ports viennent de `cloud-conf-yeyamo/*.properties`. `config-server` utilise le port 8080 et `registry-service` le port 8761, mais ils n'exposent pas de contrôleur métier.
 
@@ -96,6 +96,9 @@ Dans les tableaux existants ci-dessous, le chemin affiché est relatif au **Base
 | GET | `/me` | Get my profile | Profile screens |
 | PUT | `/me` | Update my profile | Profile settings |
 | PATCH | `/me/preferences` | Update preferences | Settings |
+| PATCH | `/me/location` | Met à jour pays, zones administratives, ville, localité et timezone | Paramètres de localisation |
+| PATCH | `/me/language` | Met à jour la langue préférée et les langues de contenu | Préférences linguistiques |
+| PATCH | `/me/discovery-preferences` | Met à jour pays à découvrir, rayon local, contenu africain et devise | Préférences de découverte |
 | DELETE | `/me` | Delete my account | Settings |
 | GET | `/{id}` | Get public profile by ID | User profile views |
 | GET | `/` (with query param `q`) | Search users | Search screens |
@@ -134,7 +137,7 @@ Dans les tableaux existants ci-dessous, le chemin affiché est relatif au **Base
 
 | Method | Path | Description | Interface Mobile |
 |--------|------|-------------|------------------|
-| POST | `/register` | Register new user | Login/Register - utilisé par authApi.register |
+| POST | `/register` | Register new user; accepte `countryCode`, `cityId`, `preferredLanguageCode`, `timezone` et téléphone E.164 | Login/Register - utilisé par authApi.register |
 | POST | `/login` | Login with email/password | Login - utilisé par authApi.login |
 | POST | `/oauth/google` | Login with Google | OAuth login |
 | POST | `/oauth/apple` | Login with Apple | OAuth login |
@@ -368,8 +371,8 @@ Dans les tableaux existants ci-dessous, le chemin affiché est relatif au **Base
 
 | Method | Path | Description | Paramètres principaux |
 |--------|------|-------------|------------------------|
-| GET | `/search` | Recherche unifiée des lieux et contenus découvrables | `q`, `type`, `categoryCode`, `regionCode`, `lat`, `lng`, `radiusKm`, `page=0`, `size=20` |
-| GET | `/trending` | Liste les lieux et contenus tendance | `type`, `regionCode`, `page=0`, `size=20` |
+| GET | `/search` | Recherche unifiée des lieux et contenus découvrables | `q`, `type`, `countryCode`, `countries`, `cityId`, `languageCode`, `lat`, `lng`, `radiusKm`, `scope=LOCAL|COUNTRY|AFRICA`, `page=0`, `size=20` |
+| GET | `/trending` | Liste les lieux et contenus tendance | `type`, `regionCode`, `countryCode`, `scope=LOCAL|COUNTRY|AFRICA`, `page=0`, `size=20` |
 
 ---
 
@@ -414,6 +417,7 @@ Dans les tableaux existants ci-dessous, le chemin affiché est relatif au **Base
 | POST | `/me/documents` | Upload document | Document upload |
 | DELETE | `/me/documents/{id}` | Remove document | Document management |
 | POST | `/me/submit` | Submit for validation | Partner submission |
+| GET | `/onboarding/requirements?countryCode=CM&partnerType=ARTISAN` | Exigences KYC effectives par pays et type de partenaire | Onboarding partenaire |
 | GET | `/{id}` | Public partner profile | Partner profile view |
 | GET | `/` | Search partners | Partner search |
 
@@ -641,6 +645,12 @@ Le remboursement manuel exige `Idempotency-Key` et un utilisateur ayant le rôle
 | GET | `/places/popular` | Popular places | Trending places |
 | GET | `/places/{placeId}/popularity` | Place popularity | Place analytics |
 | GET | `/users/{userId}/engagement` | User engagement | User analytics (admin) |
+| GET | `/countries` | Activité agrégée par pays, limitée au périmètre admin | Analytics territorial |
+| GET | `/countries/{countryCode}` | Activité d'un pays | Analytics territorial |
+| GET | `/countries/{countryCode}/cities` | Activité par ville d'un pays | Analytics territorial |
+| GET | `/countries/{countryCode}/culture` | Indicateurs culturels d'un pays | Analytics territorial |
+| GET | `/countries/{countryCode}/artisans` | Indicateurs artisans d'un pays | Analytics territorial |
+| GET | `/countries/{countryCode}/revenue` | Revenu d'un pays, séparé par devise | Analytics territorial |
 
 ---
 

@@ -97,6 +97,9 @@ public class CollectionController {
                 request.description(),
                 isPublic,
                 request.coverAssetId(),
+                request.targetCountries(),
+                request.targetLanguages(),
+                request.scope(),
                 correlationId,
                 auth.getName()
         );
@@ -123,6 +126,9 @@ public class CollectionController {
                 request.description(),
                 request.isPublic(),
                 request.coverAssetId(),
+                request.targetCountries(),
+                request.targetLanguages(),
+                request.scope(),
                 correlationId,
                 auth.getName()
         );

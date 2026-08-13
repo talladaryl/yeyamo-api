@@ -59,7 +59,9 @@ public class EventPublisher {
                 event.getPlaceId(),
                 event.getTitle(),
                 event.getStartAt(),
-                event.getStatus()
+                event.getStatus(),
+                event.getGeography() == null ? null : event.getGeography().getCountryCode(),
+                event.getGeography() == null ? null : event.getGeography().getLanguageCode()
         );
     }
 }

@@ -64,7 +64,7 @@ class CountryConfigServiceTest {
                 UUID.randomUUID(), "CM", "Cameroon", "Republic of Cameroon", "AF",
                 "fr", "XAF", "Africa/Douala", "+237",
                 CountryLaunchStatus.LIVE,
-                true, true, true, true, true, true, true, true,
+                true, true, true, true, true, true, true, true, true, true,
                 null, null
         );
     }
@@ -140,7 +140,7 @@ class CountryConfigServiceTest {
     void shouldUpdateFeaturesAndPublishEvent() {
         // Given
         UpdateFeaturesRequest request = new UpdateFeaturesRequest(
-                true, true, true, false, false, false, true, true
+                true, true, true, true, true, false, false, false, true, true
         );
         
         when(countryRepository.findByCode("CM")).thenReturn(Optional.of(cameroon));

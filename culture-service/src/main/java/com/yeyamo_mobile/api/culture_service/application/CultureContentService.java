@@ -20,7 +20,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import com.yeyamo_mobile.shared.country.CountryConfigClient;
+import com.yeyamo_mobile.shared.country.CountryConfigClient.CountryFeature;
 
 @Service
 @Transactional
@@ -28,11 +31,18 @@ public class CultureContentService {
     private final Contents contents;
     private final Translations translations;
     private final CultureEventPublisher events;
+    private final CountryConfigClient countries;
 
     public CultureContentService(Contents contents, Translations translations, CultureEventPublisher events) {
+        this(contents, translations, events, null);
+    }
+
+    @Autowired
+    public CultureContentService(Contents contents, Translations translations, CultureEventPublisher events, CountryConfigClient countries) {
         this.contents = contents;
         this.translations = translations;
         this.events = events;
+        this.countries = countries;
     }
 
     @Transactional(readOnly = true)
@@ -78,6 +88,7 @@ public class CultureContentService {
 
     public ContentResponse create(ContentRequest request, String actor, boolean admin) {
         validate(request);
+        validateCountryFeature(request.countryCode());
         if (contents.existsBySlug(request.slug())) {
             throw new CultureException("CULTURE_SLUG_EXISTS", "Ce slug existe déjà", HttpStatus.CONFLICT);
         }
@@ -226,6 +237,14 @@ public class CultureContentService {
         if (request.sensitivityLevel() == SensitivityLevel.SACRED && request.visibility() == Visibility.PUBLIC) {
             throw new CultureException("SENSITIVE_VISIBILITY_INVALID",
                     "Un contenu sacré ne peut pas être public avant validation", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private void validateCountryFeature(String countryCode) {
+        if (countries == null) return;
+        try { countries.validateFeature(countryCode, CountryFeature.CULTURE_MODULE); }
+        catch (CountryConfigClient.CountryConfigException exception) {
+            throw new CultureException("COUNTRY_CONFIGURATION_REJECTED", exception.getMessage(), HttpStatus.SERVICE_UNAVAILABLE);
         }
     }
 

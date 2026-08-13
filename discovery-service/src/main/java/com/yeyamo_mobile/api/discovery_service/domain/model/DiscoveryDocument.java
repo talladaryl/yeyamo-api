@@ -53,7 +53,9 @@ public record DiscoveryDocument(
         BigDecimal priceMin,
         BigDecimal priceMax,
         /** Popularity signal – view count, interactions etc. Higher = more popular. */
-        double popularitySignal
+        double popularitySignal,
+        String launchVisibility,
+        String aliases
 ) {
     public DiscoveryDocument {
         if (id == null)                                   throw new IllegalArgumentException("id is required");
@@ -80,6 +82,18 @@ public record DiscoveryDocument(
         this(id, sourceId, type, title, description,
              categoryCode, regionCode, city, latitude, longitude, authorId,
              trendScore, active, publishedAt, updatedAt,
-             null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0);
+             null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0, "PUBLIC", null);
+    }
+
+    public DiscoveryDocument(UUID id, String sourceId, DiscoveryType type, String title, String description,
+            String categoryCode, String regionCode, String city, Double latitude, Double longitude, String authorId,
+            double trendScore, boolean active, Instant publishedAt, Instant updatedAt, String countryCode,
+            String adminLevel1Id, String cityId, String translatedTitlesJson, String languageCodes, String community,
+            String tags, String materials, String techniques, String artisanId, String verificationStatus,
+            String availabilityStatus, BigDecimal priceMin, BigDecimal priceMax, double popularitySignal) {
+        this(id, sourceId, type, title, description, categoryCode, regionCode, city, latitude, longitude, authorId,
+                trendScore, active, publishedAt, updatedAt, countryCode, adminLevel1Id, cityId,
+                translatedTitlesJson, languageCodes, community, tags, materials, techniques, artisanId,
+                verificationStatus, availabilityStatus, priceMin, priceMax, popularitySignal, "PUBLIC", null);
     }
 }

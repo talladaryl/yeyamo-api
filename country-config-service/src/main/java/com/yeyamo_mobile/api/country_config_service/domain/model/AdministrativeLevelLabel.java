@@ -1,9 +1,9 @@
 package com.yeyamo_mobile.api.country_config_service.domain.model;
 
-import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
-import org.hibernate.annotations.Type;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -69,7 +69,7 @@ public class AdministrativeLevelLabel {
      * Localized labels
      * Example: {"fr": "Région", "en": "Region"}
      */
-    @Type(JsonBinaryType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private Map<String, String> localizedLabels = new HashMap<>();
 

@@ -3,6 +3,7 @@ package com.yeyamo_mobile.api.catalog_service.application;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -19,6 +20,7 @@ import com.yeyamo_mobile.api.catalog_service.infrastructure.persistence.Collecti
 import com.yeyamo_mobile.api.catalog_service.infrastructure.persistence.CollectionPlaceEntity;
 import com.yeyamo_mobile.api.catalog_service.infrastructure.persistence.SpringDataCollectionPlaceRepository;
 import com.yeyamo_mobile.api.catalog_service.infrastructure.persistence.SpringDataCollectionRepository;
+import com.yeyamo_mobile.api.catalog_service.domain.model.CollectionScope;
 
 @Service
 public class CollectionService {
@@ -44,6 +46,13 @@ public class CollectionService {
     @Transactional
     public CollectionEntity create(String userId, String title, String description, boolean isPublic,
             UUID coverAssetId, String correlationId, String actorId) {
+        return create(userId, title, description, isPublic, coverAssetId, null, null, null, correlationId, actorId);
+    }
+
+    @Transactional
+    public CollectionEntity create(String userId, String title, String description, boolean isPublic,
+            UUID coverAssetId, Set<String> targetCountries, Set<String> targetLanguages, CollectionScope scope,
+            String correlationId, String actorId) {
         
         // Vérifier que le cover asset existe si fourni
         if (coverAssetId != null && !assetRepository.existsById(coverAssetId)) {
@@ -57,6 +66,9 @@ public class CollectionService {
         collection.setDescription(description);
         collection.setPublic(isPublic);
         collection.setCoverAssetId(coverAssetId);
+        collection.setTargetCountries(normalizeCodes(targetCountries));
+        collection.setTargetLanguages(normalizeCodes(targetLanguages));
+        collection.setScope(scope);
         collection.setCreatedAt(Instant.now());
         collection.setUpdatedAt(Instant.now());
 
@@ -71,6 +83,14 @@ public class CollectionService {
     @Transactional
     public CollectionEntity update(UUID collectionId, String requesterId, String title, String description,
             Boolean isPublic, UUID coverAssetId, String correlationId, String actorId) {
+        return update(collectionId, requesterId, title, description, isPublic, coverAssetId,
+                null, null, null, correlationId, actorId);
+    }
+
+    @Transactional
+    public CollectionEntity update(UUID collectionId, String requesterId, String title, String description,
+            Boolean isPublic, UUID coverAssetId, Set<String> targetCountries, Set<String> targetLanguages,
+            CollectionScope scope, String correlationId, String actorId) {
         
         CollectionEntity collection = getRequired(collectionId);
         
@@ -88,6 +108,9 @@ public class CollectionService {
         if (description != null) collection.setDescription(description);
         if (isPublic != null) collection.setPublic(isPublic);
         if (coverAssetId != null) collection.setCoverAssetId(coverAssetId);
+        if (targetCountries != null) collection.setTargetCountries(normalizeCodes(targetCountries));
+        if (targetLanguages != null) collection.setTargetLanguages(normalizeCodes(targetLanguages));
+        if (scope != null) collection.setScope(scope);
         collection.setUpdatedAt(Instant.now());
 
         CollectionEntity saved = collectionRepository.save(collection);
@@ -256,6 +279,13 @@ public class CollectionService {
 
     private String normalizeNote(String note) {
         return note == null || note.isBlank() ? null : note.trim();
+    }
+
+    private Set<String> normalizeCodes(Set<String> codes) {
+        if (codes == null) return Set.of();
+        return codes.stream().filter(java.util.Objects::nonNull).map(String::trim)
+                .filter(value -> !value.isEmpty()).map(String::toUpperCase)
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
     }
 
     // ─── NESTED CLASSES ─────────────────────────────────────────────────────────

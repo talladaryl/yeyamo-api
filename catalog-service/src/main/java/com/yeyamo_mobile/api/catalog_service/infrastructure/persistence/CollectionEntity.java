@@ -2,6 +2,9 @@ package com.yeyamo_mobile.api.catalog_service.infrastructure.persistence;
 
 import java.time.Instant;
 import java.util.UUID;
+import java.util.Set;
+import java.util.LinkedHashSet;
+import com.yeyamo_mobile.api.catalog_service.domain.model.CollectionScope;
 import jakarta.persistence.*;
 
 @Entity
@@ -13,6 +16,16 @@ public class CollectionEntity {
     @Column(columnDefinition = "TEXT") private String description;
     @Column(name = "is_public", nullable = false) private boolean isPublic;
     @Column(name = "cover_asset_id") private UUID coverAssetId;
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "collection_target_countries", joinColumns = @JoinColumn(name = "collection_id"))
+    @Column(name = "country_code", length = 2)
+    private Set<String> targetCountries = new LinkedHashSet<>();
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "collection_target_languages", joinColumns = @JoinColumn(name = "collection_id"))
+    @Column(name = "language_code", length = 10)
+    private Set<String> targetLanguages = new LinkedHashSet<>();
+    @Enumerated(EnumType.STRING) @Column(name = "scope", nullable = false, length = 24)
+    private CollectionScope scope = CollectionScope.GLOBAL;
     @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
     @Version private long version;
@@ -29,6 +42,12 @@ public class CollectionEntity {
     public void setPublic(boolean isPublic) { this.isPublic = isPublic; }
     public UUID getCoverAssetId() { return coverAssetId; }
     public void setCoverAssetId(UUID coverAssetId) { this.coverAssetId = coverAssetId; }
+    public Set<String> getTargetCountries() { return targetCountries; }
+    public void setTargetCountries(Set<String> targetCountries) { this.targetCountries = targetCountries == null ? new LinkedHashSet<>() : new LinkedHashSet<>(targetCountries); }
+    public Set<String> getTargetLanguages() { return targetLanguages; }
+    public void setTargetLanguages(Set<String> targetLanguages) { this.targetLanguages = targetLanguages == null ? new LinkedHashSet<>() : new LinkedHashSet<>(targetLanguages); }
+    public CollectionScope getScope() { return scope; }
+    public void setScope(CollectionScope scope) { this.scope = scope == null ? CollectionScope.GLOBAL : scope; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

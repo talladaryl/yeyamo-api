@@ -10,6 +10,8 @@ public record DomainEventPayload(
         UUID placeId,
         String title,
         Instant startAt,
-        EventStatus status
+        EventStatus status,
+        String countryCode,
+        String languageCode
 ) {
 }

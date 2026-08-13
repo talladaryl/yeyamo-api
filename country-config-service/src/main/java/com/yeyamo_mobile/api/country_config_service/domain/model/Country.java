@@ -119,6 +119,14 @@ public class Country {
 
     @NotNull
     @Column(nullable = false)
+    private Boolean placePublishingEnabled = false;
+
+    @NotNull
+    @Column(nullable = false)
+    private Boolean eventFeatureEnabled = false;
+
+    @NotNull
+    @Column(nullable = false)
     private Boolean partnerOnboardingEnabled = false;
 
     @NotNull
@@ -199,6 +207,8 @@ public class Country {
         switch (featureName.toLowerCase()) {
             case "registration" -> this.registrationEnabled = enabled;
             case "contentpublishing" -> this.contentPublishingEnabled = enabled;
+            case "placepublishing" -> this.placePublishingEnabled = enabled;
+            case "eventfeature" -> this.eventFeatureEnabled = enabled;
             case "partneronboarding" -> this.partnerOnboardingEnabled = enabled;
             case "payments" -> this.paymentsEnabled = enabled;
             case "booking" -> this.bookingEnabled = enabled;
@@ -301,6 +311,12 @@ public class Country {
     public void setContentPublishingEnabled(Boolean contentPublishingEnabled) {
         this.contentPublishingEnabled = contentPublishingEnabled;
     }
+
+    public Boolean getPlacePublishingEnabled() { return placePublishingEnabled; }
+    public void setPlacePublishingEnabled(Boolean placePublishingEnabled) { this.placePublishingEnabled = placePublishingEnabled; }
+
+    public Boolean getEventFeatureEnabled() { return eventFeatureEnabled; }
+    public void setEventFeatureEnabled(Boolean eventFeatureEnabled) { this.eventFeatureEnabled = eventFeatureEnabled; }
 
     public Boolean getPartnerOnboardingEnabled() {
         return partnerOnboardingEnabled;

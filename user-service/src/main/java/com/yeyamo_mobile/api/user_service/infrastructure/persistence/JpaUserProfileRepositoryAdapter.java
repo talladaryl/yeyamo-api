@@ -45,6 +45,11 @@ public class JpaUserProfileRepositoryAdapter implements UserProfileRepository {
         e.setNotifyFollowRequests(p.isNotifyFollowRequests()); e.setNotifyMentions(p.isNotifyMentions());
         e.setNotifyActivityUpdates(p.isNotifyActivityUpdates()); e.setAllowSuggestions(p.isAllowSuggestions());
         e.setAllowMessagesFromStrangers(p.isAllowMessagesFromStrangers());
+        e.setCountryCode(p.getCountryCode()); e.setAdminLevel1Id(p.getAdminLevel1Id()); e.setAdminLevel2Id(p.getAdminLevel2Id());
+        e.setCityId(p.getCityId()); e.setLocalityId(p.getLocalityId()); e.setPreferredLanguageCode(p.getPreferredLanguageCode());
+        e.setTimezone(p.getTimezone()); e.setPreferredCurrencyCode(p.getPreferredCurrencyCode());
+        e.setContentCountries(new java.util.HashSet<>(p.getContentCountries())); e.setContentLanguages(new java.util.HashSet<>(p.getContentLanguages()));
+        e.setLocalRadiusKm(p.getLocalRadiusKm()); e.setDiscoverAfricanContent(p.isDiscoverAfricanContent());
         e.setCreatedAt(p.getCreatedAt()); e.setUpdatedAt(p.getUpdatedAt()); e.setDeletedAt(p.getDeletedAt());
         e.setVersion(p.getVersion()); return e;
     }
@@ -61,6 +66,12 @@ public class JpaUserProfileRepositoryAdapter implements UserProfileRepository {
         p.setNotifyFollowRequests(e.isNotifyFollowRequests()); p.setNotifyMentions(e.isNotifyMentions());
         p.setNotifyActivityUpdates(e.isNotifyActivityUpdates()); p.setAllowSuggestions(e.isAllowSuggestions());
         p.setAllowMessagesFromStrangers(e.isAllowMessagesFromStrangers());
+        p.setCountryCode(e.getCountryCode()); p.setAdminLevel1Id(e.getAdminLevel1Id()); p.setAdminLevel2Id(e.getAdminLevel2Id());
+        p.setCityId(e.getCityId()); p.setLocalityId(e.getLocalityId()); p.setPreferredLanguageCode(e.getPreferredLanguageCode());
+        p.setTimezone(e.getTimezone()); p.setPreferredCurrencyCode(e.getPreferredCurrencyCode());
+        p.setContentCountries(e.getContentCountries() == null ? new java.util.HashSet<>() : new java.util.HashSet<>(e.getContentCountries()));
+        p.setContentLanguages(e.getContentLanguages() == null ? new java.util.HashSet<>() : new java.util.HashSet<>(e.getContentLanguages()));
+        p.setLocalRadiusKm(e.getLocalRadiusKm()); p.setDiscoverAfricanContent(e.isDiscoverAfricanContent());
         p.setCreatedAt(e.getCreatedAt()); p.setUpdatedAt(e.getUpdatedAt()); p.setDeletedAt(e.getDeletedAt());
         p.setVersion(e.getVersion()); return p;
     }

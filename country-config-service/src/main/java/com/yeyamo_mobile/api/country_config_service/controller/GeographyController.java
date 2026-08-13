@@ -97,6 +97,12 @@ public class GeographyController {
         return ResponseEntity.ok(geographyService.getCities(code, pageable));
     }
 
+    @GetMapping("/countries/{code}/cities/{id}")
+    @Operation(summary = "Validate a city belongs to a country")
+    public ResponseEntity<CityDto> getCityForCountry(@PathVariable String code, @PathVariable UUID id) {
+        return ResponseEntity.ok(geographyService.getCityForCountry(code, id));
+    }
+
     @GetMapping("/cities/{id}")
     @Operation(summary = "Get city by ID")
     public ResponseEntity<CityDto> getCity(@PathVariable UUID id) {

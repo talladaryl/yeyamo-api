@@ -9,6 +9,7 @@
     <packaging>pom</packaging>
     <name>YeYamo API Reactor</name>
     <modules>
+        <module>shared-lib</module>
         <module>event-contracts</module>
         <module>domain-foundation</module>
         <module>security-hardening-starter</module>

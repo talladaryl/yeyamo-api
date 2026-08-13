@@ -1,8 +1,10 @@
 package com.yeyamo_mobile.api.content_service.domain.model;
 import java.time.Instant;import java.util.*;
+import com.yeyamo_mobile.shared.geography.GeographicFields;
 public class Post{
  private UUID id;private String authorId;private String caption;private PostStatus status;private PostVisibility visibility;
  private UUID catalogAssetId;private PostReferenceType referenceType=PostReferenceType.NONE;private String referenceId;private List<UUID> mediaIds=new ArrayList<>();private Set<String> hashtags=new LinkedHashSet<>();
+ private GeographicFields geography;
  private Instant createdAt;private Instant updatedAt;private Instant publishedAt;private Instant archivedAt;private Instant deletedAt;private long version;
  public static Post draft(String authorId,String caption,PostVisibility visibility,UUID catalogAssetId,Collection<UUID> mediaIds,Collection<String> hashtags){
   if(authorId==null||authorId.isBlank())throw new IllegalArgumentException("authorId is required");Post p=new Post();p.id=UUID.randomUUID();p.authorId=authorId;
@@ -31,6 +33,7 @@ public class Post{
  public PostStatus getStatus(){return status;}public void setStatus(PostStatus v){status=v;}public PostVisibility getVisibility(){return visibility;}public void setVisibility(PostVisibility v){visibility=v;}
  public UUID getCatalogAssetId(){return catalogAssetId;}public void setCatalogAssetId(UUID v){catalogAssetId=v;}public PostReferenceType getReferenceType(){return referenceType;}public void setReferenceType(PostReferenceType v){referenceType=v==null?PostReferenceType.NONE:v;}public String getReferenceId(){return referenceId;}public void setReferenceId(String v){referenceId=v;}public List<UUID> getMediaIds(){return List.copyOf(mediaIds);}public void setMediaIds(Collection<UUID> v){mediaIds=v==null?new ArrayList<>():new ArrayList<>(v);}
  public Set<String> getHashtags(){return Collections.unmodifiableSet(new LinkedHashSet<>(hashtags));}public void setHashtags(Collection<String> v){hashtags=v==null?new LinkedHashSet<>():new LinkedHashSet<>(v);}
+ public GeographicFields getGeography(){return geography;}public void setGeography(GeographicFields v){geography=v;}
  public Instant getCreatedAt(){return createdAt;}public void setCreatedAt(Instant v){createdAt=v;}public Instant getUpdatedAt(){return updatedAt;}public void setUpdatedAt(Instant v){updatedAt=v;}
  public Instant getPublishedAt(){return publishedAt;}public void setPublishedAt(Instant v){publishedAt=v;}public Instant getArchivedAt(){return archivedAt;}public void setArchivedAt(Instant v){archivedAt=v;}
  public Instant getDeletedAt(){return deletedAt;}public void setDeletedAt(Instant v){deletedAt=v;}public long getVersion(){return version;}public void setVersion(long v){version=v;}

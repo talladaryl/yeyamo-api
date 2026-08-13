@@ -64,7 +64,7 @@ public class GeographyService {
 
     @Cacheable(value = "admin-areas-paged", key = "#countryCode + '-' + #pageable.pageNumber")
     public Page<AdministrativeAreaDto> getAdministrativeAreas(String countryCode, Pageable pageable) {
-        log.debug("Fetching administrative areas for country: {} (page {})", countryCode, pageable.pageNumber());
+        log.debug("Fetching administrative areas for country: {} (page {})", countryCode, pageable.getPageNumber());
         validateCountry(countryCode);
         
         return administrativeAreaRepository.findByCountryCodeAndActiveTrue(countryCode.toUpperCase(), pageable)
@@ -91,7 +91,7 @@ public class GeographyService {
     }
 
     public Page<AdministrativeAreaDto> getTopLevelAreas(String countryCode, Pageable pageable) {
-        log.debug("Fetching top-level areas for country: {} (page {})", countryCode, pageable.pageNumber());
+        log.debug("Fetching top-level areas for country: {} (page {})", countryCode, pageable.getPageNumber());
         validateCountry(countryCode);
         
         return administrativeAreaRepository.findTopLevelByCountry(countryCode.toUpperCase(), pageable)
@@ -134,7 +134,7 @@ public class GeographyService {
     }
 
     public Page<CityDto> getCities(String countryCode, Pageable pageable) {
-        log.debug("Fetching cities for country: {} (page {})", countryCode, pageable.pageNumber());
+        log.debug("Fetching cities for country: {} (page {})", countryCode, pageable.getPageNumber());
         validateCountry(countryCode);
         
         return cityRepository.findByCountryCodeAndActiveTrue(countryCode.toUpperCase(), pageable)
@@ -145,6 +145,16 @@ public class GeographyService {
     public CityDto getCity(UUID id) {
         City city = cityRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("City not found: " + id));
+        return mapper.toDto(city);
+    }
+
+    /** Returns a city only when it belongs to the supplied country. */
+    public CityDto getCityForCountry(String countryCode, UUID id) {
+        validateCountry(countryCode);
+        City city = cityRepository.findById(id)
+                .filter(value -> value.getCountryCode().equalsIgnoreCase(countryCode))
+                .filter(City::getActive)
+                .orElseThrow(() -> new ResourceNotFoundException("City not found in country: " + countryCode));
         return mapper.toDto(city);
     }
 
@@ -162,7 +172,7 @@ public class GeographyService {
     }
 
     public Page<LocalityDto> getLocalitiesByCity(UUID cityId, Pageable pageable) {
-        log.debug("Fetching localities for city: {} (page {})", cityId, pageable.pageNumber());
+        log.debug("Fetching localities for city: {} (page {})", cityId, pageable.getPageNumber());
         
         return localityRepository.findByCityIdAndActiveTrue(cityId, pageable)
                 .map(mapper::toDto);

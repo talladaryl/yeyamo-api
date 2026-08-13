@@ -20,6 +20,7 @@ $requiredServices = @(
     "moderation-trust-service",
     "analytics-service",
     "catalog-service",
+    "country-config-service",
     "ingestion-service",
     "mission-reward-service",
     "support-service",
