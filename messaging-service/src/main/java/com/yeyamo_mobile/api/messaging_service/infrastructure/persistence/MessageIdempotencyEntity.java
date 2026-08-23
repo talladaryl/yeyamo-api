@@ -1,3 +1,43 @@
 package com.yeyamo_mobile.api.messaging_service.infrastructure.persistence;
-import java.time.Instant;import java.util.UUID;import org.springframework.data.cassandra.core.cql.PrimaryKeyType;import org.springframework.data.cassandra.core.mapping.*;
-@Table("message_idempotency")public class MessageIdempotencyEntity{@PrimaryKeyColumn(name="sender_id",type=PrimaryKeyType.PARTITIONED)private String senderId;@PrimaryKeyColumn(name="client_message_id",type=PrimaryKeyType.CLUSTERED)private String clientMessageId;@Column("message_id")private UUID messageId;@Column("conversation_id")private UUID conversationId;@Column("created_at")private Instant createdAt;public MessageIdempotencyEntity(){}public MessageIdempotencyEntity(String sender,String client,UUID message,UUID conversation){senderId=sender;clientMessageId=client;messageId=message;conversationId=conversation;createdAt=Instant.now();}public UUID getMessageId(){return messageId;}public UUID getConversationId(){return conversationId;}}
+
+import java.time.Instant;
+import java.util.UUID;
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "message_idempotency")
+@IdClass(MessageIdempotencyId.class)
+public class MessageIdempotencyEntity {
+    @Id
+    @Column(name = "sender_id", nullable = false, length = 120)
+    private String senderId;
+
+    @Id
+    @Column(name = "client_message_id", nullable = false, length = 120)
+    private String clientMessageId;
+
+    @Column(name = "message_id", nullable = false)
+    private UUID messageId;
+
+    @Column(name = "conversation_id", nullable = false)
+    private UUID conversationId;
+
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
+
+    public MessageIdempotencyEntity() {}
+
+    public MessageIdempotencyEntity(String sender, String client, UUID message, UUID conversation) {
+        this.senderId = sender;
+        this.clientMessageId = client;
+        this.messageId = message;
+        this.conversationId = conversation;
+        this.createdAt = Instant.now();
+    }
+
+    public String getSenderId() { return senderId; }
+    public String getClientMessageId() { return clientMessageId; }
+    public UUID getMessageId() { return messageId; }
+    public UUID getConversationId() { return conversationId; }
+    public Instant getCreatedAt() { return createdAt; }
+}

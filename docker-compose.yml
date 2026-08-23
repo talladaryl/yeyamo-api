@@ -29,7 +29,7 @@ services:
         yeyamo_referral,yeyamo_gamification,yeyamo_mission,yeyamo_ingestion,
         yeyamo_feed,yeyamo_media,yeyamo_discovery,yeyamo_recommendation,
         yeyamo_campaign,yeyamo_ads,yeyamo_ticket,yeyamo_commerce,yeyamo_analytics,
-        yeyamo_country_config
+        yeyamo_country_config,yeyamo_messaging
     command: 
       - "postgres"
       - "-c"
@@ -63,34 +63,13 @@ services:
         yeyamo_referral,yeyamo_gamification,yeyamo_mission,yeyamo_ingestion,
         yeyamo_feed,yeyamo_media,yeyamo_discovery,yeyamo_recommendation,
         yeyamo_campaign,yeyamo_ads,yeyamo_ticket,yeyamo_commerce,yeyamo_analytics,
-        yeyamo_country_config
+        yeyamo_country_config,yeyamo_messaging
     volumes:
       - ./scripts/init-multiple-databases.sh:/init-multiple-databases.sh:ro
     entrypoint: ["bash", "/init-multiple-databases.sh"]
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - yeyamo-network
-
-  cassandra:
-    image: cassandra:5.0
-    init: true
-    environment:
-      CASSANDRA_CLUSTER_NAME: yeyamo
-      CASSANDRA_DC: datacenter1
-      MAX_HEAP_SIZE: 512M
-      HEAP_NEWSIZE: 100M
-    ports:
-      - "9042:9042"
-    volumes:
-      - cassandra-data:/var/lib/cassandra
-    healthcheck:
-      test: ["CMD-SHELL", "cqlsh -e \"CREATE KEYSPACE IF NOT EXISTS yeyamo_messaging WITH replication = {'class':'SimpleStrategy','replication_factor':1};\" && cqlsh -e 'DESCRIBE CLUSTER'"]
-      interval: 15s
-      timeout: 30s
-      retries: 20
-      start_period: 90s
     networks:
       - yeyamo-network
 
@@ -157,11 +136,11 @@ services:
     volumes:
       - neo4j-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "cypher-shell -u neo4j -p '$${NEO4J_AUTH#*/}' 'RETURN 1' || exit 1"]
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/7687' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 20
-      start_period: 40s
+      start_period: 30s
     networks:
       - yeyamo-network
 
@@ -486,9 +465,9 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_KAFKA_CONSUMER_GROUP_ID: ticket-service
       JWT_SECRET: ${JWT_SECRET:-local-docker-secret-change-me-1234567890}
-      TICKET_QR_KEY_ID: ${TICKET_QR_KEY_ID}
-      TICKET_QR_PRIVATE_KEY_BASE64: ${TICKET_QR_PRIVATE_KEY_BASE64}
-      TICKET_QR_PUBLIC_KEY_BASE64: ${TICKET_QR_PUBLIC_KEY_BASE64}
+      TICKET_QR_KEY_ID: ${TICKET_QR_KEY_ID:-ticket-qr-key-local-1}
+      TICKET_QR_PRIVATE_KEY_BASE64: ${TICKET_QR_PRIVATE_KEY_BASE64:-}
+      TICKET_QR_PUBLIC_KEY_BASE64: ${TICKET_QR_PUBLIC_KEY_BASE64:-}
     ports: ["8112:8112"]
     depends_on:
       config-server: {condition: service_healthy}
@@ -862,15 +841,15 @@ services:
       CONFIG_SERVER_USERNAME: admin
       CONFIG_SERVER_PASSWORD: admin123
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
-      CASSANDRA_CONTACT_POINTS: cassandra:9042
-      CASSANDRA_KEYSPACE: yeyamo_messaging
-      CASSANDRA_LOCAL_DATACENTER: datacenter1
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_messaging
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_SECRET: local-docker-secret-change-me-1234567890
     ports:
       - "8104:8104"
     depends_on:
-      cassandra:
+      postgres:
         condition: service_healthy
       kafka:
         condition: service_healthy
@@ -899,7 +878,8 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_DELIVERY_ENABLED: ${MAIL_DELIVERY_ENABLED:-false}
-      MAIL_HEALTH_ENABLED: ${MAIL_HEALTH_ENABLED:-false}
+      MANAGEMENT_HEALTH_MAIL_ENABLED: "false"
+      MAIL_HEALTH_ENABLED: "false"
       EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-}
       EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-YeYamo}
       PUSH_PROVIDER_ENDPOINT: ${PUSH_PROVIDER_ENDPOINT:-https://exp.host/--/api/v2/push/send}
@@ -937,9 +917,7 @@ services:
       - yeyamo-network
 
   support-service:
-    build:
-      context: .
-      dockerfile: support-service/Dockerfile
+    build: ./support-service
     environment:
       <<: *java-service-env
       SERVER_PORT: "8114"
@@ -964,9 +942,7 @@ services:
       - yeyamo-network
 
   culture-service:
-    build:
-      context: .
-      dockerfile: culture-service/Dockerfile
+    build: ./culture-service
     environment:
       <<: *java-service-env
       SERVER_PORT: "8115"
@@ -1300,7 +1276,6 @@ services:
 
 volumes:
   postgres-data:
-  cassandra-data:
   redis-data:
   opensearch-data:
   neo4j-data:

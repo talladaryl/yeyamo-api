@@ -47,6 +47,8 @@
         <module>place-service</module>
         <module>messaging-service</module>
         <module>support-service</module>
+        <module>search-service</module>
+        <module>social-service</module>
     </modules>
     <profiles>
         <profile>

@@ -1,1 +1,2 @@
 com.yeyamo.security.hardening.HardeningAutoConfiguration
+com.yeyamo.security.hardening.OpenApiDocumentationConfiguration

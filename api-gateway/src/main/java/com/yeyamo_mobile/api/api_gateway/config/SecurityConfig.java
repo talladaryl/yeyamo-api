@@ -51,7 +51,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/actuator/health/**", "/actuator/info", "/fallback/**",
-                                "/openapi/**", "/mobile-api/**").permitAll()
+                                "/openapi/**", "/mobile-api/**", "/docs/**", "/v3/api-docs/**",
+                                "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers(SecurityConfig::isPublicMobileRequest).permitAll()
                         .requestMatchers("/api/v1/admin/campaigns/**").authenticated()
                         .requestMatchers("/api/v1/admin/platform-users/**")
@@ -79,6 +80,8 @@ public class SecurityConfig {
             return false;
         }
         return path.matches("^/api/v1/(places|regions|cities|districts|categories|events|media)(/.*)?$")
+                || path.matches("^/api/v1/countries(?:/.*)?$")
+                || path.matches("^/api/v1/(administrative-areas|localities)(?:/.*)?$")
                 || path.matches("^/api/v1/catalog/(assets|regions|cities|categories)(/.*)?$")
                 || path.matches("^/api/v1/posts/(hashtags|catalog)/.*$")
                 || path.matches("^/api/v1/interactions/posts/.*$")

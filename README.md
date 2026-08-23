@@ -63,10 +63,9 @@ grille est adaptée à leur responsabilité réelle.
   L'adaptateur simulé doit être remplacé par un fournisseur réel en production.
 - `messaging-service` couvre les conversations directes et de groupe, les membres,
   messages, références de médias, réponses, édition/suppression logique, lecture,
-  pagination, idempotence, Cassandra, Kafka et WebSocket privé. Les notifications
+  pagination, idempotence, PostgreSQL (JPA/Flyway), Kafka et WebSocket privé. Les notifications
   sont déléguées à `notification-service` et les signalements à
-  `moderation-trust-service`. Il reste à réaliser les tests d'intégration réels
-  Cassandra/Kafka et le routage WebSocket par l'ingress de production.
+  `moderation-trust-service`.
 - `social-service` et `search-service` ne doivent pas être développés séparément :
   leurs responsabilités sont déjà couvertes par content/interaction/feed et
   discovery. `graph-service` reste expérimental et hors du plan V2 actuel.

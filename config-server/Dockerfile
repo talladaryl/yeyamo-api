@@ -1,18 +1,9 @@
-FROM eclipse-temurin:21-jre-alpine
-
-RUN apk add --no-cache wget
-
+FROM eclipse-temurin:21-jre-jammy
+RUN useradd --system --uid 10001 --create-home spring
 WORKDIR /app
-
-RUN addgroup -S spring && adduser -S spring -G spring
-
-COPY --chown=spring:spring target/*.jar app.jar
-
+COPY --chown=spring:spring target/config-server-0.0.1-SNAPSHOT.jar app.jar
 USER spring
-
+ENV SERVER_PORT=8080
 EXPOSE 8080
-
-HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
-  CMD wget -qO- http://localhost:8080/actuator/health/readiness || exit 1
-
-ENTRYPOINT ["java","-jar","app.jar"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 CMD curl --fail --silent http://localhost:8080/actuator/health >/dev/null || exit 1
+ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]

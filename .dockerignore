@@ -1,0 +1,13 @@
+**/.git
+**/.tmp
+**/.vscode
+**/.agents
+**/.idea
+**/node_modules
+**/target/classes
+**/target/test-classes
+**/target/generated-sources
+**/target/generated-test-sources
+**/target/maven-status
+**/target/maven-archiver
+**/target/*.original

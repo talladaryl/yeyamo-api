@@ -57,17 +57,7 @@ public class StoryController {
         // Compter les vues
         long viewCount = service.getViewCount(id);
         
-        return new StoryResponse(
-            story.getId(),
-            story.getAuthorId(),
-            story.getMediaId(),
-            story.getCaption(),
-            story.getDurationSeconds(),
-            story.getCreatedAt(),
-            story.getExpiresAt(),
-            viewCount,
-            false // viewedByMe peut être ajouté si nécessaire
-        );
+        return StoryResponse.from(story, viewCount, false);
     }
 
     // ─── POST /api/v1/stories/{id}/view ─────────────────────────────────────────

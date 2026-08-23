@@ -25,16 +25,12 @@ import com.yeyamo_mobile.api.messaging_service.domain.ConversationType;
 import com.yeyamo_mobile.api.messaging_service.domain.MemberRole;
 import com.yeyamo_mobile.api.messaging_service.domain.MessageType;
 import com.yeyamo_mobile.api.messaging_service.domain.MessagingException;
-import com.yeyamo_mobile.api.messaging_service.infrastructure.persistence.ConversationByUserEntity;
-import com.yeyamo_mobile.api.messaging_service.infrastructure.persistence.ConversationByUserRepository;
 import com.yeyamo_mobile.api.messaging_service.infrastructure.persistence.ConversationEntity;
 import com.yeyamo_mobile.api.messaging_service.infrastructure.persistence.ConversationMemberEntity;
 import com.yeyamo_mobile.api.messaging_service.infrastructure.persistence.ConversationMemberRepository;
 import com.yeyamo_mobile.api.messaging_service.infrastructure.persistence.ConversationRepository;
 import com.yeyamo_mobile.api.messaging_service.infrastructure.persistence.DirectConversationEntity;
 import com.yeyamo_mobile.api.messaging_service.infrastructure.persistence.DirectConversationRepository;
-import com.yeyamo_mobile.api.messaging_service.infrastructure.persistence.MessageByIdEntity;
-import com.yeyamo_mobile.api.messaging_service.infrastructure.persistence.MessageByIdRepository;
 import com.yeyamo_mobile.api.messaging_service.infrastructure.persistence.MessageEntity;
 import com.yeyamo_mobile.api.messaging_service.infrastructure.persistence.MessageIdempotencyEntity;
 import com.yeyamo_mobile.api.messaging_service.infrastructure.persistence.MessageIdempotencyRepository;
@@ -44,10 +40,8 @@ class MessagingApplicationServiceTest {
 
     private ConversationRepository conversations;
     private ConversationMemberRepository members;
-    private ConversationByUserRepository byUser;
     private DirectConversationRepository direct;
     private MessageRepository messages;
-    private MessageByIdRepository messageIds;
     private MessageIdempotencyRepository idempotency;
     private MessagingEventPort events;
     private MessagingApplicationService service;
@@ -56,19 +50,15 @@ class MessagingApplicationServiceTest {
     void setUp() {
         conversations = mock(ConversationRepository.class);
         members = mock(ConversationMemberRepository.class);
-        byUser = mock(ConversationByUserRepository.class);
         direct = mock(DirectConversationRepository.class);
         messages = mock(MessageRepository.class);
-        messageIds = mock(MessageByIdRepository.class);
         idempotency = mock(MessageIdempotencyRepository.class);
         events = mock(MessagingEventPort.class);
         when(conversations.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(members.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(byUser.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(messages.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(messageIds.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        service = new MessagingApplicationService(conversations, members, byUser, direct, messages,
-                messageIds, idempotency, events, 100, 4_000, 10, 15);
+        service = new MessagingApplicationService(conversations, members, direct, messages,
+                idempotency, events, 100, 4_000, 10, 15);
     }
 
     @Test
@@ -123,17 +113,16 @@ class MessagingApplicationServiceTest {
         ConversationMemberEntity bob = ConversationMemberEntity.active(conversation.getId(), "bob", MemberRole.MEMBER);
         MessageEntity original = MessageEntity.create(conversation.getId(), "alice", "client-3",
                 MessageType.TEXT, "Déjà envoyé", List.of(), null);
-        MessageByIdEntity stored = MessageByIdEntity.from(original);
         when(members.findByConversationIdAndUserId(conversation.getId(), "alice")).thenReturn(Optional.of(alice));
         when(members.findByConversationId(conversation.getId())).thenReturn(List.of(alice, bob));
         when(idempotency.findBySenderIdAndClientMessageId("alice", "client-3"))
-                .thenReturn(Optional.of(new MessageIdempotencyEntity("alice", "client-3", original.getMessageId(), conversation.getId())));
-        when(messageIds.findById(original.getMessageId())).thenReturn(Optional.of(stored));
+                .thenReturn(Optional.of(new MessageIdempotencyEntity("alice", "client-3", original.getId(), conversation.getId())));
+        when(messages.findById(original.getId())).thenReturn(Optional.of(original));
 
         var replay = service.send("alice", conversation.getId(),
                 new SendMessage("client-3", MessageType.TEXT, "Autre contenu", List.of(), null), "corr-4");
 
-        assertEquals(original.getMessageId(), replay.id());
+        assertEquals(original.getId(), replay.id());
         assertEquals("Déjà envoyé", replay.body());
         ArgumentCaptor<java.util.Map<String, Object>> payload = ArgumentCaptor.forClass(java.util.Map.class);
         verify(events).publish(eq("messaging.message.sent"), eq(conversation.getId().toString()),

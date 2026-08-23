@@ -1,1 +1,10 @@
-package com.yeyamo_mobile.api.messaging_service.infrastructure.persistence;import java.util.*;import org.springframework.data.cassandra.core.mapping.MapId;import org.springframework.data.cassandra.repository.CassandraRepository;public interface MessageIdempotencyRepository extends CassandraRepository<MessageIdempotencyEntity,MapId>{Optional<MessageIdempotencyEntity>findBySenderIdAndClientMessageId(String senderId,String clientMessageId);}
+package com.yeyamo_mobile.api.messaging_service.infrastructure.persistence;
+
+import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface MessageIdempotencyRepository extends JpaRepository<MessageIdempotencyEntity, MessageIdempotencyId> {
+    Optional<MessageIdempotencyEntity> findBySenderIdAndClientMessageId(String senderId, String clientMessageId);
+}

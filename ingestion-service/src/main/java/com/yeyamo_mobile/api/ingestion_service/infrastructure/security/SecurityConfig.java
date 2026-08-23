@@ -8,7 +8,7 @@ import org.springframework.core.convert.converter.Converter;
 @Configuration @org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 public class SecurityConfig{
  @Bean SecurityFilterChain security(HttpSecurity http)throws Exception{return http.csrf(c->c.disable()).sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-  .authorizeHttpRequests(a->a.requestMatchers("/actuator/health/**","/actuator/info").permitAll().requestMatchers("/api/v1/catalog/imports/**").hasAnyRole("ADMIN","PARTNER").anyRequest().authenticated())
+  .authorizeHttpRequests(a->a.requestMatchers("/actuator/health/**","/actuator/info","/v3/api-docs/**","/swagger-ui/**","/swagger-ui.html").permitAll().requestMatchers("/api/v1/catalog/imports/**").hasAnyRole("ADMIN","PARTNER").anyRequest().authenticated())
   .oauth2ResourceServer(o->o.jwt(j->j.jwtAuthenticationConverter(authoritiesConverter()))).build();}
  @Bean JwtDecoder decoder(@Value("${jwt.secret}")String secret){if(secret==null||secret.getBytes(StandardCharsets.UTF_8).length<32)throw new IllegalArgumentException("JWT_SECRET must contain at least 32 bytes");
   SecretKey key=new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8),"HmacSHA256");return NimbusJwtDecoder.withSecretKey(key).build();}

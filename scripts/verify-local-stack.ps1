@@ -29,7 +29,6 @@ $requiredServices = @(
     "postgres",
     "redis",
     "kafka",
-    "cassandra",
     "opensearch"
 )
 

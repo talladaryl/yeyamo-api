@@ -25,6 +25,10 @@ public record StoryResponse(
     boolean viewedByMe
 ) {
     public static StoryResponse from(StoryEntity story) {
+        return from(story, 0, false);
+    }
+
+    public static StoryResponse from(StoryEntity story, long viewCount, boolean viewedByMe) {
         return new StoryResponse(
             story.getId(),
             story.getAuthorId(),
@@ -41,31 +45,12 @@ public record StoryResponse(
             story.getGeography() == null ? null : story.getGeography().getLanguageCode(),
             story.getCreatedAt(),
             story.getExpiresAt(),
-            0, // viewCount sera rempli par StoryWithViews
-            false // viewedByMe sera rempli par StoryWithViews
+            viewCount,
+            viewedByMe
         );
     }
 
     public static StoryResponse from(StoryService.StoryWithViews storyWithViews) {
-        StoryEntity story = storyWithViews.story();
-        return new StoryResponse(
-            story.getId(),
-            story.getAuthorId(),
-            story.getMediaId(),
-            story.getCaption(),
-            story.getDurationSeconds(),
-            story.getGeography() == null ? null : story.getGeography().getCountryCode(),
-            story.getGeography() == null ? null : story.getGeography().getAdminLevel1Id(),
-            story.getGeography() == null ? null : story.getGeography().getAdminLevel2Id(),
-            story.getGeography() == null ? null : story.getGeography().getCityId(),
-            story.getGeography() == null ? null : story.getGeography().getLocalityId(),
-            story.getGeography() == null ? null : story.getGeography().getLatitude(),
-            story.getGeography() == null ? null : story.getGeography().getLongitude(),
-            story.getGeography() == null ? null : story.getGeography().getLanguageCode(),
-            story.getCreatedAt(),
-            story.getExpiresAt(),
-            storyWithViews.viewCount(),
-            storyWithViews.viewedByMe()
-        );
+        return from(storyWithViews.story(), storyWithViews.viewCount(), storyWithViews.viewedByMe());
     }
 }

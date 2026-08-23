@@ -1,2 +1,31 @@
-package com.yeyamo_mobile.api.messaging_service.infrastructure.persistence;import java.time.Instant;import java.util.UUID;import org.springframework.data.cassandra.core.mapping.*;
-@Table("direct_conversations")public class DirectConversationEntity{@PrimaryKey("participant_pair")private String participantPair;@Column("conversation_id")private UUID conversationId;@Column("created_at")private Instant createdAt;public DirectConversationEntity(){}public DirectConversationEntity(String pair,UUID conversation){participantPair=pair;conversationId=conversation;createdAt=Instant.now();}public UUID getConversationId(){return conversationId;}}
+package com.yeyamo_mobile.api.messaging_service.infrastructure.persistence;
+
+import java.time.Instant;
+import java.util.UUID;
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "direct_conversations")
+public class DirectConversationEntity {
+    @Id
+    @Column(name = "participant_pair", nullable = false, length = 255)
+    private String participantPair;
+
+    @Column(name = "conversation_id", nullable = false)
+    private UUID conversationId;
+
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
+
+    public DirectConversationEntity() {}
+
+    public DirectConversationEntity(String pair, UUID conversation) {
+        this.participantPair = pair;
+        this.conversationId = conversation;
+        this.createdAt = Instant.now();
+    }
+
+    public String getParticipantPair() { return participantPair; }
+    public UUID getConversationId() { return conversationId; }
+    public Instant getCreatedAt() { return createdAt; }
+}

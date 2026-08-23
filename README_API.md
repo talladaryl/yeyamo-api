@@ -1,8 +1,10 @@
 # Référence API - Plateforme YeYamo
 
-> Audit statique du code effectué le **13 août 2026**. Les routes ci-dessous proviennent des contrôleurs Spring (`@RestController`) présents dans le dépôt, et non d'une liste d'API théorique.
+> Audit exhaustif du code et synchronisation OpenAPI/Postman effectués le **23 août 2026**. Les routes ci-dessous proviennent directement des contrôleurs Spring (`@RestController`) présents dans le dépôt (source de vérité absolue).
 
-Ce document recense les **245 endpoints REST effectivement implémentés**, répartis dans **23 services applicatifs**. Il précise aussi les règles d'accès, le routage via l'API Gateway et les modules qui ne publient actuellement aucun endpoint métier.
+> Documentation navigable et tests Postman : consulter [POSTMAN.md](POSTMAN.md). Swagger UI est disponible localement sur `http://localhost:8083/swagger-ui.html` après le démarrage de la stack.
+
+Ce document recense les **465 endpoints REST uniques effectivement implémentés**, répartis dans **32 services applicatifs** (couverture Swagger & Postman à 100%).
 
 ---
 
@@ -11,39 +13,45 @@ Ce document recense les **245 endpoints REST effectivement implémentés**, rép
 - [Vue d'ensemble](#vue-densemble)
 - [Authentification et conventions](#authentification-et-conventions)
 - [Inventaire complet par service](#inventaire-complet-par-service)
-- [Routage API Gateway et écarts](#routage-api-gateway-et-écarts)
-- [Modules sans endpoint métier](#modules-sans-endpoint-métier)
-- [Écarts avec le client mobile](#interfaces-mobiles-sans-api-backend)
+- [Routage API Gateway et sécurité](#routage-api-gateway-et-écarts)
 
 ## Vue d'ensemble
 
-| Domaine | Service | Port par défaut | Endpoints |
-|---|---|---:|---:|
-| Authentification | `auth-service` | 8082 | 15 |
-| Passerelle | `api-gateway` | 8083 | 1 endpoint de fallback |
-| Lieux | `place-service` | 8084 | 17 |
-| Événements | `event-service` | 8085 | 10 |
-| Utilisateurs / graphe social | `user-service` | 8086 | 24 |
-| Partenaires | `partner-service` | 8087 | 10 |
-| Catalogue / collections | `catalog-service` | 8088 | 24 |
-| Ingestion catalogue | `ingestion-service` | 8089 | 2 |
-| Contenu | `content-service` | 8090 | 16 |
-| Interactions | `interaction-service` | 8091 | 21 |
-| Feed | `feed-service` | 8092 | 1 |
-| Discovery | `discovery-service` | 8093 | 2 |
-| Notifications | `notification-service` | 8094 | 8 |
-| Recommandations | `recommendation-service` | 8095 | 1 |
-| Administration | `admin-service` | 8096 | 16 |
-| Analytics | `analytics-service` | 8097 | 15 |
-| Missions | `mission-reward-service` | 8098 | 6 |
-| Parrainage | `referral-service` | 8099 | 9 |
-| Modération / confiance | `moderation-trust-service` | 8100 | 8 |
-| Médias | `media-service` | 8101 | 5 |
-| Réservations | `booking-service` | 8102 | 9 |
-| Paiements | `payment-service` | 8103 | 5 |
-| Messagerie | `messaging-service` | 8104 | 11 |
-| Gamification | `gamification-service` | 8105 | 10 |
-| **Total métier** | **23 services** |  | **245** |
+| Domaine / Responsabilité | Microservice | Port local | Endpoints réels | Couverture Swagger / Postman |
+|---|---|---:|---:|---:|
+| Authentification & Sécurité | `auth-service` | 8082 | 20 | 100% |
+| Passerelle API | `api-gateway` | 8083 | 1 | 100% |
+| Lieux & Géographie | `place-service` | 8084 | 32 | 100% |
+| Événements | `event-service` | 8085 | 15 | 100% |
+| Utilisateurs / Graphe social | `user-service` | 8086 | 21 | 100% |
+| Partenaires & Artisans | `partner-service` | 8087 | 31 | 100% |
+| Catalogue & Œuvres | `catalog-service` | 8088 | 37 | 100% |
+| Ingestion catalogue | `ingestion-service` | 8089 | 4 | 100% |
+| Contenu & Stories | `content-service` | 8090 | 14 | 100% |
+| Interactions & Avis | `interaction-service` | 8091 | 22 | 100% |
+| Feed de découverte | `feed-service` | 8092 | 1 | 100% |
+| Découverte, Cartes & Recherche | `discovery-service` | 8093 | 18 | 100% |
+| Notifications & Push | `notification-service` | 8094 | 19 | 100% |
+| Recommandations IA | `recommendation-service` | 8095 | 1 | 100% |
+| Administration Plateforme | `admin-service` | 8096 | 22 | 100% |
+| Analytics & Reporting | `analytics-service` | 8097 | 21 | 100% |
+| Missions & Récompenses | `mission-reward-service` | 8098 | 16 | 100% |
+| Parrainage | `referral-service` | 8099 | 7 | 100% |
+| Modération & Confiance | `moderation-trust-service` | 8100 | 20 | 100% |
+| Médias & Upload | `media-service` | 8101 | 5 | 100% |
+| Réservations | `booking-service` | 8102 | 10 | 100% |
+| Paiements | `payment-service` | 8103 | 8 | 100% |
+| Messagerie privée & groupe | `messaging-service` | 8104 | 7 | 100% |
+| Gamification & XP | `gamification-service` | 8105 | 11 | 100% |
+| Billetterie & Scan | `ticket-service` | 8106 | 25 | 100% |
+| Campagnes publicitaires | `campaign-service` | 8107 | 8 | 100% |
+| Diffusion publicitaire (Ads) | `ads-delivery-service` | 8108 | 4 | 100% |
+| Commerce & Commandes d'art | `commerce-service` | 8109 | 24 | 100% |
+| Support & Litiges | `support-service` | 8110 | 4 | 100% |
+| Culture & Traditions | `culture-service` | 8111 | 27 | 100% |
+| Graphe sémantique culturel | `graph-service` | 8112 | 2 | 100% |
+| Configuration Pays Multi-Pays | `country-config-service` | 8113 | 8 | 100% |
+| **Total plateforme** | **32 microservices** | | **465** | **100%** |
 
 Les ports viennent de `cloud-conf-yeyamo/*.properties`. `config-server` utilise le port 8080 et `registry-service` le port 8761, mais ils n'exposent pas de contrôleur métier.
 

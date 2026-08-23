@@ -169,9 +169,9 @@ if (-not $Resume) {
 
     Write-Host "Démarrage et validation de l'infrastructure..."
     Invoke-Compose @("up", "-d", "postgres", "redis", "kafka", "opensearch")
-    Invoke-Compose @("up", "-d", "--force-recreate", "cassandra", "config-server", "registry-service")
+    Invoke-Compose @("up", "-d", "--force-recreate", "config-server", "registry-service")
 
-    foreach ($service in @("postgres", "redis", "kafka", "opensearch", "cassandra", "config-server", "registry-service")) {
+    foreach ($service in @("postgres", "redis", "kafka", "opensearch", "config-server", "registry-service")) {
         Wait-Healthy $service
     }
 } else {

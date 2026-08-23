@@ -67,16 +67,14 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
 
 if (-not $SkipJarBuild) {
     Write-Host 'Construction du reactor Maven (tests ignorés) ...'
-    Invoke-CheckedCommand -File 'mvn' -Arguments @('-B', '-Dmaven.test.skip=true', 'package') -Description 'La construction Maven'
+    # `-DskipTests` is parsed reliably by PowerShell and still avoids executing tests.
+    Invoke-CheckedCommand -File 'mvn' -Arguments @('-B', '-DskipTests', 'package') -Description 'La construction Maven'
 }
 
 # Garder cette liste alignée sur les FROM de tous les Dockerfile du dépôt.
 # Les pulls séquentiels évitent les appels HEAD concurrents vers registry-1.docker.io.
 $baseImages = @(
-    'eclipse-temurin:21-jre',
-    'eclipse-temurin:21-jre-alpine',
-    'eclipse-temurin:21-jre-jammy',
-    'maven:3.9-eclipse-temurin-21'
+    'eclipse-temurin:21-jre-jammy'
 )
 
 foreach ($baseImage in $baseImages) {

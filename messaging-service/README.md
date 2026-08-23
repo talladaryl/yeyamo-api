@@ -27,60 +27,74 @@ Service de messagerie temps réel pour YeYamo (conversations privées et groupes
 
 ## Architecture
 
-- **Framework**: Spring Boot 3.x, Java 21
-- **Base de données**: Apache Cassandra
+- **Framework**: Spring Boot 3.x / 4.x, Java 21
+- **Base de données**: PostgreSQL 16+ (Spring Data JPA + Flyway)
 - **Temps réel**: WebSocket + STOMP
 - **Events**: Kafka (`messaging.events`)
 - **Sécurité**: JWT + IDOR protection + Rate limiting
 
-## Schéma Cassandra
+## Schéma PostgreSQL
 
-### Conversations
-```cql
-conversations (
-  id uuid PRIMARY KEY,
-  type text,
-  title text,
-  owner_id text,
-  created_at timestamp,
-  updated_at timestamp,
-  last_message_id uuid,
-  last_message_preview text,
-  last_message_at timestamp
-)
-```
+### Tables Principales
 
-### Membres
-```cql
-conversation_members (
-  conversation_id uuid,
-  user_id text,
-  role text,          -- OWNER, ADMIN, MEMBER
-  status text,        -- ACTIVE, LEFT, REMOVED
-  joined_at timestamp,
-  left_at timestamp,
-  last_read_message_id uuid,
-  last_read_at timestamp,
-  PRIMARY KEY(conversation_id, user_id)
-)
-```
+```sql
+-- Conversations
+CREATE TABLE conversations (
+    id UUID PRIMARY KEY,
+    type VARCHAR(30) NOT NULL,
+    title VARCHAR(120),
+    owner_id VARCHAR(120) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    last_message_id UUID,
+    last_message_preview TEXT,
+    last_message_at TIMESTAMP WITH TIME ZONE
+);
 
-### Messages
-```cql
-messages_by_conversation (
-  conversation_id uuid,
-  sent_at timestamp,
-  message_id uuid,
-  sender_id text,
-  client_message_id text,
-  message_type text,
-  body text,
-  attachment_ids list<uuid>,
-  reply_to_message_id uuid,
-  edited_at timestamp,
-  deleted_at timestamp,
-  PRIMARY KEY(conversation_id, sent_at, message_id)
-) WITH CLUSTERING ORDER BY(sent_at DESC, message_id ASC)
+-- Membres
+CREATE TABLE conversation_members (
+    conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    user_id VARCHAR(120) NOT NULL,
+    role VARCHAR(30) NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    joined_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    left_at TIMESTAMP WITH TIME ZONE,
+    last_read_message_id UUID,
+    last_read_at TIMESTAMP WITH TIME ZONE,
+    PRIMARY KEY (conversation_id, user_id)
+);
+
+-- Messages
+CREATE TABLE messages (
+    id UUID PRIMARY KEY,
+    conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    sender_id VARCHAR(120) NOT NULL,
+    client_message_id VARCHAR(120) NOT NULL,
+    message_type VARCHAR(30) NOT NULL,
+    body TEXT,
+    reply_to_message_id UUID REFERENCES messages(id) ON DELETE SET NULL,
+    sent_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    edited_at TIMESTAMP WITH TIME ZONE,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Pièces jointes
+CREATE TABLE message_attachments (
+    message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    attachment_id UUID NOT NULL,
+    position INTEGER NOT NULL,
+    PRIMARY KEY (message_id, position)
+);
+
+-- Idempotence
+CREATE TABLE message_idempotency (
+    sender_id VARCHAR(120) NOT NULL,
+    client_message_id VARCHAR(120) NOT NULL,
+    message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    PRIMARY KEY (sender_id, client_message_id)
+);
 ```
 
 ## Endpoints REST
@@ -149,7 +163,7 @@ stompClient.connect(
 - Extraction `userId` et `roles`
 
 #### 2. Autorisation par Conversation (SUBSCRIBE) ✅ **CORRIGÉ**
-- Vérification appartenance conversation via Cassandra
+- Vérification appartenance conversation via PostgreSQL
 - Rejet si utilisateur non-membre ou statut != `ACTIVE`
 - Message d'erreur générique (`Unauthorized`) sans fuite d'information
 
@@ -238,8 +252,13 @@ Voir `docs/SECURITY_AUDIT_REPORT.md` pour détails.
 ```properties
 server.port=8104
 
-spring.cassandra.contact-points=localhost:9042
-spring.cassandra.keyspace-name=yeyamo_messaging
+spring.datasource.url=jdbc:postgresql://localhost:5432/yeyamo_messaging
+spring.datasource.username=postgres
+spring.datasource.password=${SPRING_DATASOURCE_PASSWORD}
+
+spring.jpa.hibernate.ddl-auto=validate
+spring.jpa.open-in-view=false
+spring.flyway.enabled=true
 
 spring.kafka.bootstrap-servers=localhost:9092
 yeyamo.kafka.topics.messaging-events=messaging.events
@@ -253,7 +272,7 @@ messaging.message.max-length=4000
 messaging.message.max-attachments=10
 messaging.message.edit-window-minutes=15
 
-# WebSocket Security (depuis 2026-07-17)
+# WebSocket Security
 websocket.rate-limit.subscribe-per-minute=10
 websocket.heartbeat.client-ms=10000
 websocket.heartbeat.server-ms=10000
@@ -265,10 +284,10 @@ websocket.idle-timeout-ms=300000
 ### Variables d'Environnement
 
 ```bash
-# Cassandra
-CASSANDRA_CONTACT_POINTS=cassandra:9042
-CASSANDRA_LOCAL_DATACENTER=datacenter1
-CASSANDRA_KEYSPACE=yeyamo_messaging
+# PostgreSQL
+SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/yeyamo_messaging
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=postgres
 
 # Kafka
 KAFKA_BOOTSTRAP_SERVERS=kafka:9092
@@ -286,11 +305,11 @@ WEBSOCKET_HEARTBEAT_SERVER=10000
 WEBSOCKET_IDLE_TIMEOUT=300000
 ```
 
-### Schéma Cassandra
+### Schéma & Migrations Flyway
 
-Le schéma est créé automatiquement au démarrage via `schema.cql`:
+Le schéma relationnel est géré automatiquement par Flyway au démarrage via les scripts `src/main/resources/db/migration/`.
 ```bash
-spring.cassandra.schema-action=CREATE_IF_NOT_EXISTS
+spring.flyway.enabled=true
 ```
 
 ### Healthcheck

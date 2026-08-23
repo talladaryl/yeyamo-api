@@ -65,12 +65,12 @@ FATAL: sorry, too many clients already
 ## Services Actuellement Opérationnels
 - config-server ✅
 - registry-service ✅
-- PostgreSQL ✅ (avec max_connections=200)
+- PostgreSQL ✅ (avec max_connections=300)
 - Redis ✅
 - Kafka ✅
-- Cassandra ✅
 
 ## Images Docker Reconstruites
+- yeyamo-api-messaging-service:latest
 - yeyamo-api-catalog-service:latest
 - yeyamo-api-user-service:latest
 - yeyamo-api-media-service:latest
