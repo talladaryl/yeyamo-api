@@ -217,9 +217,9 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8761/actuator/health/readiness || exit 1"]
       interval: 15s
-      timeout: 5s
-      start_period: 60s
-      retries: 5
+      timeout: 10s
+      start_period: 120s
+      retries: 15
     networks:
       - yeyamo-network
 
