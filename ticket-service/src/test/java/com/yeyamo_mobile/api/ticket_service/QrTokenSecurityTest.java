@@ -8,6 +8,7 @@ import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.security.KeyPair;
@@ -23,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest
 @ActiveProfiles("test")
+@Import(TicketServiceTestConfiguration.class)
 class QrTokenSecurityTest {
     
     @Autowired
@@ -73,7 +75,7 @@ class QrTokenSecurityTest {
         QrTokenService.TokenValidationResult result = qrTokenService.validateToken(tamperedToken);
         
         assertThat(result.isValid()).isFalse();
-        assertThat(result.getErrorMessage()).contains("Invalid signature", "Malformed", "Validation failed");
+        assertThat(result.getErrorMessage()).isIn("Invalid signature", "Malformed token", "Validation failed");
     }
     
     @Test

@@ -20,7 +20,7 @@ import java.util.Map;
  * Ensures events are published to Kafka exactly once with database transaction guarantees.
  */
 @Slf4j
-@Service
+@Service("ticketApplicationOutboxService")
 @RequiredArgsConstructor
 public class OutboxService {
     

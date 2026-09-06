@@ -59,7 +59,7 @@ class DiversityPostProcessorTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void region_cap_defers_excess_items() {
+    void region_cap_defers_excess_items_without_dropping_them() {
         // maxRegionShare=0.4 → cap = ceil(10 * 0.4) = 4 items for same region
         // We push 6 from "ML" and 4 from other regions → ML capped at 4
         List<RecommendationItem> items = new ArrayList<>();
@@ -68,10 +68,12 @@ class DiversityPostProcessorTest {
 
         List<RecommendationItem> result = processor.apply(items, 10);
 
-        long mlCount = result.stream().filter(r -> "ML".equals(r.regionCode())).count();
-        // At most 4 ML items in first 10 positions (the rest are deferred, still present)
+        // The primary selection is diversified first; deferred candidates remain in the
+        // response afterwards so that pagination never loses a recommendation.
         assertThat(result).hasSize(10);
-        assertThat(mlCount).isEqualTo(4);
+        assertThat(result.subList(0, 3)).extracting(RecommendationItem::regionCode)
+                .containsExactly("ML", "ML", "SN");
+        assertThat(result.stream().filter(r -> "ML".equals(r.regionCode())).count()).isEqualTo(6);
     }
 
     // -------------------------------------------------------------------------
@@ -90,11 +92,12 @@ class DiversityPostProcessorTest {
 
         List<RecommendationItem> result = processor.apply(items, 20);
 
-        // Items are: ML, ML, SN, ML(deferred)
+        // The third ML is deferred. The SN item is also deferred because the
+        // same four-item page has already reached its kind cap; neither item is lost.
         assertThat(result.get(0).regionCode()).isEqualTo("ML");
         assertThat(result.get(1).regionCode()).isEqualTo("ML");
-        assertThat(result.get(2).regionCode()).isEqualTo("SN");
-        // 3rd ML is deferred but still in the list
+        assertThat(result.get(2).regionCode()).isEqualTo("ML");
+        assertThat(result.get(3).regionCode()).isEqualTo("SN");
         assertThat(result).hasSize(4);
     }
 
@@ -127,7 +130,9 @@ class DiversityPostProcessorTest {
         );
 
         List<RecommendationItem> result = processor.apply(items, 20);
-        assertThat(result.get(2).regionCode()).isEqualTo("SN");
+        // The kind cap applies too; both deferred candidates remain present.
+        assertThat(result).extracting(RecommendationItem::regionCode)
+                .containsExactly("ML", "ML", "ML", "SN");
     }
 
     // -------------------------------------------------------------------------
@@ -135,7 +140,7 @@ class DiversityPostProcessorTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void kind_cap_defers_excess_artworks() {
+    void kind_cap_defers_excess_artworks_without_dropping_them() {
         // maxKindShare=0.5 → cap = ceil(10 * 0.5) = 5 artworks
         List<RecommendationItem> items = new ArrayList<>();
         for (int i = 0; i < 8; i++) items.add(artwork("ML", 100 - i));  // 8 artworks
@@ -143,9 +148,11 @@ class DiversityPostProcessorTest {
 
         List<RecommendationItem> result = processor.apply(items, 10);
 
-        long artworkCount = result.stream().filter(r -> r.kind() == CandidateKind.ARTWORK).count();
         assertThat(result).hasSize(10);
-        assertThat(artworkCount).isEqualTo(5);
+        assertThat(result.subList(0, 4)).extracting(RecommendationItem::kind)
+                .containsExactly(CandidateKind.ARTWORK, CandidateKind.ARTWORK,
+                        CandidateKind.ARTISAN, CandidateKind.ARTISAN);
+        assertThat(result.stream().filter(r -> r.kind() == CandidateKind.ARTWORK).count()).isEqualTo(8);
     }
 
     // -------------------------------------------------------------------------

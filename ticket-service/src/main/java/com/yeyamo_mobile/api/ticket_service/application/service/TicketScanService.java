@@ -95,14 +95,6 @@ public class TicketScanService {
         Ticket ticket = ticketRepository.findByIdWithLock(ticketId)
                 .orElseThrow(() -> new IllegalArgumentException("Ticket not found"));
         
-        // Validate ticket status
-        ScanResult validationResult = validateTicketStatus(ticket);
-        if (validationResult != ScanResult.VALID) {
-            return recordFailedScan(ticketId, request.getEventId(), scannerUserId, 
-                    staffAssignment.getId(), request.getGateId(), request.getDeviceId(),
-                    validationResult, getReasonForResult(validationResult));
-        }
-        
         // Check if ticket already used
         if (ticket.getStatus() == TicketStatus.USED) {
             TicketScan previousScan = scanRepository.findSuccessfulScanByTicketId(ticketId)
@@ -112,6 +104,14 @@ public class TicketScanService {
                     staffAssignment.getId(), request.getGateId(), request.getDeviceId(),
                     ScanResult.ALREADY_USED, "Ticket already used",
                     previousScan != null ? previousScan.getScannedAt() : null);
+        }
+
+        // Validate ticket status
+        ScanResult validationResult = validateTicketStatus(ticket);
+        if (validationResult != ScanResult.VALID) {
+            return recordFailedScan(ticketId, request.getEventId(), scannerUserId,
+                    staffAssignment.getId(), request.getGateId(), request.getDeviceId(),
+                    validationResult, getReasonForResult(validationResult));
         }
         
         // ATOMIC: Mark ticket as used

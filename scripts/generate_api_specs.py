@@ -30,7 +30,18 @@ def clean_str(val):
     return val
 
 def parse_paths_from_annotation(ann_str):
-    curly_match = re.search(r'\{\s*([^}]+)\s*\}', ann_str)
+    pv_match = re.search(r'(?:path|value)\s*=\s*("[^"]+"|\'[^\']+\')', ann_str)
+    if pv_match:
+        return [clean_str(pv_match.group(1))]
+    
+    direct_match = re.search(r'@\w+\s*\(\s*("[^"]+"|\'[^\']+\')', ann_str)
+    if direct_match:
+        return [clean_str(direct_match.group(1))]
+
+    # Only inspect an annotation array after direct string paths.  A route
+    # such as @GetMapping("/{id}") also contains braces, but those braces
+    # describe a path variable rather than an array of mapping values.
+    curly_match = re.search(r'(?:\b(?:path|value)\s*=\s*)?\{\s*([^}]+)\s*\}', ann_str)
     if curly_match:
         items = curly_match.group(1).split(',')
         paths = []
@@ -39,14 +50,6 @@ def parse_paths_from_annotation(ann_str):
             if p:
                 paths.append(p)
         return paths if paths else [""]
-    
-    pv_match = re.search(r'(?:path|value)\s*=\s*("[^"]+"|\'[^\']+\')', ann_str)
-    if pv_match:
-        return [clean_str(pv_match.group(1))]
-    
-    direct_match = re.search(r'@\w+\s*\(\s*("[^"]+"|\'[^\']+\')', ann_str)
-    if direct_match:
-        return [clean_str(direct_match.group(1))]
         
     return [""]
 

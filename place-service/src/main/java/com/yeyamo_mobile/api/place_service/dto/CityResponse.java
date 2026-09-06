@@ -1,9 +1,11 @@
 package com.yeyamo_mobile.api.place_service.dto;
 
+import java.util.UUID;
+
 import com.yeyamo_mobile.api.place_service.models.City;
 
 public record CityResponse(
-        Long id,
+        UUID id,
         Long regionId,
         String name,
         String slug,

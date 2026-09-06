@@ -5,13 +5,15 @@ import org.junit.jupiter.api.Test;
 import com.yeyamo_mobile.api.catalog_service.application.port.CatalogOutboxPort;
 import com.yeyamo_mobile.api.catalog_service.domain.model.*;
 import com.yeyamo_mobile.api.catalog_service.domain.port.CatalogAssetRepository;
+import com.yeyamo_mobile.shared.country.CountryConfigClient;
+import static org.mockito.Mockito.mock;
 class CatalogAssetServiceTests {
     @Test void createsCanonicalAssetAndEvent(){
         MemoryRepository repo=new MemoryRepository();List<String> events=new ArrayList<>();
         CatalogOutboxPort outbox=(type,asset,corr,actor)->events.add(type);
-        CatalogAssetService service=new CatalogAssetService(repo,outbox);
+        CatalogAssetService service=new CatalogAssetService(repo,outbox,mock(CountryConfigClient.class));
         CatalogAsset asset=service.create(AssetType.PLACE,null,"Musée National",null,"Description",
-                "culture","CM-CE","Yaoundé",null,null,3.87,11.52,"corr","admin");
+                "culture","CM","CM-CE","Yaoundé",null,null,3.87,11.52,"corr","admin");
         assertEquals("musee-national",asset.getSlug());assertEquals(AssetStatus.DRAFT,asset.getStatus());
         assertEquals(List.of("catalog.asset.created"),events);
     }

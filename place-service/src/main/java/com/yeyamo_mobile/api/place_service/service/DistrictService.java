@@ -1,5 +1,7 @@
 package com.yeyamo_mobile.api.place_service.service;
 
+import java.util.UUID;
+
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -28,7 +30,7 @@ public class DistrictService {
     }
 
     @Transactional(readOnly = true)
-    public List<DistrictResponse> listByCity(Long cityId) {
+    public List<DistrictResponse> listByCity(UUID cityId) {
         return districtRepository.findByCityId(cityId).stream().map(DistrictResponse::from).toList();
     }
 

@@ -53,4 +53,21 @@ public class HardeningAutoConfiguration {
         registration.setName("yeyamoSecurityHardeningFilter");
         return registration;
     }
+
+    @Bean
+    @ConditionalOnMissingBean(InternalServiceTokenFilter.class)
+    InternalServiceTokenFilter internalServiceTokenFilter(
+            HardeningProperties properties,
+            org.springframework.beans.factory.ObjectProvider<com.fasterxml.jackson.databind.ObjectMapper> objectMapperProvider) {
+        return new InternalServiceTokenFilter(properties, objectMapperProvider.getIfAvailable());
+    }
+
+    @Bean
+    FilterRegistrationBean<InternalServiceTokenFilter> internalServiceTokenFilterRegistration(
+            InternalServiceTokenFilter filter) {
+        FilterRegistrationBean<InternalServiceTokenFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 5);
+        registration.setName("yeyamoInternalServiceTokenFilter");
+        return registration;
+    }
 }

@@ -3,6 +3,7 @@ package com.yeyamo_mobile.api.messaging_service.application;
 import static com.yeyamo_mobile.api.messaging_service.application.MessagingDtos.*;
 import java.time.*;
 import java.util.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ public class MessagingApplicationService {
     private final MessageRepository messages;
     private final MessageIdempotencyRepository idempotency;
     private final MessagingEventPort events;
+    private final com.yeyamo_mobile.api.messaging_service.infrastructure.client.PartnerIdentityClient partnerIdentityClient;
     private final int groupMax;
     private final int messageMax;
     private final int attachmentMax;
@@ -36,16 +38,41 @@ public class MessagingApplicationService {
             @Value("${messaging.message.max-length:4000}") int messageMax,
             @Value("${messaging.message.max-attachments:10}") int attachmentMax,
             @Value("${messaging.message.edit-window-minutes:15}") int editMinutes) {
+        this(conversations, members, direct, messages, idempotency, events, null, groupMax, messageMax, attachmentMax, editMinutes);
+    }
+
+    @Autowired
+    public MessagingApplicationService(
+            ConversationRepository conversations,
+            ConversationMemberRepository members,
+            DirectConversationRepository direct,
+            MessageRepository messages,
+            MessageIdempotencyRepository idempotency,
+            MessagingEventPort events,
+            @Autowired(required = false) com.yeyamo_mobile.api.messaging_service.infrastructure.client.PartnerIdentityClient partnerIdentityClient,
+            @Value("${messaging.group.max-members:100}") int groupMax,
+            @Value("${messaging.message.max-length:4000}") int messageMax,
+            @Value("${messaging.message.max-attachments:10}") int attachmentMax,
+            @Value("${messaging.message.edit-window-minutes:15}") int editMinutes) {
         this.conversations = conversations;
         this.members = members;
         this.direct = direct;
         this.messages = messages;
         this.idempotency = idempotency;
         this.events = events;
+        this.partnerIdentityClient = partnerIdentityClient;
         this.groupMax = groupMax;
         this.messageMax = messageMax;
         this.attachmentMax = attachmentMax;
         this.editMinutes = editMinutes;
+    }
+
+    public ConversationView createPartnerConversation(String actor, UUID partnerId, String correlation) {
+        if (partnerIdentityClient == null) {
+            throw error("PARTNER_SERVICE_UNAVAILABLE", "Partner identity resolution is not configured");
+        }
+        String targetUserId = partnerIdentityClient.resolveUserId(partnerId);
+        return create(actor, new CreateConversation(ConversationType.DIRECT, null, Set.of(targetUserId)), correlation);
     }
 
     public ConversationView create(String actor, CreateConversation command, String correlation) {

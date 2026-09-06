@@ -1,5 +1,7 @@
 package com.yeyamo_mobile.api.place_service.controller;
 
+import java.util.UUID;
+
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -33,7 +35,7 @@ public class DistrictController {
     }
 
     @GetMapping("/city/{cityId}")
-    public List<DistrictResponse> listByCity(@PathVariable Long cityId) {
+    public List<DistrictResponse> listByCity(@PathVariable UUID cityId) {
         return districtService.listByCity(cityId);
     }
 

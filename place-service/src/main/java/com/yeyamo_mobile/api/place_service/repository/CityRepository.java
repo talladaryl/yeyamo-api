@@ -1,5 +1,7 @@
 package com.yeyamo_mobile.api.place_service.repository;
 
+import java.util.UUID;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -7,7 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.yeyamo_mobile.api.place_service.models.City;
 
-public interface CityRepository extends JpaRepository<City, Long> {
+public interface CityRepository extends JpaRepository<City, UUID> {
 
     List<City> findByRegionId(Long regionId);
 

@@ -65,7 +65,7 @@ public class Place {
     private Region region;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "city_id", nullable = false)
+    @JoinColumn(name = "city_id_uuid", nullable = false)
     private City city;
 
     @ManyToOne(fetch = FetchType.LAZY)

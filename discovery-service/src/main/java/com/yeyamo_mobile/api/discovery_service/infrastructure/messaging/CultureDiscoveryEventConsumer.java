@@ -310,7 +310,20 @@ public class CultureDiscoveryEventConsumer {
 
     private BigDecimal decimal(JsonNode n, String f) {
         JsonNode v = n.get(f);
-        return (v == null || v.isNull() || !v.isNumber()) ? null : v.decimalValue();
+        if (v == null || v.isNull()) {
+            return null;
+        }
+        if (v.isNumber()) {
+            return v.decimalValue();
+        }
+        if (v.isTextual()) {
+            try {
+                return new BigDecimal(v.asText());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 
     private Instant occurred(JsonNode e) {

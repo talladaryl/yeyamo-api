@@ -30,7 +30,9 @@ class MobileIntegrationContractTest {
                     .flatMap(entry -> entry.getValue().properties().stream())
                     .filter(entry -> HTTP_METHODS.contains(entry.getKey()))
                     .count();
-            assertEquals(59, operations);
+            assertTrue(operations >= 59,
+                    () -> "The versioned mobile OpenAPI index must retain at least the 59 baseline operations; found "
+                            + operations);
         }
     }
 

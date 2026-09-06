@@ -1,2 +1,43 @@
-package com.yeyamo_mobile.api.messaging_service.infrastructure.web;import java.time.Instant;import java.util.*;import org.springframework.http.*;import org.springframework.web.bind.MethodArgumentNotValidException;import org.springframework.web.bind.annotation.*;import com.yeyamo_mobile.api.messaging_service.domain.MessagingException;
-@RestControllerAdvice public class ApiExceptionHandler{@ExceptionHandler(MessagingException.class)ResponseEntity<Map<String,Object>>messaging(MessagingException e){HttpStatus status=switch(e.getCode()){case"CONVERSATION_NOT_FOUND","MESSAGE_NOT_FOUND"->HttpStatus.NOT_FOUND;case"FORBIDDEN"->HttpStatus.FORBIDDEN;case"EDIT_WINDOW_EXPIRED","DIRECT_MEMBERS_IMMUTABLE","OWNER_CANNOT_LEAVE","OWNER_CANNOT_BE_REMOVED"->HttpStatus.CONFLICT;default->HttpStatus.BAD_REQUEST;};return response(status,e.getCode(),e.getMessage());}@ExceptionHandler(MethodArgumentNotValidException.class)ResponseEntity<Map<String,Object>>validation(MethodArgumentNotValidException e){return response(HttpStatus.BAD_REQUEST,"VALIDATION_ERROR",e.getBindingResult().getFieldErrors().stream().map(x->x.getField()+": "+x.getDefaultMessage()).toList().toString());}private ResponseEntity<Map<String,Object>>response(HttpStatus s,String code,String message){Map<String,Object>b=new LinkedHashMap<>();b.put("timestamp",Instant.now());b.put("status",s.value());b.put("code",code);b.put("message",message);return ResponseEntity.status(s).body(b);}}
+package com.yeyamo_mobile.api.messaging_service.infrastructure.web;
+
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import com.yeyamo_mobile.api.messaging_service.domain.MessagingException;
+
+@RestControllerAdvice
+public class ApiExceptionHandler {
+
+    @ExceptionHandler(MessagingException.class)
+    ResponseEntity<Map<String, Object>> messaging(MessagingException e) {
+        HttpStatus status = switch (e.getCode()) {
+            case "CONVERSATION_NOT_FOUND", "MESSAGE_NOT_FOUND", "PARTNER_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "FORBIDDEN" -> HttpStatus.FORBIDDEN;
+            case "EDIT_WINDOW_EXPIRED", "DIRECT_MEMBERS_IMMUTABLE", "OWNER_CANNOT_LEAVE", "OWNER_CANNOT_BE_REMOVED" -> HttpStatus.CONFLICT;
+            case "PARTNER_SERVICE_UNAVAILABLE", "PARTNER_RESOLUTION_FAILED" -> HttpStatus.SERVICE_UNAVAILABLE;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+        return response(status, e.getCode(), e.getMessage());
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    ResponseEntity<Map<String, Object>> validation(MethodArgumentNotValidException e) {
+        return response(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR",
+                e.getBindingResult().getFieldErrors().stream()
+                        .map(x -> x.getField() + ": " + x.getDefaultMessage()).toList().toString());
+    }
+
+    private ResponseEntity<Map<String, Object>> response(HttpStatus s, String code, String message) {
+        Map<String, Object> b = new LinkedHashMap<>();
+        b.put("timestamp", Instant.now());
+        b.put("status", s.value());
+        b.put("code", code);
+        b.put("message", message);
+        return ResponseEntity.status(s).body(b);
+    }
+}

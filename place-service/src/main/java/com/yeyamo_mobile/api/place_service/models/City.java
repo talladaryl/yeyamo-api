@@ -1,5 +1,7 @@
 package com.yeyamo_mobile.api.place_service.models;
 
+import java.util.UUID;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,8 +30,9 @@ import lombok.Setter;
 public class City {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "city_id_uuid")
+    private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "region_id", nullable = false)

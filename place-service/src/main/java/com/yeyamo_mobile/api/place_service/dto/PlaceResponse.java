@@ -14,7 +14,7 @@ public record PlaceResponse(
         String categoryName,
         Long regionId,
         String regionName,
-        Long cityId,
+        UUID cityId,
         String cityName,
         Long districtId,
         String districtName,

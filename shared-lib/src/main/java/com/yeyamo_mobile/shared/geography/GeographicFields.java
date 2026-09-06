@@ -28,10 +28,10 @@ public class GeographicFields {
     @Column(name = "locality_id")
     private UUID localityId;
 
-    @Column(precision = 9, scale = 6)
+    @Column
     private Double latitude;
 
-    @Column(precision = 9, scale = 6)
+    @Column
     private Double longitude;
 
     @Column(name = "language_code", length = 10)

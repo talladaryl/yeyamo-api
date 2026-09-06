@@ -57,6 +57,17 @@ public class EventController {
         return eventService.findUpcoming();
     }
 
+    /**
+     * Real composition endpoint for a Place detail. It returns only published
+     * events, preventing mobile clients from fabricating related-event cards.
+     */
+    @GetMapping
+    public List<EventSummaryResponse> byPlace(
+            @RequestParam UUID placeId
+    ) {
+        return eventService.findByPlaceId(placeId, true);
+    }
+
     @GetMapping("/me")
     public List<EventSummaryResponse> mine(
             Authentication authentication,

@@ -1,10 +1,12 @@
 package com.yeyamo_mobile.api.place_service.dto;
 
+import java.util.UUID;
+
 import com.yeyamo_mobile.api.place_service.models.District;
 
 public record DistrictResponse(
         Long id,
-        Long cityId,
+        UUID cityId,
         String name,
         Double latitude,
         Double longitude,

@@ -7,12 +7,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -23,28 +21,19 @@ import java.util.UUID;
 import java.util.concurrent.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Test concurrent inventory operations to ensure no overselling
  */
 @SpringBootTest
-@Testcontainers
 @ActiveProfiles("test")
+@Import(TicketServiceTestConfiguration.class)
 class TicketInventoryConcurrencyTest {
-    
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine")
-            .withDatabaseName("ticket_test_db")
-            .withUsername("test")
-            .withPassword("test");
-    
-    @DynamicPropertySource
-    static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
-        registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
-    }
     
     @Autowired
     private TicketInventoryService inventoryService;
@@ -57,12 +46,24 @@ class TicketInventoryConcurrencyTest {
     
     @Autowired
     private TicketHoldRepository holdRepository;
+
+    @Autowired
+    private RedissonClient redissonClient;
     
     private TicketType ticketType;
     private String eventId;
+    private RLock inventoryLock;
     
     @BeforeEach
     void setUp() {
+        inventoryLock = mock(RLock.class);
+        when(redissonClient.getLock(anyString())).thenReturn(inventoryLock);
+        try {
+            when(inventoryLock.tryLock(anyLong(), any(TimeUnit.class))).thenReturn(true);
+        } catch (InterruptedException e) {
+            throw new IllegalStateException(e);
+        }
+
         eventId = UUID.randomUUID().toString();
         
         // Create sale configuration

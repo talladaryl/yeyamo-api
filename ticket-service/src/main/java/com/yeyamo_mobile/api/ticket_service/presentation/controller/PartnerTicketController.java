@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
  * Partner APIs for ticket management, staff assignment, and scanning
  */
 @Slf4j
-@RestController
+@RestController("partnerTicketManagementController")
 @RequestMapping("/api/v1/partner/tickets")
 @RequiredArgsConstructor
 @Tag(name = "Partner Ticket Management", description = "APIs for partners to manage ticketing")

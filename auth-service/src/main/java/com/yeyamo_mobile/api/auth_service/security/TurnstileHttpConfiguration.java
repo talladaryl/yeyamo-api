@@ -8,6 +8,11 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class TurnstileHttpConfiguration {
     @Bean
+    RestClient.Builder restClientBuilder() {
+        return RestClient.builder();
+    }
+
+    @Bean
     RestClient turnstileRestClient(TurnstileProperties properties) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(properties.timeout());

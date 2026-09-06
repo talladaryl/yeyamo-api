@@ -24,7 +24,7 @@ public class PlaceRequest {
     private Long regionId;
 
     @NotNull
-    private Long cityId;
+    private UUID cityId;
 
     private Long districtId;
 
@@ -85,11 +85,11 @@ public class PlaceRequest {
         this.regionId = regionId;
     }
 
-    public Long getCityId() {
+    public UUID getCityId() {
         return cityId;
     }
 
-    public void setCityId(Long cityId) {
+    public void setCityId(UUID cityId) {
         this.cityId = cityId;
     }
 

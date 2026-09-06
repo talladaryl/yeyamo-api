@@ -21,6 +21,7 @@ public class HardeningProperties {
     private int authenticationRequestsPerMinute = 20;
     private int authenticationBurstCapacity = 5;
     private int maxTrackedClients = 50_000;
+    private String internalToken = "";
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -48,4 +49,6 @@ public class HardeningProperties {
     public void setAuthenticationBurstCapacity(int authenticationBurstCapacity) { this.authenticationBurstCapacity = authenticationBurstCapacity; }
     public int getMaxTrackedClients() { return maxTrackedClients; }
     public void setMaxTrackedClients(int maxTrackedClients) { this.maxTrackedClients = maxTrackedClients; }
+    public String getInternalToken() { return internalToken; }
+    public void setInternalToken(String internalToken) { this.internalToken = internalToken; }
 }

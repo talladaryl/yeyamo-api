@@ -11,7 +11,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Base64;
 import java.util.Date;
+import java.util.Map;
 import java.util.HexFormat;
 import java.util.UUID;
 
@@ -27,7 +29,7 @@ import java.util.UUID;
  * - Hash storage (not full token)
  */
 @Slf4j
-@Service
+@Service("ticketSecurityQrTokenService")
 @RequiredArgsConstructor
 public class QrTokenService {
     
@@ -73,12 +75,14 @@ public class QrTokenService {
      */
     public TokenValidationResult validateToken(String token) {
         try {
-            // First parse without validation to get key ID
-            Jwt<?, ?> unverifiedToken = Jwts.parser()
-                    .build()
-                    .parseClaimsJwt(token.substring(0, token.lastIndexOf('.') + 1));
-            
-            String keyId = (String) unverifiedToken.getHeader().get("kid");
+            String[] tokenParts = token.split("\\.");
+            if (tokenParts.length != 3) {
+                return TokenValidationResult.invalid("Malformed token");
+            }
+
+            Map<?, ?> header = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readValue(Base64.getUrlDecoder().decode(tokenParts[0]), Map.class);
+            String keyId = header.get("kid") instanceof String value ? value : null;
             if (keyId == null || !keyManager.isKeyIdValid(keyId)) {
                 log.warn("Invalid or unknown key ID in token");
                 return TokenValidationResult.invalid("Invalid signing key");
@@ -88,8 +92,8 @@ public class QrTokenService {
             Claims claims = Jwts.parser()
                     .setSigningKey(keyManager.getPublicKey(keyId))
                     .build()
-                    .parseClaimsJws(token)
-                    .getBody();
+                    .parseSignedClaims(token)
+                    .getPayload();
             
             String tokenId = claims.getId();
             String ticketId = claims.getSubject();

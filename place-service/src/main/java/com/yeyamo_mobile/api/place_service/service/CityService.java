@@ -1,5 +1,7 @@
 package com.yeyamo_mobile.api.place_service.service;
 
+import java.util.UUID;
+
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -28,8 +30,8 @@ public class CityService {
         this.regionService = regionService;
         this.districtRepository=districtRepository;this.placeRepository=placeRepository;
     }
-    public CityResponse setActive(Long id,boolean active){City city=getEntityById(id);city.setActive(active);return CityResponse.from(cityRepository.save(city));}
-    public void delete(Long id){City city=getEntityById(id);if(districtRepository.existsByCityId(id)||placeRepository.existsByCityId(id))throw new ApiException("CITY_IN_USE","La ville est referencee et ne peut pas etre supprimee",HttpStatus.CONFLICT);cityRepository.delete(city);}
+    public CityResponse setActive(UUID id,boolean active){City city=getEntityById(id);city.setActive(active);return CityResponse.from(cityRepository.save(city));}
+    public void delete(UUID id){City city=getEntityById(id);if(districtRepository.existsByCityId(id)||placeRepository.existsByCityId(id))throw new ApiException("CITY_IN_USE","La ville est referencee et ne peut pas etre supprimee",HttpStatus.CONFLICT);cityRepository.delete(city);}
 
     @Transactional(readOnly = true)
     public List<CityResponse> listByRegion(Long regionId) {
@@ -37,7 +39,7 @@ public class CityService {
     }
 
     @Transactional(readOnly = true)
-    public City getEntityById(Long id) {
+    public City getEntityById(UUID id) {
         return cityRepository.findById(id)
                 .orElseThrow(() -> new ApiException("CITY_NOT_FOUND", "Ville introuvable", HttpStatus.NOT_FOUND));
     }
@@ -58,7 +60,7 @@ public class CityService {
         return CityResponse.from(cityRepository.save(city));
     }
 
-    public CityResponse update(Long id, CityRequest request) {
+    public CityResponse update(UUID id, CityRequest request) {
         City city = getEntityById(id);
         Region region = regionService.getEntityById(request.getRegionId());
         String slug = resolveSlug(request.getSlug(), request.getName());

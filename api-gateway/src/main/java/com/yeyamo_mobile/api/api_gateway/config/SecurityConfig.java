@@ -70,7 +70,7 @@ public class SecurityConfig {
         if (PUBLIC_AUTH_PATHS.contains(path)) {
             return true;
         }
-        if ("POST".equals(method) && path.startsWith("/api/v1/payments/webhooks/")) {
+        if ("POST".equals(method) && (path.startsWith("/api/v1/payments/webhooks/") || "/api/webhook/payment".equals(path))) {
             return true;
         }
         if (!"GET".equals(method)) {

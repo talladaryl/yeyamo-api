@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +25,7 @@ import java.util.List;
  */
 @Slf4j
 @RestController
+@Profile("legacy-ticket-api")
 @RequestMapping("/api/v1/tickets")
 @RequiredArgsConstructor
 @Tag(name = "User Tickets", description = "APIs for users to purchase and manage tickets")

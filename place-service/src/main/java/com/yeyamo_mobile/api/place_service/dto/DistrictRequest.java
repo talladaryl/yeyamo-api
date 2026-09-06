@@ -1,5 +1,7 @@
 package com.yeyamo_mobile.api.place_service.dto;
 
+import java.util.UUID;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -7,7 +9,7 @@ import jakarta.validation.constraints.Size;
 public class DistrictRequest {
 
     @NotNull
-    private Long cityId;
+    private UUID cityId;
 
     @NotBlank
     @Size(max = 255)
@@ -17,11 +19,11 @@ public class DistrictRequest {
 
     private Double longitude;
 
-    public Long getCityId() {
+    public UUID getCityId() {
         return cityId;
     }
 
-    public void setCityId(Long cityId) {
+    public void setCityId(UUID cityId) {
         this.cityId = cityId;
     }
 

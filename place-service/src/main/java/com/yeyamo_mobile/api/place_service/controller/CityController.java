@@ -1,5 +1,7 @@
 package com.yeyamo_mobile.api.place_service.controller;
 
+import java.util.UUID;
+
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -37,7 +39,7 @@ public class CityController {
     }
 
     @GetMapping("/{id}/places")
-    public List<PlaceSummaryResponse> placesByCity(@PathVariable Long id) {
+    public List<PlaceSummaryResponse> placesByCity(@PathVariable UUID id) {
         return placeService.findByCityId(id);
     }
 
@@ -53,9 +55,9 @@ public class CityController {
     }
 
     @PutMapping("/{id}")
-    public CityResponse update(@PathVariable Long id, @Valid @RequestBody CityRequest request) {
+    public CityResponse update(@PathVariable UUID id, @Valid @RequestBody CityRequest request) {
         return cityService.update(id, request);
     }
-    @PatchMapping("/{id}/status") @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')") public CityResponse status(@PathVariable Long id,@RequestBody ReferenceStatusRequest request){return cityService.setActive(id,request.active());}
-    @DeleteMapping("/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) @PreAuthorize("hasRole('SUPER_ADMIN')") public void delete(@PathVariable Long id){cityService.delete(id);}
+    @PatchMapping("/{id}/status") @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')") public CityResponse status(@PathVariable UUID id,@RequestBody ReferenceStatusRequest request){return cityService.setActive(id,request.active());}
+    @DeleteMapping("/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) @PreAuthorize("hasRole('SUPER_ADMIN')") public void delete(@PathVariable UUID id){cityService.delete(id);}
 }

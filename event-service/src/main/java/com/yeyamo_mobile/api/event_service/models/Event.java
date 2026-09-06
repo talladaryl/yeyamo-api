@@ -87,8 +87,8 @@ public class Event {
         @AttributeOverride(name = "adminLevel2Id", column = @Column(name = "admin_level_2_id")),
         @AttributeOverride(name = "cityId", column = @Column(name = "country_city_id")),
         @AttributeOverride(name = "localityId", column = @Column(name = "locality_id")),
-        @AttributeOverride(name = "latitude", column = @Column(name = "latitude", precision = 9, scale = 6)),
-        @AttributeOverride(name = "longitude", column = @Column(name = "longitude", precision = 9, scale = 6)),
+        @AttributeOverride(name = "latitude", column = @Column(name = "latitude")),
+        @AttributeOverride(name = "longitude", column = @Column(name = "longitude")),
         @AttributeOverride(name = "languageCode", column = @Column(name = "language_code", length = 10))
     })
     private GeographicFields geography;

@@ -12,7 +12,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Admin endpoints for search management.
@@ -99,8 +101,23 @@ public class SearchAdminController {
     @Operation(summary = "Create search synonym")
     public ResponseEntity<SearchAdminDtos.SynonymResponse> createSynonym(
             Authentication auth,
-            @RequestBody SearchAdminDtos.SynonymRequest request) {
+            @Valid @RequestBody SearchAdminDtos.SynonymRequest request) {
         return ResponseEntity.ok(adminService.createSynonym(auth.getName(), request));
+    }
+
+    @PutMapping("/synonyms/{id}")
+    @Operation(summary = "Update a search synonym")
+    public ResponseEntity<SearchAdminDtos.SynonymResponse> updateSynonym(
+            @PathVariable UUID id,
+            @Valid @RequestBody SearchAdminDtos.SynonymRequest request) {
+        return ResponseEntity.ok(adminService.updateSynonym(id, request));
+    }
+
+    @DeleteMapping("/synonyms/{id}")
+    @Operation(summary = "Delete a search synonym")
+    public ResponseEntity<Void> deleteSynonym(@PathVariable UUID id) {
+        adminService.deleteSynonym(id);
+        return ResponseEntity.noContent().build();
     }
 
     // -------------------------------------------------------------------------
@@ -117,7 +134,15 @@ public class SearchAdminController {
     @Operation(summary = "Set ranking weights")
     public ResponseEntity<SearchAdminDtos.RankingResponse> ranking(
             Authentication auth,
-            @RequestBody SearchAdminDtos.RankingRequest request) {
+            @Valid @RequestBody SearchAdminDtos.RankingRequest request) {
+        return ResponseEntity.ok(adminService.ranking(auth.getName(), request));
+    }
+
+    @PutMapping("/ranking")
+    @Operation(summary = "Set ranking weights")
+    public ResponseEntity<SearchAdminDtos.RankingResponse> updateRanking(
+            Authentication auth,
+            @Valid @RequestBody SearchAdminDtos.RankingRequest request) {
         return ResponseEntity.ok(adminService.ranking(auth.getName(), request));
     }
 

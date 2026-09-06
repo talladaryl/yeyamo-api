@@ -64,6 +64,21 @@ public class TicketScan {
     @CreationTimestamp
     @Column(name = "scanned_at", nullable = false, updatable = false)
     private Instant scannedAt;
+
+    @NotNull
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @PrePersist
+    private void initializeScannedAt() {
+        if (scannedAt == null) {
+            scannedAt = Instant.now();
+        }
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
+    }
     
     /**
      * SHA-256 hash of device identifier (for fraud detection)

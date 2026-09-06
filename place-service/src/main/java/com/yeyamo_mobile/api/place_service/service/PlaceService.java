@@ -73,7 +73,7 @@ public class PlaceService {
     }
 
     @Transactional(readOnly = true)
-    public List<PlaceSummaryResponse> findByCityId(Long cityId) {
+    public List<PlaceSummaryResponse> findByCityId(UUID cityId) {
         cityService.getEntityById(cityId);
         return placeRepository.findByCityId(cityId, PlaceStatus.PUBLISHED).stream()
                 .map(PlaceSummaryResponse::from)
@@ -126,7 +126,7 @@ public class PlaceService {
 
     @Transactional(readOnly = true)
     public Page<AdminPlaceResponse> adminSearch(String search, PlaceStatus status, Long categoryId, Long regionId,
-            Long cityId, Long districtId, UUID partnerId, Boolean verified, Instant createdFrom, Instant createdTo,
+            UUID cityId, Long districtId, UUID partnerId, Boolean verified, Instant createdFrom, Instant createdTo,
             Pageable pageable) {
         Specification<Place> specification = Specification.where((Specification<Place>) null);
         if (search != null && !search.isBlank()) specification = specification.and((root, query, cb) -> cb.like(cb.lower(root.get("name")), "%" + search.trim().toLowerCase() + "%"));

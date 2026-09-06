@@ -45,7 +45,7 @@ public interface PlaceRepository extends JpaRepository<Place, UUID>, org.springf
             WHERE p.city.id = :cityId AND p.status = :status
             ORDER BY p.name ASC
             """)
-    List<Place> findByCityId(@Param("cityId") Long cityId, @Param("status") PlaceStatus status);
+    List<Place> findByCityId(@Param("cityId") UUID cityId, @Param("status") PlaceStatus status);
 
     @Query(value = """
             SELECT p.* FROM places p
@@ -72,7 +72,7 @@ public interface PlaceRepository extends JpaRepository<Place, UUID>, org.springf
 
     boolean existsBySlug(String slug);
     boolean existsByRegionId(Long id);
-    boolean existsByCityId(Long id);
+    boolean existsByCityId(UUID id);
     boolean existsByDistrictId(Long id);
     boolean existsByCategoryId(Long id);
 }
