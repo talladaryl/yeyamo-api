@@ -37,8 +37,14 @@ public final class BookingDtos {
 
     public record CreateBooking(
             @NotNull UUID slotId,
-            @Positive int quantity
-    ) {}
+            @Positive int quantity,
+            String operator,
+            String phoneNumber
+    ) {
+        public CreateBooking(UUID slotId, int quantity) {
+            this(slotId, quantity, null, null);
+        }
+    }
 
     public record CancelBooking(
             @NotBlank @Size(max = 500) String reason

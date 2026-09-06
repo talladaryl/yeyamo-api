@@ -49,18 +49,25 @@ public class OutboxService {
     public void publishPaymentRequested(
             String orderId, 
             String userId, 
+            String partnerId,
             BigDecimal amount, 
             String currency,
+            String operator,
+            String phoneNumber,
+            String country,
             Map<String, Object> metadata) {
         
-        Map<String, Object> payload = Map.of(
-            "sagaId", orderId,
-            "bookingId", orderId,
-            "userId", userId,
-            "amount", amount,
-            "currency", currency,
-            "idempotencyKey", "ticket:" + orderId + ":authorize"
-        );
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("sagaId", orderId);
+        payload.put("bookingId", orderId);
+        payload.put("userId", userId);
+        payload.put("partnerId", partnerId);
+        payload.put("amount", amount);
+        payload.put("currency", currency);
+        payload.put("operator", operator);
+        payload.put("phoneNumber", phoneNumber);
+        payload.put("country", country);
+        payload.put("idempotencyKey", "ticket:" + orderId + ":authorize");
         
         publishEvent("TicketOrder", orderId, "payment.authorization.requested", payload);
     }

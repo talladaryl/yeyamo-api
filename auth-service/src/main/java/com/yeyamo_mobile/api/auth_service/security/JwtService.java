@@ -77,6 +77,7 @@ public class JwtService {
                 .audience().add(audience).and()
                 .claim("email", user.getEmail())
                 .claim("phone", user.getPhone())
+                .claim("country", user.getCountryCode())
                 .claim("roles", roles)
                 .claim("scope", String.join(" ", scopes))
                 .claim("scopes", scopes)

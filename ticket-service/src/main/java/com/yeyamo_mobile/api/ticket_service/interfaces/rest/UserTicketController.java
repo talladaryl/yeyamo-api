@@ -9,8 +9,10 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -81,7 +83,10 @@ public class UserTicketController {
             new OrderService.CreateOrderRequest(
                 request.holdId(),
                 userId,
-                request.promotionCode()
+                request.promotionCode(),
+                request.operator(),
+                request.phoneNumber(),
+                countryClaim(auth)
             )
         );
         
@@ -206,8 +211,17 @@ public class UserTicketController {
     
     public record CreateOrderRequest(
         @NotNull UUID holdId,
-        String promotionCode
+        String promotionCode,
+        @NotBlank @Pattern(regexp = "mtn|orange|moov|airtel|mpesa|wave|free|tmoney|afrimoney") String operator,
+        @NotBlank @Pattern(regexp = "\\+[1-9]\\d{1,14}") String phoneNumber
     ) {}
+
+    private String countryClaim(Authentication authentication) {
+        if (authentication instanceof JwtAuthenticationToken jwt) {
+            return jwt.getToken().getClaimAsString("country");
+        }
+        return null;
+    }
     
     public record OrderResponse(
         UUID orderId,

@@ -17,6 +17,7 @@ import java.util.*;
 public class OrderService {
     
     private static final Logger logger = LoggerFactory.getLogger(OrderService.class);
+    private static final Set<String> MOBILE_MONEY_OPERATORS = Set.of("mtn", "orange", "moov", "airtel", "mpesa", "wave", "free", "tmoney", "afrimoney");
     
     private final SpringTicketOrderRepository orderRepository;
     private final SpringTicketHoldRepository holdRepository;
@@ -47,6 +48,9 @@ public class OrderService {
     @Transactional
     public TicketOrderEntity createOrder(CreateOrderRequest request) {
         logger.info("Creating order for user: {} from hold: {}", request.userId(), request.holdId());
+        String operator = validatedOperator(request.operator());
+        String phoneNumber = validatedPhoneNumber(request.phoneNumber());
+        String paymentCountryCode = validatedCountryCode(request.countryCode());
         
         // 1. Load hold
         TicketHoldEntity hold = holdRepository.findById(request.holdId())
@@ -115,6 +119,9 @@ public class OrderService {
         order.setCurrency(config.getCurrency());
         order.setPromotionId(request.promotionCode());
         order.setExpiresAt(hold.getExpiresAt());
+        order.setPaymentOperator(operator);
+        order.setPaymentPhoneNumber(phoneNumber);
+        order.setPaymentCountryCode(paymentCountryCode);
         
         order = orderRepository.save(order);
         
@@ -134,8 +141,12 @@ public class OrderService {
         outboxService.publishPaymentRequested(
             order.getId().toString(),
             order.getUserId(),
+            order.getPartnerId(),
             order.getTotalAmount(),
             order.getCurrency(),
+            order.getPaymentOperator(),
+            order.getPaymentPhoneNumber(),
+            order.getPaymentCountryCode(),
             Map.of(
                 "orderId", order.getId().toString(),
                 "eventId", order.getEventId(),
@@ -209,11 +220,35 @@ public class OrderService {
         // For now, return zero discount
         return BigDecimal.ZERO;
     }
+
+    private String validatedOperator(String operator) {
+        if (operator == null || !MOBILE_MONEY_OPERATORS.contains(operator.trim().toLowerCase(Locale.ROOT))) {
+            throw new IllegalArgumentException("A supported mobile money operator is required");
+        }
+        return operator.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String validatedPhoneNumber(String phoneNumber) {
+        if (phoneNumber == null || !phoneNumber.matches("\\+[1-9]\\d{1,14}")) {
+            throw new IllegalArgumentException("A valid E.164 mobile money phone number is required");
+        }
+        return phoneNumber;
+    }
+
+    private String validatedCountryCode(String countryCode) {
+        if (countryCode == null || !countryCode.matches("[A-Z]{2}")) {
+            throw new IllegalArgumentException("The account country is required for payment");
+        }
+        return countryCode;
+    }
     
     // DTOs
     public record CreateOrderRequest(
         UUID holdId,
         String userId,
-        String promotionCode
+        String promotionCode,
+        String operator,
+        String phoneNumber,
+        String countryCode
     ) {}
 }

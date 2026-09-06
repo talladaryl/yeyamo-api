@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.*;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 import com.yeyamo_mobile.api.booking_service.application.*;
 import com.yeyamo_mobile.api.booking_service.application.BookingDtos.*;
@@ -43,7 +44,7 @@ public class BookingController {
             @RequestHeader("Idempotency-Key") String key,
             @RequestHeader(value = "X-Correlation-Id", required = false) String c
     ) {
-        return service.create(a.getName(), body, requiredKey(key), c);
+        return service.create(a.getName(), body, requiredKey(key), c, countryClaim(a));
     }
 
     @GetMapping("/api/v1/bookings/me")
@@ -107,5 +108,12 @@ public class BookingController {
     private boolean admin(Authentication a) {
         return a.getAuthorities().stream().map(GrantedAuthority::getAuthority)
                 .anyMatch("ROLE_ADMIN"::equals);
+    }
+
+    private String countryClaim(Authentication authentication) {
+        if (authentication instanceof JwtAuthenticationToken jwt) {
+            return jwt.getToken().getClaimAsString("country");
+        }
+        return null;
     }
 }

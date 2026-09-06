@@ -47,6 +47,15 @@ public class TicketOrderEntity {
     
     @Column(nullable = false, length = 3)
     private String currency;
+
+    @Column(name = "payment_operator", length = 20)
+    private String paymentOperator;
+
+    @Column(name = "payment_phone_number", length = 16)
+    private String paymentPhoneNumber;
+
+    @Column(name = "payment_country_code", length = 2)
+    private String paymentCountryCode;
     
     @Column(name = "promotion_id")
     private String promotionId;
@@ -121,6 +130,15 @@ public class TicketOrderEntity {
     
     public String getCurrency() { return currency; }
     public void setCurrency(String currency) { this.currency = currency; }
+
+    public String getPaymentOperator() { return paymentOperator; }
+    public void setPaymentOperator(String paymentOperator) { this.paymentOperator = paymentOperator; }
+
+    public String getPaymentPhoneNumber() { return paymentPhoneNumber; }
+    public void setPaymentPhoneNumber(String paymentPhoneNumber) { this.paymentPhoneNumber = paymentPhoneNumber; }
+
+    public String getPaymentCountryCode() { return paymentCountryCode; }
+    public void setPaymentCountryCode(String paymentCountryCode) { this.paymentCountryCode = paymentCountryCode; }
     
     public String getPromotionId() { return promotionId; }
     public void setPromotionId(String promotionId) { this.promotionId = promotionId; }

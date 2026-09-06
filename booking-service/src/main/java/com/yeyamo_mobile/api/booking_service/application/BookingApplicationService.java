@@ -18,6 +18,7 @@ import com.yeyamo_mobile.shared.country.CountryConfigClient.CountryFeature;
 public class BookingApplicationService {
 
     public static final String BOOKING_EVENTS = "booking.events", PAYMENT_COMMANDS = "payment.commands";
+    private static final Set<String> MOBILE_MONEY_OPERATORS = Set.of("mtn", "orange", "moov", "airtel", "mpesa", "wave", "free", "tmoney", "afrimoney");
 
     private final ActivitySlotRepository slots;
     private final BookingRepository bookings;
@@ -139,14 +140,27 @@ public class BookingApplicationService {
 
     @Transactional
     public BookingView create(String user, CreateBooking c, String key, String correlation) {
+        return create(user, c, key, correlation, null);
+    }
+
+    @Transactional
+    public BookingView create(String user, CreateBooking c, String key, String correlation, String accountCountryCode) {
         String operation = "CREATE:" + c.slotId();
         var replay = receipts.findByKeyAndUserIdAndOperation(key, user, operation);
         if (replay.isPresent()) return bookingView(replay.get().getBooking());
         var slot = slots.findLocked(c.slotId()).orElseThrow(() -> new NoSuchElementException("Slot not found"));
         validate(slot.getCountryCode(), CountryFeature.BOOKING);
+        String operator = null;
+        String phoneNumber = null;
+        String paymentCountryCode = null;
+        if (slot.isPaid()) {
+            operator = validatedOperator(c.operator());
+            phoneNumber = validatedPhoneNumber(c.phoneNumber());
+            paymentCountryCode = validatedCountryCode(accountCountryCode);
+        }
         slot.reserve(c.quantity());
         slots.save(slot);
-        var booking = bookings.save(BookingEntity.pending(uniqueReference(), user, slot, c.quantity()));
+        var booking = bookings.save(BookingEntity.pending(uniqueReference(), user, slot, c.quantity(), operator, phoneNumber, paymentCountryCode));
         if (booking.getPaymentStatus() != PaymentStatus.NOT_REQUIRED) validate(booking.getCountryCode(), CountryFeature.PAYMENTS);
         history.save(new BookingHistoryEntity(booking.getId(), user, "CREATED", "quantity=" + c.quantity()));
         outbox.append(BOOKING_EVENTS, "booking.created", booking.getId().toString(), correlation, payload(booking));
@@ -157,7 +171,18 @@ public class BookingApplicationService {
             domainEvent("booking.confirmed", booking, correlation);
         } else {
             var saga = sagas.save(PaymentSagaEntity.authorization(booking));
-            outbox.append(PAYMENT_COMMANDS, "payment.authorization.requested", booking.getId().toString(), correlation, Map.of("sagaId", saga.getId(), "bookingId", booking.getId(), "userId", user, "partnerId", slot.getOwnerUserId(), "amount", booking.getTotalAmount(), "currency", booking.getCurrency(), "idempotencyKey", "booking:" + booking.getId() + ":authorize"));
+            Map<String, Object> paymentCommand = new LinkedHashMap<>();
+            paymentCommand.put("sagaId", saga.getId());
+            paymentCommand.put("bookingId", booking.getId());
+            paymentCommand.put("userId", user);
+            paymentCommand.put("partnerId", slot.getOwnerUserId());
+            paymentCommand.put("amount", booking.getTotalAmount());
+            paymentCommand.put("currency", booking.getCurrency());
+            paymentCommand.put("operator", booking.getPaymentOperator());
+            paymentCommand.put("phoneNumber", booking.getPaymentPhoneNumber());
+            paymentCommand.put("country", booking.getPaymentCountryCode());
+            paymentCommand.put("idempotencyKey", "booking:" + booking.getId() + ":authorize");
+            outbox.append(PAYMENT_COMMANDS, "payment.authorization.requested", booking.getId().toString(), correlation, paymentCommand);
         }
         receipts.save(new CommandReceiptEntity(key, user, operation, booking));
         return bookingView(booking);
@@ -338,6 +363,27 @@ public class BookingApplicationService {
         } catch (CountryConfigClient.CountryConfigException e) {
             throw new BookingException("COUNTRY_CONFIGURATION_REJECTED", e.getMessage());
         }
+    }
+
+    private String validatedOperator(String operator) {
+        if (operator == null || !MOBILE_MONEY_OPERATORS.contains(operator.trim().toLowerCase(Locale.ROOT))) {
+            throw new BookingException("PAYMENT_OPERATOR_REQUIRED", "A supported mobile money operator is required for a paid activity");
+        }
+        return operator.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String validatedPhoneNumber(String phoneNumber) {
+        if (phoneNumber == null || !phoneNumber.matches("\\+[1-9]\\d{1,14}")) {
+            throw new BookingException("PAYMENT_PHONE_REQUIRED", "A valid E.164 mobile money phone number is required for a paid activity");
+        }
+        return phoneNumber;
+    }
+
+    private String validatedCountryCode(String countryCode) {
+        if (countryCode == null || !countryCode.matches("[A-Z]{2}")) {
+            throw new BookingException("PAYMENT_COUNTRY_REQUIRED", "The account country is required for a paid activity");
+        }
+        return countryCode;
     }
 
     private SlotView slotView(ActivitySlotEntity s) {
