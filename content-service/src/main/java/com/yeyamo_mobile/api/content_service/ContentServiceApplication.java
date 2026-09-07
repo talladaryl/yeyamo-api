@@ -5,7 +5,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = {
+        "com.yeyamo_mobile.api.content_service",
+        "com.yeyamo_mobile.shared.country"
+})
 @EnableDiscoveryClient
 @EnableScheduling
 public class ContentServiceApplication {

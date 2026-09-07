@@ -1,6 +1,9 @@
 package com.yeyamo_mobile.api.catalog_service.infrastructure.persistence;
 
 import java.time.Instant;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import org.locationtech.jts.geom.Point;
@@ -9,10 +12,14 @@ import com.yeyamo_mobile.api.catalog_service.domain.model.AssetStatus;
 import com.yeyamo_mobile.api.catalog_service.domain.model.AssetType;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
@@ -36,6 +43,19 @@ public class CatalogAssetEntity {
     private Double latitude;
     private Double longitude;
     @Column(columnDefinition = "geometry(Point,4326)") private Point location;
+    @ElementCollection @CollectionTable(name = "catalog_asset_media", joinColumns = @JoinColumn(name = "catalog_asset_id"))
+    @Column(name = "media_id", nullable = false) @OrderColumn(name = "display_order") private List<UUID> mediaIds = new ArrayList<>();
+    @Column(name = "duration_minutes") private Integer durationMinutes;
+    @Column(name = "difficulty_level", length = 32) private String difficultyLevel;
+    @Column(precision = 19, scale = 2) private BigDecimal price;
+    @Column(length = 3) private String currency;
+    @Column(name = "capacity_min") private Integer capacityMin;
+    @Column(name = "capacity_max") private Integer capacityMax;
+    @ElementCollection @CollectionTable(name = "catalog_asset_included_items", joinColumns = @JoinColumn(name = "catalog_asset_id"))
+    @Column(name = "item", nullable = false, length = 500) @OrderColumn(name = "display_order") private List<String> includedItems = new ArrayList<>();
+    @ElementCollection @CollectionTable(name = "catalog_asset_excluded_items", joinColumns = @JoinColumn(name = "catalog_asset_id"))
+    @Column(name = "item", nullable = false, length = 500) @OrderColumn(name = "display_order") private List<String> excludedItems = new ArrayList<>();
+    @Column(name = "place_id") private UUID placeId;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 32) private AssetStatus status;
     @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
@@ -58,6 +78,16 @@ public class CatalogAssetEntity {
     public Double getLatitude() { return latitude; } public void setLatitude(Double latitude) { this.latitude = latitude; }
     public Double getLongitude() { return longitude; } public void setLongitude(Double longitude) { this.longitude = longitude; }
     public Point getLocation() { return location; } public void setLocation(Point location) { this.location = location; }
+    public List<UUID> getMediaIds() { return mediaIds; } public void setMediaIds(List<UUID> mediaIds) { this.mediaIds = mediaIds == null ? new ArrayList<>() : new ArrayList<>(mediaIds); }
+    public Integer getDurationMinutes() { return durationMinutes; } public void setDurationMinutes(Integer durationMinutes) { this.durationMinutes = durationMinutes; }
+    public String getDifficultyLevel() { return difficultyLevel; } public void setDifficultyLevel(String difficultyLevel) { this.difficultyLevel = difficultyLevel; }
+    public BigDecimal getPrice() { return price; } public void setPrice(BigDecimal price) { this.price = price; }
+    public String getCurrency() { return currency; } public void setCurrency(String currency) { this.currency = currency; }
+    public Integer getCapacityMin() { return capacityMin; } public void setCapacityMin(Integer capacityMin) { this.capacityMin = capacityMin; }
+    public Integer getCapacityMax() { return capacityMax; } public void setCapacityMax(Integer capacityMax) { this.capacityMax = capacityMax; }
+    public List<String> getIncludedItems() { return includedItems; } public void setIncludedItems(List<String> includedItems) { this.includedItems = includedItems == null ? new ArrayList<>() : new ArrayList<>(includedItems); }
+    public List<String> getExcludedItems() { return excludedItems; } public void setExcludedItems(List<String> excludedItems) { this.excludedItems = excludedItems == null ? new ArrayList<>() : new ArrayList<>(excludedItems); }
+    public UUID getPlaceId() { return placeId; } public void setPlaceId(UUID placeId) { this.placeId = placeId; }
     public AssetStatus getStatus() { return status; } public void setStatus(AssetStatus status) { this.status = status; }
     public Instant getCreatedAt() { return createdAt; } public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; } public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }

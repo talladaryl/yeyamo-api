@@ -1,6 +1,7 @@
 package com.yeyamo_mobile.api.catalog_service.application;
 
 import java.text.Normalizer;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -33,11 +34,21 @@ public class CatalogAssetService {
     public CatalogAsset create(AssetType type,UUID ownerId,String name,String requestedSlug,String description,
             String categoryCode,String countryCode,String regionCode,String city,String district,String address,
             double latitude,double longitude,String correlationId,String actorId){
+        return create(type, ownerId, name, requestedSlug, description, categoryCode, countryCode, regionCode, city, district,
+                address, latitude, longitude, null, null, null, null, null, null, null, null, null, null, correlationId, actorId);
+    }
+    public CatalogAsset create(AssetType type,UUID ownerId,String name,String requestedSlug,String description,
+            String categoryCode,String countryCode,String regionCode,String city,String district,String address,
+            double latitude,double longitude,List<UUID> mediaIds,Integer durationMinutes,String difficultyLevel,BigDecimal price,
+            String currency,Integer capacityMin,Integer capacityMax,List<String> includedItems,List<String> excludedItems,UUID placeId,
+            String correlationId,String actorId){
         validatePlaceCountry(type, countryCode);
+        validateReferencedPlace(placeId);
         String slug=slug(requestedSlug,name);
         ensureSlug(slug,null);
         CatalogAsset asset=CatalogAsset.create(type,ownerId,"catalog",null,name,slug,description,
                 categoryCode,countryCode,regionCode,city,district,address,new GeoPoint(latitude,longitude));
+        asset.enrich(mediaIds,durationMinutes,difficultyLevel,price,currency,capacityMin,capacityMax,includedItems,excludedItems,placeId);
         CatalogAsset saved=repository.save(asset);
         outbox.append("catalog.asset.created",saved,correlationId,actorId);
         return saved;
@@ -51,11 +62,22 @@ public class CatalogAssetService {
     public CatalogAsset update(UUID id,String name,String requestedSlug,String description,String categoryCode,
             String countryCode,String regionCode,String city,String district,String address,double latitude,double longitude,
             String correlationId,String actorId){
+        CatalogAsset current=getRequired(id);
+        return update(id,name,requestedSlug,description,categoryCode,countryCode,regionCode,city,district,address,latitude,longitude,
+                current.getMediaIds(),current.getDurationMinutes(),current.getDifficultyLevel(),current.getPrice(),current.getCurrency(),
+                current.getCapacityMin(),current.getCapacityMax(),current.getIncludedItems(),current.getExcludedItems(),current.getPlaceId(),correlationId,actorId);
+    }
+    public CatalogAsset update(UUID id,String name,String requestedSlug,String description,String categoryCode,
+            String countryCode,String regionCode,String city,String district,String address,double latitude,double longitude,
+            List<UUID> mediaIds,Integer durationMinutes,String difficultyLevel,BigDecimal price,String currency,Integer capacityMin,
+            Integer capacityMax,List<String> includedItems,List<String> excludedItems,UUID placeId,String correlationId,String actorId){
         CatalogAsset asset=getRequired(id);
         validatePlaceCountry(asset.getType(), countryCode == null ? asset.getCountryCode() : countryCode);
+        validateReferencedPlace(placeId);
         String slug=slug(requestedSlug,name); ensureSlug(slug,id);
         asset.update(name,slug,description,categoryCode,countryCode,regionCode,city,district,address,
                 new GeoPoint(latitude,longitude));
+        asset.enrich(mediaIds,durationMinutes,difficultyLevel,price,currency,capacityMin,capacityMax,includedItems,excludedItems,placeId);
         CatalogAsset saved=repository.save(asset);
         outbox.append("catalog.asset.updated",saved,correlationId,actorId);
         return saved;
@@ -129,5 +151,12 @@ public class CatalogAssetService {
         if(countries == null) throw new CatalogException("COUNTRY_CONFIGURATION_UNAVAILABLE","Country validation is required for a place");
         try { countries.validateAnyFeature(countryCode, java.util.List.of(CountryFeature.CONTENT_PUBLISHING, CountryFeature.PLACE_PUBLISHING)); }
         catch(CountryConfigClient.CountryConfigException exception){ throw new CatalogException("COUNTRY_CONFIGURATION_REJECTED",exception.getMessage()); }
+    }
+    private void validateReferencedPlace(UUID placeId) {
+        if (placeId == null) return;
+        CatalogAsset place = repository.findBySourceAndExternalId("place-service", placeId.toString())
+                .orElseThrow(() -> new CatalogException("PLACE_NOT_AVAILABLE", "Referenced place does not exist or is not active"));
+        if (place.getStatus() != AssetStatus.PUBLISHED)
+            throw new CatalogException("PLACE_NOT_AVAILABLE", "Referenced place does not exist or is not active");
     }
 }

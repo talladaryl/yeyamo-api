@@ -7,7 +7,11 @@ import com.yeyamo.foundation.domain.CountryReference;
 import com.yeyamo.foundation.domain.LanguageReference;
 import com.yeyamo_mobile.api.culture_service.domain.CultureContent;
 import com.yeyamo_mobile.api.culture_service.domain.CultureTranslation;
+import com.yeyamo_mobile.api.culture_service.domain.Language;
+import com.yeyamo_mobile.api.culture_service.domain.ProverbDetailsEntity;
+import com.yeyamo_mobile.api.culture_service.domain.RecipeDetailsEntity;
 import com.yeyamo_mobile.api.culture_service.infrastructure.persistence.CultureRepositories.Contents;
+import com.yeyamo_mobile.api.culture_service.infrastructure.persistence.CultureRepositories.Languages;
 import com.yeyamo_mobile.api.culture_service.infrastructure.persistence.CultureRepositories.Translations;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
@@ -32,17 +36,23 @@ public class CultureContentService {
     private final Translations translations;
     private final CultureEventPublisher events;
     private final CountryConfigClient countries;
+    private final Languages languages;
 
     public CultureContentService(Contents contents, Translations translations, CultureEventPublisher events) {
-        this(contents, translations, events, null);
+        this(contents, translations, events, null, null);
+    }
+
+    public CultureContentService(Contents contents, Translations translations, CultureEventPublisher events, CountryConfigClient countries) {
+        this(contents, translations, events, countries, null);
     }
 
     @Autowired
-    public CultureContentService(Contents contents, Translations translations, CultureEventPublisher events, CountryConfigClient countries) {
+    public CultureContentService(Contents contents, Translations translations, CultureEventPublisher events, CountryConfigClient countries, Languages languages) {
         this.contents = contents;
         this.translations = translations;
         this.events = events;
         this.countries = countries;
+        this.languages = languages;
     }
 
     @Transactional(readOnly = true)
@@ -99,13 +109,12 @@ public class CultureContentService {
                 request.visibility());
         content.updateLocation(request.adminLevel1Id(), request.adminLevel2Id(), request.cityId(), request.localityId(),
                 request.communityName());
+        applyDetails(content, request);
         contents.save(content);
         TranslationRequest translation = request.translation();
         translations.save(CultureTranslation.create(content.getId(), new LanguageReference(translation.languageCode()).languageCode(),
                 translation.title(), translation.summary(), translation.body(), actor));
-        events.publish("CultureContentCreated", content.getId(),
-                Map.of("contentId", content.getId(), "type", content.getType(), "countryCode", content.getCountryCode(),
-                        "contributorId", actor));
+        events.publish("CultureContentCreated", content.getId(), contentEventPayload(content, translation.title(), active(content), actor));
         events.publish("CultureTranslationAdded", content.getId(),
                 Map.of("contentId", content.getId(), "languageCode", translation.languageCode(), "translatorId", actor));
         return ContentResponse.from(content);
@@ -118,7 +127,8 @@ public class CultureContentService {
         }
         content.updateLocation(request.adminLevel1Id(), request.adminLevel2Id(), request.cityId(), request.localityId(),
                 request.communityName());
-        events.publish("CultureContentUpdated", id, Map.of("contentId", id, "contributorId", content.getCreatedBy()));
+        applyDetails(content, request);
+        events.publish("CultureContentUpdated", id, contentEventPayload(content, title(content), active(content), content.getCreatedBy()));
         return ContentResponse.from(content);
     }
 
@@ -143,8 +153,7 @@ public class CultureContentService {
             case ARCHIVED -> "CultureContentArchived";
             default -> "CultureContentUpdated";
         };
-        events.publish(eventType, id, Map.of("contentId", id, "status", request.status(),
-                "contributorId", content.getCreatedBy(), "countryCode", content.getCountryCode()));
+        events.publish(eventType, id, contentEventPayload(content, title(content), active(content), content.getCreatedBy()));
         return ContentResponse.from(content);
     }
 
@@ -190,6 +199,7 @@ public class CultureContentService {
         if (content.getStatus() != ContentStatus.DRAFT) {
             throw new CultureException("INVALID_STATE", "Seul un brouillon peut être supprimé", HttpStatus.CONFLICT);
         }
+        events.publish("CultureContentDeleted", id, contentEventPayload(content, title(content), false, content.getCreatedBy()));
         contents.delete(content);
     }
 
@@ -238,6 +248,55 @@ public class CultureContentService {
             throw new CultureException("SENSITIVE_VISIBILITY_INVALID",
                     "Un contenu sacré ne peut pas être public avant validation", HttpStatus.BAD_REQUEST);
         }
+        boolean proverb = request.proverbDetails() != null;
+        boolean recipe = request.recipeDetails() != null;
+        if (proverb && recipe || proverb && request.type() != ContentType.PROVERB || recipe && request.type() != ContentType.RECIPE) {
+            throw new CultureException("CULTURE_DETAILS_TYPE_MISMATCH", "Les détails structurés ne correspondent pas au type de contenu", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private void applyDetails(CultureContent content, ContentRequest request) {
+        if (request.proverbDetails() != null) {
+            ProverbDetailsRequest details = request.proverbDetails();
+            Language language = languages == null ? null : languages.findById(new LanguageReference(details.originLanguageCode()).languageCode())
+                    .orElseThrow(() -> new CultureException("ORIGIN_LANGUAGE_NOT_FOUND", "Langue d'origine introuvable", HttpStatus.BAD_REQUEST));
+            if (language == null) {
+                throw new CultureException("ORIGIN_LANGUAGE_VALIDATION_UNAVAILABLE", "Validation de la langue d'origine indisponible", HttpStatus.SERVICE_UNAVAILABLE);
+            }
+            content.replaceDetails(ProverbDetailsEntity.create(content, details.literalTranslation(), details.meaning(), language, details.audioUrl()), null);
+            return;
+        }
+        if (request.recipeDetails() != null) {
+            RecipeDetailsRequest details = request.recipeDetails();
+            List<RecipeDetailsEntity.RecipeIngredient> ingredients = details.ingredients().stream()
+                    .map(value -> new RecipeDetailsEntity.RecipeIngredient(value.name(), value.quantity(), value.unit())).toList();
+            List<RecipeDetailsEntity.RecipeStep> steps = details.steps().stream()
+                    .map(value -> new RecipeDetailsEntity.RecipeStep(value.instruction())).toList();
+            content.replaceDetails(null, RecipeDetailsEntity.create(content, ingredients, steps, details.prepTimeMinutes(), details.servings()));
+            return;
+        }
+        content.replaceDetails(null, null);
+    }
+
+    private Map<String, Object> contentEventPayload(CultureContent content, String title, boolean active, String actor) {
+        Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("contentId", content.getId());
+        payload.put("type", content.getType().name());
+        payload.put("title", title);
+        payload.put("isActive", active);
+        payload.put("status", content.getStatus().name());
+        payload.put("countryCode", content.getCountryCode());
+        payload.put("contributorId", actor);
+        return payload;
+    }
+
+    private boolean active(CultureContent content) {
+        return content.getStatus() == ContentStatus.PUBLISHED && content.getVisibility() == Visibility.PUBLIC
+                && content.getSensitivityLevel() != SensitivityLevel.SACRED && content.getSensitivityLevel() != SensitivityLevel.COMMUNITY_RESTRICTED;
+    }
+
+    private String title(CultureContent content) {
+        return translations.findByContentIdOrderByLanguageCode(content.getId()).stream().findFirst().map(CultureTranslation::getTitle).orElse(content.getSlug());
     }
 
     private void validateCountryFeature(String countryCode) {

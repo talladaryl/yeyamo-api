@@ -6,4 +6,5 @@ class PostTests{
  @Test void refusesEmptyPublication(){Post p=Post.draft("u",null,null,null,List.of(),Set.of());assertThrows(IllegalStateException.class,p::publish);}
  @Test void enforcesLifecycle(){Post p=Post.draft("u","hello",null,null,null,null);assertThrows(IllegalStateException.class,p::archive);p.publish();p.archive();assertEquals(PostStatus.ARCHIVED,p.getStatus());}
  @Test void softDeletesIdempotently(){Post p=Post.draft("u","hello",null,null,null,null);p.delete();p.delete();assertEquals(PostStatus.DELETED,p.getStatus());assertNotNull(p.getDeletedAt());}
+ @Test void storesStructuredCulturalTarget(){Post p=Post.draft("u","hello",null,null,null,null);UUID id=UUID.randomUUID();p.culturalTarget(CulturalTargetType.PROVERB,id);assertEquals(CulturalTargetType.PROVERB,p.getTargetType());assertEquals(id,p.getTargetId());assertEquals(PostReferenceType.CULTURE_CONTENT,p.getReferenceType());assertEquals(id.toString(),p.getReferenceId());assertThrows(IllegalArgumentException.class,()->p.culturalTarget(CulturalTargetType.RECIPE,null));}
 }

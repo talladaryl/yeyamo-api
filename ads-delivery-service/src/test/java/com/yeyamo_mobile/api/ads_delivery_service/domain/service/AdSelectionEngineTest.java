@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -17,7 +18,9 @@ class AdSelectionEngineTest {
 
     @BeforeEach
     void setUp() {
-        engine = new AdSelectionEngine();
+        // The production engine may explore a different eligible campaign in 5% of requests.
+        // A seeded source keeps the score-order assertion deterministic.
+        engine = new AdSelectionEngine(new Random(0L));
         
         context = AdSelectionContext.builder()
             .placement(PlacementType.FEED_CARD)

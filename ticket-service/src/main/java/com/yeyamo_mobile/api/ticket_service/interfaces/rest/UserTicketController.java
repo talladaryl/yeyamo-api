@@ -218,9 +218,12 @@ public class UserTicketController {
 
     private String countryClaim(Authentication authentication) {
         if (authentication instanceof JwtAuthenticationToken jwt) {
-            return jwt.getToken().getClaimAsString("country");
+            String country = jwt.getToken().getClaimAsString("country");
+            if (country != null && !country.isBlank()) {
+                return country;
+            }
         }
-        return null;
+        throw new TokenRefreshRequiredException();
     }
     
     public record OrderResponse(

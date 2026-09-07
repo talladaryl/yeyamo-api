@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.yeyamo_mobile.api.feed_service.application.port.*;
 import com.yeyamo_mobile.api.feed_service.application.ranking.RankingStrategy;
+import com.yeyamo_mobile.api.feed_service.domain.model.CultureContentLink;
 import com.yeyamo_mobile.api.feed_service.domain.model.FeedCandidate;
 
 @Service 
@@ -82,7 +83,7 @@ public class FeedQueryService {
     private FeedItem organicItem(FeedCandidate c, double score) {
         var p = c.post();
         var m = c.metric();
-        return FeedItem.organic(
+        FeedItem item = FeedItem.organic(
             p.postId(),
             p.authorId(),
             p.caption(),
@@ -98,6 +99,15 @@ public class FeedQueryService {
             m.shares(),
             Math.round(score * 100d) / 100d
         );
+        if (!"CULTURE_CONTENT".equals(p.referenceType()) || p.referenceId() == null) return item;
+        try {
+            return projections.findCultureContent(UUID.fromString(p.referenceId()))
+                    .filter(CultureContentLink::active)
+                    .map(link -> item.withLinkedContent(new FeedItem.FeedLinkedContent(link.type(), link.contentId(), link.title())))
+                    .orElse(item);
+        } catch (IllegalArgumentException ignored) {
+            return item;
+        }
     }
 
     private String cardType(String referenceType) {

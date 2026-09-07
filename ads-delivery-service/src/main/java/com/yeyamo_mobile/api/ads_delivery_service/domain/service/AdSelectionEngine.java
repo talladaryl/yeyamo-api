@@ -14,7 +14,15 @@ import java.util.Random;
 public class AdSelectionEngine {
     private static final String POLICY_VERSION = "1.0";
     private static final double EXPLORATION_RATE = 0.05;
-    private final Random random = new Random();
+    private final Random random;
+
+    public AdSelectionEngine() {
+        this(new Random());
+    }
+
+    AdSelectionEngine(Random random) {
+        this.random = random;
+    }
 
     public List<ScoredAd> selectAds(List<CampaignProjection> eligibleCampaigns, AdSelectionContext context) {
         List<ScoredAd> scoredAds = new ArrayList<>();

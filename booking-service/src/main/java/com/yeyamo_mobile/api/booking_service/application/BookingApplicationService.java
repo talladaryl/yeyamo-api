@@ -156,7 +156,7 @@ public class BookingApplicationService {
         if (slot.isPaid()) {
             operator = validatedOperator(c.operator());
             phoneNumber = validatedPhoneNumber(c.phoneNumber());
-            paymentCountryCode = validatedCountryCode(accountCountryCode);
+            paymentCountryCode = requiredPaymentCountryCode(accountCountryCode);
         }
         slot.reserve(c.quantity());
         slots.save(slot);
@@ -384,6 +384,13 @@ public class BookingApplicationService {
             throw new BookingException("PAYMENT_COUNTRY_REQUIRED", "The account country is required for a paid activity");
         }
         return countryCode;
+    }
+
+    private String requiredPaymentCountryCode(String countryCode) {
+        if (countryCode == null || countryCode.isBlank()) {
+            throw new BookingException("TOKEN_REFRESH_REQUIRED", "Refresh the session before retrying this payment");
+        }
+        return validatedCountryCode(countryCode);
     }
 
     private SlotView slotView(ActivitySlotEntity s) {

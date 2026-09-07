@@ -56,6 +56,9 @@ public class JpaCatalogAssetRepositoryAdapter implements CatalogAssetRepository 
         e.setAddress(a.getAddress()); e.setLatitude(a.getLocation().latitude());
         e.setLongitude(a.getLocation().longitude());
         e.setLocation(GEOMETRY.createPoint(new Coordinate(a.getLocation().longitude(), a.getLocation().latitude())));
+        e.setMediaIds(a.getMediaIds()); e.setDurationMinutes(a.getDurationMinutes()); e.setDifficultyLevel(a.getDifficultyLevel());
+        e.setPrice(a.getPrice()); e.setCurrency(a.getCurrency()); e.setCapacityMin(a.getCapacityMin()); e.setCapacityMax(a.getCapacityMax());
+        e.setIncludedItems(a.getIncludedItems()); e.setExcludedItems(a.getExcludedItems()); e.setPlaceId(a.getPlaceId());
         e.setStatus(a.getStatus()); e.setCreatedAt(a.getCreatedAt()); e.setUpdatedAt(a.getUpdatedAt());
         e.setVersion(a.getVersion());
         return e;
@@ -67,6 +70,9 @@ public class JpaCatalogAssetRepositoryAdapter implements CatalogAssetRepository 
         a.setSlug(e.getSlug()); a.setDescription(e.getDescription()); a.setCategoryCode(e.getCategoryCode()); a.setCountryCode(e.getCountryCode());
         a.setRegionCode(e.getRegionCode()); a.setCity(e.getCity()); a.setDistrict(e.getDistrict());
         a.setAddress(e.getAddress()); a.setLocation(new GeoPoint(e.getLatitude(), e.getLongitude()));
+        a.setMediaIds(e.getMediaIds()); a.setDurationMinutes(e.getDurationMinutes()); a.setDifficultyLevel(e.getDifficultyLevel());
+        a.setPrice(e.getPrice()); a.setCurrency(e.getCurrency()); a.setCapacityMin(e.getCapacityMin()); a.setCapacityMax(e.getCapacityMax());
+        a.setIncludedItems(e.getIncludedItems()); a.setExcludedItems(e.getExcludedItems()); a.setPlaceId(e.getPlaceId());
         a.setStatus(e.getStatus()); a.setCreatedAt(e.getCreatedAt()); a.setUpdatedAt(e.getUpdatedAt());
         a.setVersion(e.getVersion());
         return a;

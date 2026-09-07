@@ -35,7 +35,9 @@ public record FeedItem(
     Map<String, Object> creative,
     BigDecimal bidAmount,
     String trackingToken
+    ,FeedLinkedContent linkedContent
 ) {
+    public record FeedLinkedContent(String type, UUID id, String title) { }
     
     /**
      * Create organic feed item (backward compatible)
@@ -60,7 +62,7 @@ public record FeedItem(
             "ORGANIC",
             postId, authorId, caption, catalogAssetId, cardType, referenceType, referenceId, mediaIds, hashtags,
             publishedAt, likes, comments, shares, rankingScore,
-            null, null, null, null, null, null, null
+            null, null, null, null, null, null, null, null
         );
     }
     
@@ -80,8 +82,14 @@ public record FeedItem(
             "SPONSORED",
             null, null, null, null, null, null, null, null, null, null, 0, 0, 0, 0,
             deliveryId, campaignId, promotedEntityType, promotedEntityId,
-            creative, bidAmount, trackingToken
+            creative, bidAmount, trackingToken, null
         );
+    }
+
+    public FeedItem withLinkedContent(FeedLinkedContent content) {
+        return new FeedItem(itemType, postId, authorId, caption, catalogAssetId, cardType, referenceType, referenceId,
+            mediaIds, hashtags, publishedAt, likes, comments, shares, rankingScore, deliveryId, campaignId,
+            promotedEntityType, promotedEntityId, creative, bidAmount, trackingToken, content);
     }
     
     public boolean isSponsored() {

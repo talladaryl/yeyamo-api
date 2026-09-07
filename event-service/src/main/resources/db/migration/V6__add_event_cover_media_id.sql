@@ -1,0 +1,1 @@
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cover_media_id UUID;

@@ -1,6 +1,9 @@
 package com.yeyamo_mobile.api.catalog_service.domain.model;
 
 import java.time.Instant;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public class CatalogAsset {
@@ -19,6 +22,16 @@ public class CatalogAsset {
     private String district;
     private String address;
     private GeoPoint location;
+    private List<UUID> mediaIds = new ArrayList<>();
+    private Integer durationMinutes;
+    private String difficultyLevel;
+    private BigDecimal price;
+    private String currency;
+    private Integer capacityMin;
+    private Integer capacityMax;
+    private List<String> includedItems = new ArrayList<>();
+    private List<String> excludedItems = new ArrayList<>();
+    private UUID placeId;
     private AssetStatus status;
     private Instant createdAt;
     private Instant updatedAt;
@@ -92,6 +105,29 @@ public class CatalogAsset {
         updatedAt = Instant.now();
     }
 
+    public void enrich(List<UUID> mediaIds, Integer durationMinutes, String difficultyLevel,
+            BigDecimal price, String currency, Integer capacityMin, Integer capacityMax,
+            List<String> includedItems, List<String> excludedItems, UUID placeId) {
+        if (durationMinutes != null && durationMinutes < 0) throw new IllegalArgumentException("durationMinutes must be positive");
+        if (price != null && price.signum() <= 0) throw new IllegalArgumentException("price must be positive");
+        if ((price == null) != (trimToNull(currency) == null)) throw new IllegalArgumentException("price and currency must be supplied together");
+        if (capacityMin != null && capacityMin < 0) throw new IllegalArgumentException("capacityMin must be positive");
+        if (capacityMax != null && capacityMax < 0) throw new IllegalArgumentException("capacityMax must be positive");
+        if (capacityMin != null && capacityMax != null && capacityMin > capacityMax)
+            throw new IllegalArgumentException("capacityMin must be less than or equal to capacityMax");
+        this.mediaIds = copyUuidList(mediaIds);
+        this.durationMinutes = durationMinutes;
+        this.difficultyLevel = normalizeDifficulty(difficultyLevel);
+        this.price = price;
+        this.currency = trimToNull(currency) == null ? null : currency.trim().toUpperCase(java.util.Locale.ROOT);
+        this.capacityMin = capacityMin;
+        this.capacityMax = capacityMax;
+        this.includedItems = copyTextList(includedItems);
+        this.excludedItems = copyTextList(excludedItems);
+        this.placeId = placeId;
+        this.updatedAt = Instant.now();
+    }
+
     public void delete() {
         if (status == AssetStatus.DELETED) return;
         status = AssetStatus.DELETED;
@@ -118,6 +154,19 @@ public class CatalogAsset {
     }
     private static String trimToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+    private static List<UUID> copyUuidList(List<UUID> values) { return values == null ? new ArrayList<>() : new ArrayList<>(values); }
+    private static List<String> copyTextList(List<String> values) {
+        if (values == null) return new ArrayList<>();
+        return values.stream().map(CatalogAsset::trimToNull).filter(java.util.Objects::nonNull).toList();
+    }
+    private static String normalizeDifficulty(String value) {
+        String normalized = trimToNull(value);
+        if (normalized == null) return null;
+        normalized = normalized.toUpperCase(java.util.Locale.ROOT);
+        if (!java.util.Set.of("BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT").contains(normalized))
+            throw new IllegalArgumentException("difficultyLevel must be BEGINNER, INTERMEDIATE, ADVANCED or EXPERT");
+        return normalized;
     }
 
     public UUID getId() { return id; }
@@ -150,6 +199,26 @@ public class CatalogAsset {
     public void setAddress(String address) { this.address = address; }
     public GeoPoint getLocation() { return location; }
     public void setLocation(GeoPoint location) { this.location = location; }
+    public List<UUID> getMediaIds() { return List.copyOf(mediaIds); }
+    public void setMediaIds(List<UUID> mediaIds) { this.mediaIds = copyUuidList(mediaIds); }
+    public Integer getDurationMinutes() { return durationMinutes; }
+    public void setDurationMinutes(Integer durationMinutes) { this.durationMinutes = durationMinutes; }
+    public String getDifficultyLevel() { return difficultyLevel; }
+    public void setDifficultyLevel(String difficultyLevel) { this.difficultyLevel = normalizeDifficulty(difficultyLevel); }
+    public BigDecimal getPrice() { return price; }
+    public void setPrice(BigDecimal price) { this.price = price; }
+    public String getCurrency() { return currency; }
+    public void setCurrency(String currency) { this.currency = currency; }
+    public Integer getCapacityMin() { return capacityMin; }
+    public void setCapacityMin(Integer capacityMin) { this.capacityMin = capacityMin; }
+    public Integer getCapacityMax() { return capacityMax; }
+    public void setCapacityMax(Integer capacityMax) { this.capacityMax = capacityMax; }
+    public List<String> getIncludedItems() { return List.copyOf(includedItems); }
+    public void setIncludedItems(List<String> includedItems) { this.includedItems = copyTextList(includedItems); }
+    public List<String> getExcludedItems() { return List.copyOf(excludedItems); }
+    public void setExcludedItems(List<String> excludedItems) { this.excludedItems = copyTextList(excludedItems); }
+    public UUID getPlaceId() { return placeId; }
+    public void setPlaceId(UUID placeId) { this.placeId = placeId; }
     public AssetStatus getStatus() { return status; }
     public void setStatus(AssetStatus status) { this.status = status; }
     public Instant getCreatedAt() { return createdAt; }

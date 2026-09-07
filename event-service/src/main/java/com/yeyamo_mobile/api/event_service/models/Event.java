@@ -57,6 +57,9 @@ public class Event {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "cover_media_id")
+    private UUID coverMediaId;
+
     @Column(name = "start_at", nullable = false)
     private Instant startAt;
 

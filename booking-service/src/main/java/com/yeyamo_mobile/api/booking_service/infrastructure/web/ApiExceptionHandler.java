@@ -15,6 +15,8 @@ public class ApiExceptionHandler {
         HttpStatus status;
         if (e.code().contains("FORBIDDEN")) {
             status = HttpStatus.FORBIDDEN;
+        } else if ("TOKEN_REFRESH_REQUIRED".equals(e.code())) {
+            status = HttpStatus.UNAUTHORIZED;
         } else if (e.code().contains("NOT_FOUND")) {
             status = HttpStatus.NOT_FOUND;
         } else if ("INVALID_PLACE".equals(e.code())) {

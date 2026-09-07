@@ -23,6 +23,8 @@ import com.yeyamo_mobile.api.event_service.models.Event;
 import com.yeyamo_mobile.api.event_service.models.EventRegistration;
 import com.yeyamo_mobile.api.event_service.repository.EventRegistrationRepository;
 import com.yeyamo_mobile.api.event_service.repository.EventRepository;
+import com.yeyamo_mobile.api.event_service.repository.PlaceReadModelRepository;
+import com.yeyamo_mobile.api.event_service.models.PlaceReadModel;
 import com.yeyamo_mobile.shared.country.CountryConfigClient;
 import com.yeyamo_mobile.shared.country.CountryConfigClient.CountryFeature;
 import com.yeyamo_mobile.shared.geography.GeographicFields;
@@ -35,13 +37,14 @@ public class EventService {
     private final EventRegistrationRepository registrationRepository;
     private final EventPublisher eventPublisher;
     private final CountryConfigClient countries;
+    private final PlaceReadModelRepository places;
 
     public EventService(
             EventRepository eventRepository,
             EventRegistrationRepository registrationRepository,
             EventPublisher eventPublisher
     ) {
-        this(eventRepository, registrationRepository, eventPublisher, null);
+        this(eventRepository, registrationRepository, eventPublisher, null, null);
     }
 
     @Autowired
@@ -49,12 +52,14 @@ public class EventService {
             EventRepository eventRepository,
             EventRegistrationRepository registrationRepository,
             EventPublisher eventPublisher,
-            CountryConfigClient countries
+            CountryConfigClient countries,
+            PlaceReadModelRepository places
     ) {
         this.eventRepository = eventRepository;
         this.registrationRepository = registrationRepository;
         this.eventPublisher = eventPublisher;
         this.countries = countries;
+        this.places = places;
     }
 
     @Transactional(readOnly = true)
@@ -88,11 +93,13 @@ public class EventService {
         if (!request.isVirtual() && request.getPlaceId() == null) {
             throw new ApiException("PLACE_REQUIRED", "Un Ã©vÃ©nement physique doit Ãªtre associÃ© Ã  un lieu", HttpStatus.BAD_REQUEST);
         }
+        validatePlace(request);
 
         Event event = new Event();
         event.setPlaceId(request.getPlaceId());
         event.setTitle(request.getTitle());
         event.setDescription(request.getDescription());
+        event.setCoverMediaId(request.getCoverMediaId());
         event.setStartAt(request.getStartAt());
         event.setEndAt(request.getEndAt());
         event.setCapacity(request.getCapacity());
@@ -116,6 +123,7 @@ public class EventService {
 
         event.setTitle(request.getTitle());
         event.setDescription(request.getDescription());
+        event.setCoverMediaId(request.getCoverMediaId());
         event.setStartAt(request.getStartAt());
         event.setEndAt(request.getEndAt());
         event.setCapacity(request.getCapacity());
@@ -303,6 +311,17 @@ public class EventService {
             countries.validateCity(geography.getCountryCode(), geography.getCityId());
         } catch (CountryConfigClient.CountryConfigException exception) {
             throw new ApiException("COUNTRY_CONFIGURATION_REJECTED", exception.getMessage(), HttpStatus.SERVICE_UNAVAILABLE);
+        }
+    }
+
+    private void validatePlace(EventRequest request) {
+        if (request.isVirtual() || places == null) {
+            return;
+        }
+        PlaceReadModel place = places.findById(request.getPlaceId())
+                .orElseThrow(() -> new ApiException("PLACE_NOT_FOUND", "Lieu introuvable", HttpStatus.NOT_FOUND));
+        if (!place.isActive()) {
+            throw new ApiException("PLACE_NOT_ACTIVE", "Le lieu selectionne n'est pas actif", HttpStatus.BAD_REQUEST);
         }
     }
 }

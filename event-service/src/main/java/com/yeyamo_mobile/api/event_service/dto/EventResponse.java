@@ -17,7 +17,8 @@ public record EventResponse(
         Integer capacity,
         Integer registeredCount,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        UUID coverMediaId
 ) {
     public static EventResponse from(Event event) {
         return new EventResponse(
@@ -31,7 +32,8 @@ public record EventResponse(
                 event.getCapacity(),
                 event.getRegisteredCount(),
                 event.getCreatedAt(),
-                event.getUpdatedAt()
+                event.getUpdatedAt(),
+                event.getCoverMediaId()
         );
     }
 }

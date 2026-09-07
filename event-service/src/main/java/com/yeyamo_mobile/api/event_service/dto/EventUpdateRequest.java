@@ -19,6 +19,8 @@ public class EventUpdateRequest {
 
     private String description;
 
+    private UUID coverMediaId;
+
     @NotNull
     @Future
     private Instant startAt;
@@ -44,6 +46,14 @@ public class EventUpdateRequest {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public UUID getCoverMediaId() {
+        return coverMediaId;
+    }
+
+    public void setCoverMediaId(UUID coverMediaId) {
+        this.coverMediaId = coverMediaId;
     }
 
     public Instant getStartAt() {
