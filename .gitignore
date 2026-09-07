@@ -3,3 +3,13 @@
 .env.*
 !.env.example
 !.env.*.example
+
+# Maven build outputs. Source files and the Maven Wrapper remain versioned.
+**/target/
+*.jar
+*.war
+*.class
+!.mvn/wrapper/maven-wrapper.jar
+
+# The mobile application is maintained in its own Git repository.
+yeyamo-mobile/
