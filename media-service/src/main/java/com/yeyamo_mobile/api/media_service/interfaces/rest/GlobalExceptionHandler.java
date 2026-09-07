@@ -9,6 +9,7 @@ public class GlobalExceptionHandler{
    case "MEDIA_FORBIDDEN"        -> HttpStatus.FORBIDDEN;
    case "MEDIA_DUPLICATE"        -> HttpStatus.CONFLICT;
    case "QUOTA_EXCEEDED"         -> HttpStatus.TOO_MANY_REQUESTS;
+   case "STORAGE_UNAVAILABLE"    -> HttpStatus.SERVICE_UNAVAILABLE;
    case "SIGNED_URL_EXPIRED",
         "SIGNED_URL_INVALID",
         "SIGNED_URL_REQUIRED"    -> HttpStatus.UNAUTHORIZED;

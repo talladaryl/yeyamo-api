@@ -3,4 +3,5 @@ target/
 .vscode/
 *.iml
 *.log
-storage/
+# Runtime local-media directory only; Java storage adapters remain versioned.
+/storage/
