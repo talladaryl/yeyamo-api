@@ -1,0 +1,287 @@
+# Dokploy production composition. It deliberately extends the local compose
+# service definitions so that service names, healthchecks and dependencies stay
+# aligned with docker-compose.yml while host port bindings and local config
+# mounts are removed.
+name: yeyamo-production
+
+x-production-java-env: &production-java-env
+  CONFIG_SERVER_URL: "http://config-server:8080"
+  CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+  CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
+  EUREKA_USERNAME: "${EUREKA_USERNAME:?EUREKA_USERNAME is required}"
+  EUREKA_PASSWORD: "${EUREKA_PASSWORD:?EUREKA_PASSWORD is required}"
+  EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "http://${EUREKA_USERNAME:?EUREKA_USERNAME is required}:${EUREKA_PASSWORD:?EUREKA_PASSWORD is required}@registry-service:8761/eureka"
+  EUREKA_SERVER: "http://${EUREKA_USERNAME:?EUREKA_USERNAME is required}:${EUREKA_PASSWORD:?EUREKA_PASSWORD is required}@registry-service:8761/eureka/"
+  EUREKA_SERVER_URL: "http://${EUREKA_USERNAME:?EUREKA_USERNAME is required}:${EUREKA_PASSWORD:?EUREKA_PASSWORD is required}@registry-service:8761/eureka/"
+  SPRING_DATASOURCE_USERNAME: "${POSTGRES_USER:?POSTGRES_USER is required}"
+  SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+  DB_USERNAME: "${POSTGRES_USER:?POSTGRES_USER is required}"
+  DB_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+  ADS_DB_USERNAME: "${POSTGRES_USER:?POSTGRES_USER is required}"
+  ADS_DB_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+  DISCOVERY_DB_USERNAME: "${POSTGRES_USER:?POSTGRES_USER is required}"
+  DISCOVERY_DB_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+  FEED_DB_USERNAME: "${POSTGRES_USER:?POSTGRES_USER is required}"
+  FEED_DB_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  SPRING_DATA_REDIS_HOST: "redis"
+  SPRING_DATA_REDIS_PORT: "6379"
+  JWT_SECRET: "${JWT_SECRET:?JWT_SECRET is required}"
+  INTERNAL_SERVICE_TOKEN: "${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN is required}"
+  CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS is required}"
+  CORS_ORIGINS: "${CORS_ORIGINS:?CORS_ORIGINS is required}"
+  TRUST_FORWARDED_PROTO: "true"
+  MAIL_HOST: "${MAIL_HOST:-smtp-relay.brevo.com}"
+  MAIL_PORT: "${MAIL_PORT:-587}"
+  MAIL_USERNAME: "${MAIL_USERNAME:-}"
+  MAIL_PASSWORD: "${MAIL_PASSWORD:-}"
+  EMAIL_FROM_ADDRESS: "${EMAIL_FROM_ADDRESS:-}"
+  EMAIL_FROM_NAME: "${EMAIL_FROM_NAME:-YeYamo}"
+  PUSH_PROVIDER_ACCESS_TOKEN: "${PUSH_PROVIDER_ACCESS_TOKEN:-}"
+  GOOGLE_MAPS_SERVER_API_KEY: "${GOOGLE_MAPS_SERVER_API_KEY:-}"
+  R2_ACCOUNT_ID: "${R2_ACCOUNT_ID:-}"
+  R2_ACCESS_KEY_ID: "${R2_ACCESS_KEY_ID:-}"
+  R2_SECRET_ACCESS_KEY: "${R2_SECRET_ACCESS_KEY:-}"
+  R2_BUCKET_NAME: "${R2_BUCKET_NAME:-}"
+  R2_PUBLIC_BASE_URL: "${R2_PUBLIC_BASE_URL:-}"
+  PAYMENT_AGGREGATOR_KEY_A: "${PAYMENT_AGGREGATOR_KEY_A:-}"
+  PAYMENT_AGGREGATOR_KEY_B: "${PAYMENT_AGGREGATOR_KEY_B:-}"
+  PAYMENT_AGGREGATOR_WEBHOOK_SECRET: "${PAYMENT_AGGREGATOR_WEBHOOK_SECRET:-}"
+  PAYMENT_WEBHOOK_SECRET: "${PAYMENT_WEBHOOK_SECRET:-}"
+  ADS_TOKEN_SECRET: "${ADS_TOKEN_SECRET:-}"
+  TICKET_QR_PRIVATE_KEY_BASE64: "${TICKET_QR_PRIVATE_KEY_BASE64:-}"
+  TICKET_QR_PUBLIC_KEY_BASE64: "${TICKET_QR_PUBLIC_KEY_BASE64:-}"
+  TURNSTILE_SECRET_KEY: "${TURNSTILE_SECRET_KEY:-}"
+  YEYAMO_BOOTSTRAP_ADMIN_ENABLED: "${YEYAMO_BOOTSTRAP_ADMIN_ENABLED:-false}"
+  YEYAMO_BOOTSTRAP_ADMIN_EMAIL: "${YEYAMO_BOOTSTRAP_ADMIN_EMAIL:-}"
+  YEYAMO_BOOTSTRAP_ADMIN_PASSWORD: "${YEYAMO_BOOTSTRAP_ADMIN_PASSWORD:-}"
+
+x-private-service: &private-service
+  restart: unless-stopped
+  ports: !reset []
+  environment:
+    <<: *production-java-env
+
+services:
+  postgres:
+    extends: { file: docker-compose.yml, service: postgres }
+    build: { context: ., dockerfile: deploy/postgres-init.Dockerfile }
+    restart: unless-stopped
+    ports: !reset []
+    volumes: !reset [postgres-data:/var/lib/postgresql/data]
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER is required}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+
+  postgres-init:
+    extends: { file: docker-compose.yml, service: postgres-init }
+    build: { context: ., dockerfile: deploy/postgres-init.Dockerfile }
+    restart: "no"
+    volumes: !reset []
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER is required}"
+      PGPASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+      PGHOST: postgres
+
+  redis:
+    extends: { file: docker-compose.yml, service: redis }
+    restart: unless-stopped
+    ports: !reset []
+
+  opensearch:
+    extends: { file: docker-compose.yml, service: opensearch }
+    restart: unless-stopped
+    container_name: !reset null
+    ports: !reset []
+
+  neo4j:
+    extends: { file: docker-compose.yml, service: neo4j }
+    restart: unless-stopped
+    ports: !reset []
+    environment:
+      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:?NEO4J_PASSWORD is required}"
+
+  kafka:
+    extends: { file: docker-compose.yml, service: kafka }
+    restart: unless-stopped
+    ports: !reset []
+
+  kafka-init:
+    extends: { file: docker-compose.yml, service: kafka-init }
+    restart: "no"
+
+  config-server:
+    extends: { file: docker-compose.yml, service: config-server }
+    build: { context: ., dockerfile: config-server/Dockerfile }
+    restart: unless-stopped
+    ports: !reset []
+    volumes: !reset []
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
+      CONFIG_GIT_URI: "${CONFIG_GIT_URI:?CONFIG_GIT_URI is required}"
+      CONFIG_GIT_BRANCH: "${CONFIG_GIT_BRANCH:-daryl}"
+      CONFIG_GIT_USERNAME: "${CONFIG_GIT_USERNAME:-}"
+      CONFIG_GIT_PASSWORD: "${CONFIG_GIT_PASSWORD:-}"
+      CONFIG_ENCRYPT_ENABLED: "${CONFIG_ENCRYPT_ENABLED:-false}"
+      CONFIG_ENCRYPT_KEYSTORE_LOCATION: "${CONFIG_ENCRYPT_KEYSTORE_LOCATION:-}"
+      CONFIG_ENCRYPT_KEYSTORE_PASSWORD: "${CONFIG_ENCRYPT_KEYSTORE_PASSWORD:-}"
+      CONFIG_ENCRYPT_KEYSTORE_ALIAS: "${CONFIG_ENCRYPT_KEYSTORE_ALIAS:-}"
+      CONFIG_ENCRYPT_KEYSTORE_SECRET: "${CONFIG_ENCRYPT_KEYSTORE_SECRET:-}"
+
+  registry-service:
+    extends: { file: docker-compose.yml, service: registry-service }
+    build: { context: ., dockerfile: registry-service/Dockerfile }
+    <<: *private-service
+
+  api-gateway:
+    extends: { file: docker-compose.yml, service: api-gateway }
+    build: { context: ., dockerfile: api-gateway/Dockerfile }
+    <<: *private-service
+    expose: ["8083"]
+    networks:
+      yeyamo-network: {}
+      dokploy-network: {}
+
+  auth-service:
+    extends: { file: docker-compose.yml, service: auth-service }
+    build: { context: ., dockerfile: auth-service/Dockerfile }
+    <<: *private-service
+  user-service:
+    extends: { file: docker-compose.yml, service: user-service }
+    build: { context: ., dockerfile: user-service/Dockerfile }
+    <<: *private-service
+  partner-service:
+    extends: { file: docker-compose.yml, service: partner-service }
+    build: { context: ., dockerfile: partner-service/Dockerfile }
+    <<: *private-service
+  campaign-service:
+    extends: { file: docker-compose.yml, service: campaign-service }
+    build: { context: ., dockerfile: campaign-service/Dockerfile }
+    <<: *private-service
+  ads-delivery-service:
+    extends: { file: docker-compose.yml, service: ads-delivery-service }
+    build: { context: ., dockerfile: ads-delivery-service/Dockerfile }
+    <<: *private-service
+  ticket-service:
+    extends: { file: docker-compose.yml, service: ticket-service }
+    build: { context: ., dockerfile: ticket-service/Dockerfile }
+    <<: *private-service
+  commerce-service:
+    extends: { file: docker-compose.yml, service: commerce-service }
+    build: { context: ., dockerfile: commerce-service/Dockerfile }
+    <<: *private-service
+  admin-service:
+    extends: { file: docker-compose.yml, service: admin-service }
+    build: { context: ., dockerfile: admin-service/Dockerfile }
+    <<: *private-service
+  catalog-service:
+    extends: { file: docker-compose.yml, service: catalog-service }
+    build: { context: ., dockerfile: catalog-service/Dockerfile }
+    <<: *private-service
+  place-service:
+    extends: { file: docker-compose.yml, service: place-service }
+    build: { context: ., dockerfile: place-service/Dockerfile }
+    <<: *private-service
+  event-service:
+    extends: { file: docker-compose.yml, service: event-service }
+    build: { context: ., dockerfile: event-service/Dockerfile }
+    <<: *private-service
+  content-service:
+    extends: { file: docker-compose.yml, service: content-service }
+    build: { context: ., dockerfile: content-service/Dockerfile }
+    <<: *private-service
+  interaction-service:
+    extends: { file: docker-compose.yml, service: interaction-service }
+    build: { context: ., dockerfile: interaction-service/Dockerfile }
+    <<: *private-service
+  feed-service:
+    extends: { file: docker-compose.yml, service: feed-service }
+    build: { context: ., dockerfile: feed-service/Dockerfile }
+    <<: *private-service
+  discovery-service:
+    extends: { file: docker-compose.yml, service: discovery-service }
+    build: { context: ., dockerfile: discovery-service/Dockerfile }
+    <<: *private-service
+  recommendation-service:
+    extends: { file: docker-compose.yml, service: recommendation-service }
+    build: { context: ., dockerfile: recommendation-service/Dockerfile }
+    <<: *private-service
+  gamification-service:
+    extends: { file: docker-compose.yml, service: gamification-service }
+    build: { context: ., dockerfile: gamification-service/Dockerfile }
+    <<: *private-service
+  mission-reward-service:
+    extends: { file: docker-compose.yml, service: mission-reward-service }
+    build: { context: ., dockerfile: mission-reward-service/Dockerfile }
+    <<: *private-service
+  referral-service:
+    extends: { file: docker-compose.yml, service: referral-service }
+    build: { context: ., dockerfile: referral-service/Dockerfile }
+    <<: *private-service
+  moderation-trust-service:
+    extends: { file: docker-compose.yml, service: moderation-trust-service }
+    build: { context: ., dockerfile: moderation-trust-service/Dockerfile }
+    <<: *private-service
+  media-service:
+    extends: { file: docker-compose.yml, service: media-service }
+    build: { context: ., dockerfile: media-service/Dockerfile }
+    <<: *private-service
+  notification-service:
+    extends: { file: docker-compose.yml, service: notification-service }
+    build: { context: ., dockerfile: notification-service/Dockerfile }
+    <<: *private-service
+  booking-service:
+    extends: { file: docker-compose.yml, service: booking-service }
+    build: { context: ., dockerfile: booking-service/Dockerfile }
+    <<: *private-service
+  payment-service:
+    extends: { file: docker-compose.yml, service: payment-service }
+    build: { context: ., dockerfile: payment-service/Dockerfile }
+    <<: *private-service
+  messaging-service:
+    extends: { file: docker-compose.yml, service: messaging-service }
+    build: { context: ., dockerfile: messaging-service/Dockerfile }
+    <<: *private-service
+  support-service:
+    extends: { file: docker-compose.yml, service: support-service }
+    build: { context: ., dockerfile: support-service/Dockerfile }
+    <<: *private-service
+  culture-service:
+    extends: { file: docker-compose.yml, service: culture-service }
+    build: { context: ., dockerfile: culture-service/Dockerfile }
+    <<: *private-service
+  graph-service:
+    extends: { file: docker-compose.yml, service: graph-service }
+    build: { context: ., dockerfile: graph-service/Dockerfile }
+    <<: *private-service
+  country-config-service:
+    extends: { file: docker-compose.yml, service: country-config-service }
+    build: { context: ., dockerfile: country-config-service/Dockerfile }
+    <<: *private-service
+  analytics-service:
+    extends: { file: docker-compose.yml, service: analytics-service }
+    build: { context: ., dockerfile: analytics-service/Dockerfile }
+    <<: *private-service
+  ingestion-service:
+    extends: { file: docker-compose.yml, service: ingestion-service }
+    build: { context: ., dockerfile: ingestion-service/Dockerfile }
+    <<: *private-service
+
+volumes:
+  postgres-data:
+  redis-data:
+  opensearch-data:
+  neo4j-data:
+  media-storage:
+
+networks:
+  yeyamo-network:
+    driver: bridge
+  dokploy-network:
+    external: true
+    name: "${DOKPLOY_NETWORK:-dokploy-network}"

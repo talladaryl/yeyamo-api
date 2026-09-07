@@ -11,3 +11,13 @@
 **/target/maven-status
 **/target/maven-archiver
 **/target/*.original
+**/target/
+
+# Never copy local credentials or unrelated repositories into a Docker build
+# context. Production configuration is fetched by Config Server from Git.
+.env
+.env.*
+!.env.example
+!.env.*.example
+cloud-conf-yeyamo/
+yeyamo-mobile/
