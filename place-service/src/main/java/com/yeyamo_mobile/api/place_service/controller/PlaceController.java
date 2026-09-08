@@ -23,6 +23,8 @@ import com.yeyamo_mobile.api.place_service.dto.PlaceRequest;
 import com.yeyamo_mobile.api.place_service.dto.PlaceResponse;
 import com.yeyamo_mobile.api.place_service.dto.PlaceSummaryResponse;
 import com.yeyamo_mobile.api.place_service.dto.PartnerPlaceResponse;
+import com.yeyamo_mobile.api.place_service.dto.DirectionsResponse;
+import com.yeyamo_mobile.api.place_service.service.DirectionsService;
 import com.yeyamo_mobile.api.place_service.service.PlaceService;
 
 import jakarta.validation.Valid;
@@ -38,9 +40,11 @@ import jakarta.validation.constraints.NotNull;
 public class PlaceController {
 
     private final PlaceService placeService;
+    private final DirectionsService directionsService;
 
-    public PlaceController(PlaceService placeService) {
+    public PlaceController(PlaceService placeService, DirectionsService directionsService) {
         this.placeService = placeService;
+        this.directionsService = directionsService;
     }
 
     @GetMapping("/nearby")
@@ -58,6 +62,17 @@ public class PlaceController {
     @PreAuthorize("hasRole('PARTNER')")
     public Page<PartnerPlaceResponse> myPublishedPlaces(Authentication authentication, Pageable pageable) {
         return placeService.findMyPublishedPlaces(authentication.getName(), pageable);
+    }
+
+    @GetMapping("/directions")
+    public DirectionsResponse directions(
+            @RequestParam @NotNull @Min(-90) @Max(90) Double originLat,
+            @RequestParam @NotNull @Min(-180) @Max(180) Double originLng,
+            @RequestParam @NotNull @Min(-90) @Max(90) Double destLat,
+            @RequestParam @NotNull @Min(-180) @Max(180) Double destLng,
+            @RequestParam(defaultValue = "driving-car") @jakarta.validation.constraints.Pattern(regexp = "driving-car|foot-walking") String mode
+    ) {
+        return directionsService.directions(originLat, originLng, destLat, destLng, mode);
     }
 
     @GetMapping("/{id}")

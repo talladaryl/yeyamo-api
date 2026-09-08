@@ -34,16 +34,16 @@ class CloudflareTurnstileVerifierTests {
     }
 
     @Test
-    void rejectsInvalidAndExpiredTokens() {
+    void rejectsFailedVerificationWithTheStableClientCode() {
         Fixture invalid = fixture(true);
         invalid.server.expect(once(), requestTo(VERIFY_URL))
                 .andRespond(withSuccess(response(false, "", "", "invalid-input-response"), MediaType.APPLICATION_JSON));
-        assertCode("TURNSTILE_INVALID", () -> invalid.verifier.verify("invalid", AntiBotAction.REGISTER, null));
+        assertCode("TURNSTILE_VERIFICATION_FAILED", () -> invalid.verifier.verify("invalid", AntiBotAction.REGISTER, null));
 
         Fixture expired = fixture(true);
         expired.server.expect(once(), requestTo(VERIFY_URL))
                 .andRespond(withSuccess(response(false, "", "", "timeout-or-duplicate"), MediaType.APPLICATION_JSON));
-        assertCode("TURNSTILE_EXPIRED", () -> expired.verifier.verify("expired", AntiBotAction.REGISTER, null));
+        assertCode("TURNSTILE_VERIFICATION_FAILED", () -> expired.verifier.verify("expired", AntiBotAction.REGISTER, null));
     }
 
     @Test
@@ -62,11 +62,10 @@ class CloudflareTurnstileVerifierTests {
     }
 
     @Test
-    void failsClosedWhenProviderReturnsServerError() {
+    void failsOpenWhenProviderIsTechnicallyUnavailable() {
         Fixture fixture = fixture(true);
         fixture.server.expect(once(), requestTo(VERIFY_URL)).andRespond(withServerError());
-        assertCode("TURNSTILE_PROVIDER_UNAVAILABLE",
-                () -> fixture.verifier.verify("token", AntiBotAction.REGISTER, null));
+        assertDoesNotThrow(() -> fixture.verifier.verify("token", AntiBotAction.REGISTER, null));
     }
 
     @Test

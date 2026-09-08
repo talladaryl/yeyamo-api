@@ -121,7 +121,7 @@ BEGIN
         SELECT id INTO dept_mifi_id FROM administrative_areas WHERE country_code = 'CM' AND slug = 'mifi';
         SELECT id INTO dept_noun_id FROM administrative_areas WHERE country_code = 'CM' AND slug = 'noun';
         
-        INSERT INTO cities (country_code, administrative_area_id, name, slug, latitude, longitude, active) VALUES
+        INSERT INTO cities (country_code, administrative_area_id, name, slug, latitude, longitude, population, active) VALUES
             ('CM', dept_mifi_id, 'Bafoussam', 'bafoussam', 5.4781, 10.4178, 300000, true),
             ('CM', dept_noun_id, 'Foumban', 'foumban', 5.7265, 10.8997, 120000, true);
     END;
@@ -143,7 +143,7 @@ BEGIN
     BEGIN
         SELECT id INTO dept_vina_id FROM administrative_areas WHERE country_code = 'CM' AND slug = 'vina';
         
-        INSERT INTO cities (country_code, administrative_area_id, name, slug, latitude, longitude, active) VALUES
+        INSERT INTO cities (country_code, administrative_area_id, name, slug, latitude, longitude, population, active) VALUES
             ('CM', dept_vina_id, 'Ngaoundéré', 'ngaoundere', 7.3167, 13.5833, 200000, true);
     END;
 END $$;

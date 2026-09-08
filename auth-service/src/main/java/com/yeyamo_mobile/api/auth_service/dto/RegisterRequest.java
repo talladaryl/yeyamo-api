@@ -3,6 +3,7 @@ package com.yeyamo_mobile.api.auth_service.dto;
 import java.util.UUID;
 
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -22,7 +23,7 @@ public record RegisterRequest(
         @Pattern(regexp = "\\+[1-9]\\d{1,14}", message = "Phone must be in E.164 format") String phone,
         @Size(min = 12, max = 128) String password,
         @Size(max = 80) @Pattern(regexp = "[\\p{L}\\p{N} .'-]*") String displayName,
-        @Size(max = 4096) String turnstileToken,
+        @NotBlank @Size(max = 4096) String turnstileToken,
         @Pattern(regexp = "[A-Z]{2}", message = "Country code must be ISO 3166-1 alpha-2") String countryCode,
         UUID cityId,
         @Size(max = 10) String preferredLanguageCode,

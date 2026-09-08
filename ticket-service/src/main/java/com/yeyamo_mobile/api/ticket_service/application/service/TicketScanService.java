@@ -8,6 +8,7 @@ import com.yeyamo_mobile.api.ticket_service.infrastructure.security.QrTokenServi
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.context.annotation.Profile;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
@@ -22,6 +23,7 @@ import java.util.HexFormat;
  */
 @Slf4j
 @Service
+@Profile("legacy-ticket-api")
 @RequiredArgsConstructor
 public class TicketScanService {
     

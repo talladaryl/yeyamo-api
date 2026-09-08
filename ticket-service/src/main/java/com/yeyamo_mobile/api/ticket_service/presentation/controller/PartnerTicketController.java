@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @RestController("partnerTicketManagementController")
+@Profile("legacy-ticket-api")
 @RequestMapping("/api/v1/partner/tickets")
 @RequiredArgsConstructor
 @Tag(name = "Partner Ticket Management", description = "APIs for partners to manage ticketing")

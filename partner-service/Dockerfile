@@ -7,6 +7,7 @@ RUN --mount=type=cache,target=/root/.m2 mvn -B -pl partner-service -am -DskipTes
 FROM eclipse-temurin:21-jre-jammy
 RUN useradd --system --uid 10001 --create-home spring
 WORKDIR /app
+RUN mkdir -p /app/data && chown -R spring:spring /app
 COPY --from=build --chown=spring:spring /workspace/partner-service/target/partner-service-0.0.1-SNAPSHOT.jar app.jar
 USER spring
 ENV SERVER_PORT=8087

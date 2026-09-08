@@ -2,6 +2,7 @@ package com.yeyamo_mobile.api.auth_service.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.time.Instant;
 import java.util.List;
@@ -13,6 +14,27 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import com.yeyamo_mobile.api.auth_service.exception.ApiException;
 
 class OAuthTokenVerifierSecurityTests {
+
+    @Test
+    void acceptsGoogleTokenWithVerifiedSignatureIssuerAndAudience() {
+        JwtDecoder google = token -> jwt("https://accounts.google.com", List.of("yeyamo-google"), true);
+        OAuthTokenVerifier verifier = new OAuthTokenVerifier("yeyamo-google", "yeyamo-apple", google, google);
+
+        assertDoesNotThrow(() -> verifier.verify("google", "signed-token"));
+    }
+
+    @Test
+    void rejectsInvalidSignatureAndWrongIssuer() {
+        JwtDecoder invalidSignature = token -> { throw new org.springframework.security.oauth2.jwt.JwtException("invalid signature"); };
+        OAuthTokenVerifier invalidVerifier = new OAuthTokenVerifier("yeyamo-google", "yeyamo-apple", invalidSignature, invalidSignature);
+        assertEquals("GOOGLE_TOKEN_INVALID", assertThrows(ApiException.class,
+                () -> invalidVerifier.verify("google", "forged-token")).getCode());
+
+        JwtDecoder wrongIssuer = token -> jwt("https://attacker.example", List.of("yeyamo-google"), true);
+        OAuthTokenVerifier issuerVerifier = new OAuthTokenVerifier("yeyamo-google", "yeyamo-apple", wrongIssuer, wrongIssuer);
+        assertEquals("GOOGLE_ISSUER_INVALID", assertThrows(ApiException.class,
+                () -> issuerVerifier.verify("google", "signed-token")).getCode());
+    }
 
     @Test
     void rejectsTokenIssuedForAnotherOAuthClient() {

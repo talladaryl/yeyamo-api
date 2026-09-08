@@ -33,8 +33,8 @@ ALTER TABLE media_assets
     ADD COLUMN IF NOT EXISTS consent_status    VARCHAR(20),
     ADD COLUMN IF NOT EXISTS consent_record_id VARCHAR(100);
 
-ALTER TABLE media_assets ADD CONSTRAINT IF NOT EXISTS
-    chk_consent_status CHECK (
+ALTER TABLE media_assets DROP CONSTRAINT IF EXISTS chk_consent_status;
+ALTER TABLE media_assets ADD CONSTRAINT chk_consent_status CHECK (
         consent_status IS NULL OR
         consent_status IN ('NOT_REQUIRED','OBTAINED','REFUSED','PENDING')
     );

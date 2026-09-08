@@ -175,10 +175,8 @@ public class AuthService {
         }
 
         String identifier = clean(request.identifier());
+        antiBotVerifier.verify(request.turnstileToken(), AntiBotAction.LOGIN, null);
         loginAttemptService.assertAllowed(identifier);
-        if (loginAttemptService.requiresTurnstile(identifier)) {
-            antiBotVerifier.verify(request.turnstileToken(), AntiBotAction.LOGIN, null);
-        }
         User user = userRepository.findByEmail(identifier)
                 .or(() -> userRepository.findByPhone(identifier))
                 .orElse(null);

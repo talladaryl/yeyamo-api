@@ -1,6 +1,9 @@
+-- Canonical initial schema for the UUID-backed ticket implementation.
+-- This database is known to be empty: do not add a competing V1 schema.
+
 -- Ticket Sale Configuration
 CREATE TABLE ticket_sale_configurations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     event_id VARCHAR(255) NOT NULL,
     partner_id VARCHAR(255) NOT NULL,
     sales_start_at TIMESTAMP NOT NULL,
@@ -10,7 +13,8 @@ CREATE TABLE ticket_sale_configurations (
     currency VARCHAR(3) NOT NULL DEFAULT 'XOF',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uk_ticket_sale_config_event UNIQUE (event_id)
+    CONSTRAINT uk_ticket_sale_config_event UNIQUE (event_id),
+    CONSTRAINT chk_ticket_sale_period CHECK (sales_end_at > sales_start_at)
 );
 
 CREATE INDEX idx_ticket_sale_config_partner ON ticket_sale_configurations(partner_id);
@@ -18,7 +22,7 @@ CREATE INDEX idx_ticket_sale_config_status ON ticket_sale_configurations(status)
 
 -- Ticket Types
 CREATE TABLE ticket_types (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     sale_configuration_id UUID NOT NULL REFERENCES ticket_sale_configurations(id),
     code VARCHAR(50) NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -36,7 +40,7 @@ CREATE TABLE ticket_types (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uk_ticket_type_code UNIQUE (sale_configuration_id, code),
-    CONSTRAINT chk_quantity_positive CHECK (quantity_total >= 0),
+    CONSTRAINT chk_quantity_positive CHECK (quantity_total >= 1),
     CONSTRAINT chk_reserved_valid CHECK (quantity_reserved >= 0 AND quantity_reserved <= quantity_total),
     CONSTRAINT chk_sold_valid CHECK (quantity_sold >= 0 AND quantity_sold <= quantity_total)
 );
@@ -46,7 +50,7 @@ CREATE INDEX idx_ticket_type_status ON ticket_types(status);
 
 -- Ticket Holds (for cart reservation)
 CREATE TABLE ticket_holds (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id VARCHAR(255) NOT NULL,
     event_id VARCHAR(255) NOT NULL,
     ticket_type_id UUID NOT NULL REFERENCES ticket_types(id),
@@ -61,12 +65,12 @@ CREATE TABLE ticket_holds (
 );
 
 CREATE INDEX idx_ticket_hold_user ON ticket_holds(user_id);
-CREATE INDEX idx_ticket_hold_expires ON ticket_holds(expires_at) WHERE status = 'ACTIVE';
+CREATE INDEX idx_ticket_hold_expires ON ticket_holds(status, expires_at);
 CREATE INDEX idx_ticket_hold_type ON ticket_holds(ticket_type_id);
 
 -- Ticket Orders
 CREATE TABLE ticket_orders (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     reference VARCHAR(50) NOT NULL UNIQUE,
     user_id VARCHAR(255) NOT NULL,
     partner_id VARCHAR(255) NOT NULL,
@@ -82,6 +86,7 @@ CREATE TABLE ticket_orders (
     payment_reference VARCHAR(255),
     payment_provider VARCHAR(50),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP NOT NULL,
     paid_at TIMESTAMP,
     issued_at TIMESTAMP,
@@ -98,11 +103,12 @@ CREATE INDEX idx_ticket_order_reference ON ticket_orders(reference);
 CREATE INDEX idx_ticket_order_user ON ticket_orders(user_id);
 CREATE INDEX idx_ticket_order_event ON ticket_orders(event_id);
 CREATE INDEX idx_ticket_order_status ON ticket_orders(status);
+CREATE INDEX idx_ticket_order_partner ON ticket_orders(partner_id);
 CREATE INDEX idx_ticket_order_payment_ref ON ticket_orders(payment_reference);
 
 -- Tickets
 CREATE TABLE tickets (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     order_id UUID NOT NULL REFERENCES ticket_orders(id),
     event_id VARCHAR(255) NOT NULL,
     ticket_type_id UUID NOT NULL REFERENCES ticket_types(id),
@@ -125,7 +131,7 @@ CREATE INDEX idx_ticket_status ON tickets(status);
 
 -- Ticket QR Credentials (for secure QR tokens)
 CREATE TABLE ticket_qr_credentials (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
     token_id VARCHAR(255) NOT NULL UNIQUE,
     token_hash VARCHAR(512) NOT NULL,
@@ -142,8 +148,8 @@ CREATE INDEX idx_qr_credential_key ON ticket_qr_credentials(key_id);
 
 -- Ticket Scans (check-in logs)
 CREATE TABLE ticket_scans (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    ticket_id UUID REFERENCES tickets(id),
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    ticket_id UUID NOT NULL REFERENCES tickets(id),
     event_id VARCHAR(255) NOT NULL,
     scanner_user_id VARCHAR(255) NOT NULL,
     staff_assignment_id UUID,
@@ -161,13 +167,9 @@ CREATE INDEX idx_ticket_scan_event ON ticket_scans(event_id);
 CREATE INDEX idx_ticket_scan_scanner ON ticket_scans(scanner_user_id);
 CREATE INDEX idx_ticket_scan_result ON ticket_scans(result);
 CREATE INDEX idx_ticket_scan_time ON ticket_scans(scanned_at);
-CREATE UNIQUE INDEX uk_ticket_scan_client_reference
-    ON ticket_scans(scanner_user_id, offline_reference)
-    WHERE offline_reference IS NOT NULL;
-
 -- Event Staff Assignments
 CREATE TABLE event_staff_assignments (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     event_id VARCHAR(255) NOT NULL,
     partner_id VARCHAR(255) NOT NULL,
     user_id VARCHAR(255) NOT NULL,
@@ -184,13 +186,17 @@ CREATE INDEX idx_staff_event ON event_staff_assignments(event_id);
 CREATE INDEX idx_staff_user ON event_staff_assignments(user_id);
 CREATE INDEX idx_staff_status ON event_staff_assignments(status);
 
+ALTER TABLE ticket_scans
+    ADD CONSTRAINT fk_ticket_scan_staff_assignment
+    FOREIGN KEY (staff_assignment_id) REFERENCES event_staff_assignments(id) ON DELETE SET NULL;
+
 -- Outbox for event publishing
 CREATE TABLE ticket_outbox (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     aggregate_type VARCHAR(100) NOT NULL,
     aggregate_id VARCHAR(255) NOT NULL,
     event_type VARCHAR(100) NOT NULL,
-    payload JSONB NOT NULL,
+    payload TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     published_at TIMESTAMP,
     status VARCHAR(50) NOT NULL DEFAULT 'PENDING'

@@ -1,7 +1,5 @@
 package com.yeyamo_mobile.api.auth_service.security;
 
-import java.util.List;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -11,9 +9,12 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import com.yeyamo_mobile.api.auth_service.exception.ApiException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class CloudflareTurnstileVerifier implements AntiBotVerifier {
+    private static final Logger log = LoggerFactory.getLogger(CloudflareTurnstileVerifier.class);
     private final RestClient restClient;
     private final TurnstileProperties properties;
 
@@ -46,14 +47,16 @@ public class CloudflareTurnstileVerifier implements AntiBotVerifier {
                     .retrieve()
                     .body(TurnstileSiteVerifyResponse.class);
         } catch (RestClientException exception) {
-            throw unavailable();
+            log.warn("Turnstile verification provider is unavailable; allowing request for availability", exception);
+            return;
         }
 
-        if (response == null) throw unavailable();
+        if (response == null) {
+            log.warn("Turnstile verification provider returned an empty response; allowing request for availability");
+            return;
+        }
         if (!response.success()) {
-            List<String> errors = response.errorCodes() == null ? List.of() : response.errorCodes();
-            String code = errors.contains("timeout-or-duplicate") ? "TURNSTILE_EXPIRED" : "TURNSTILE_INVALID";
-            throw new ApiException(code, "Vérification de sécurité invalide", HttpStatus.FORBIDDEN);
+            throw new ApiException("TURNSTILE_VERIFICATION_FAILED", "Vérification de sécurité invalide", HttpStatus.BAD_REQUEST);
         }
         if (!properties.expectedHostname().equalsIgnoreCase(response.hostname())) {
             throw new ApiException("TURNSTILE_HOSTNAME_MISMATCH", "Origine du challenge invalide", HttpStatus.FORBIDDEN);
@@ -67,4 +70,5 @@ public class CloudflareTurnstileVerifier implements AntiBotVerifier {
         return new ApiException("TURNSTILE_PROVIDER_UNAVAILABLE",
                 "Le service de vérification est temporairement indisponible", HttpStatus.SERVICE_UNAVAILABLE);
     }
+
 }
