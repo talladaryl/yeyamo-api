@@ -52,14 +52,19 @@ public class BookingController {
         return service.mine(a.getName());
     }
 
+    @GetMapping("/api/v1/bookings/partner/me")
+    public Page<BookingView> partnerMine(Authentication authentication, @PageableDefault(size = 20) Pageable pageable) {
+        return service.partnerMine(authentication.getName(), pageable);
+    }
+
     @GetMapping("/api/v1/bookings/{id}")
     public BookingView get(Authentication a, @PathVariable UUID id) {
-        return service.get(a.getName(), id, privileged(a));
+        return service.get(a.getName(), id, admin(a));
     }
 
     @GetMapping("/api/v1/bookings/{id}/history")
     public List<HistoryView> history(Authentication a, @PathVariable UUID id) {
-        return service.history(a.getName(), id, privileged(a));
+        return service.history(a.getName(), id, admin(a));
     }
 
     @PostMapping("/api/v1/bookings/{id}/cancel")
@@ -70,7 +75,7 @@ public class BookingController {
             @RequestHeader("Idempotency-Key") String key,
             @RequestHeader(value = "X-Correlation-Id", required = false) String c
     ) {
-        return service.cancel(a.getName(), id, body.reason(), requiredKey(key), c, privileged(a));
+        return service.cancel(a.getName(), id, body.reason(), requiredKey(key), c, admin(a));
     }
 
     @PostMapping("/api/v1/booking-management/slots")
@@ -98,11 +103,6 @@ public class BookingController {
             throw new IllegalArgumentException("A valid Idempotency-Key is required");
         }
         return key;
-    }
-
-    private boolean privileged(Authentication a) {
-        return a.getAuthorities().stream().map(GrantedAuthority::getAuthority)
-                .anyMatch(v -> v.equals("ROLE_ADMIN") || v.equals("ROLE_PARTNER"));
     }
 
     private boolean admin(Authentication a) {

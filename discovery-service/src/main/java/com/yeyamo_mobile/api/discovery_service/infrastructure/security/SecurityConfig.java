@@ -23,6 +23,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(a->a.requestMatchers("/actuator/health/**","/actuator/info","/v3/api-docs/**","/swagger-ui/**","/swagger-ui.html").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET,"/api/v1/admin/search/**").hasAnyRole("ADMIN","SUPER_ADMIN","SUPPORT")
                         .requestMatchers("/api/v1/admin/search/**").hasAnyRole("ADMIN","SUPER_ADMIN")
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/public/search").permitAll()
                         .requestMatchers("/api/v1/discovery/**","/api/v1/maps/**").authenticated().anyRequest().authenticated())
                 .oauth2ResourceServer(o->o.jwt(j->j.jwtAuthenticationConverter(roles))).build();
     }

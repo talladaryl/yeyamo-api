@@ -296,6 +296,12 @@ public class BookingApplicationService {
     }
 
     @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<BookingView> partnerMine(String owner, org.springframework.data.domain.Pageable pageable) {
+        var safe = org.springframework.data.domain.PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), 100));
+        return bookings.findBySlotOwnerUserIdOrderByCreatedAtDesc(owner, safe).map(this::bookingView);
+    }
+
+    @Transactional(readOnly = true)
     public BookingView get(String actor, UUID id, boolean privileged) {
         return bookingView(owned(actor, id, privileged));
     }
@@ -308,13 +314,13 @@ public class BookingApplicationService {
 
     private BookingEntity lockedOwned(String actor, UUID id, boolean privileged) {
         var b = bookings.findLocked(id).orElseThrow(() -> new NoSuchElementException("Booking not found"));
-        if (!privileged && !b.getUserId().equals(actor)) throw new BookingException("BOOKING_FORBIDDEN", "Booking is not accessible");
+        if (!privileged && !b.getUserId().equals(actor) && !b.getSlot().getOwnerUserId().equals(actor)) throw new BookingException("BOOKING_FORBIDDEN", "Booking is not accessible");
         return b;
     }
 
     private BookingEntity owned(String actor, UUID id, boolean privileged) {
         var b = bookings.findById(id).orElseThrow(() -> new NoSuchElementException("Booking not found"));
-        if (!privileged && !b.getUserId().equals(actor)) throw new BookingException("BOOKING_FORBIDDEN", "Booking is not accessible");
+        if (!privileged && !b.getUserId().equals(actor) && !b.getSlot().getOwnerUserId().equals(actor)) throw new BookingException("BOOKING_FORBIDDEN", "Booking is not accessible");
         return b;
     }
 

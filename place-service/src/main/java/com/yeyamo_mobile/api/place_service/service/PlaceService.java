@@ -114,6 +114,17 @@ public class PlaceService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public Page<PlaceSummaryResponse> listPublished(Long categoryId, Long regionId, UUID cityId, Pageable pageable) {
+        Specification<Place> specification = (root, query, cb) -> cb.equal(root.get("status"), PlaceStatus.PUBLISHED);
+        if (categoryId != null) specification = specification.and((root, query, cb) -> cb.equal(root.get("category").get("id"), categoryId));
+        if (regionId != null) specification = specification.and((root, query, cb) -> cb.equal(root.get("region").get("id"), regionId));
+        if (cityId != null) specification = specification.and((root, query, cb) -> cb.equal(root.get("city").get("id"), cityId));
+        Pageable bounded = PageRequest.of(Math.max(0, pageable.getPageNumber()), Math.min(50, Math.max(1, pageable.getPageSize())),
+                pageable.getSort().isSorted() ? pageable.getSort() : Sort.by(Sort.Direction.ASC, "name"));
+        return placeRepository.findAll(specification, bounded).map(PlaceSummaryResponse::from);
+    }
+
     public PlaceResponse create(PlaceRequest request) {
         return create(request, null);
     }

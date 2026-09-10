@@ -18,7 +18,7 @@ public class ApiExceptionHandler {
         HttpStatus status = switch (e.getCode()) {
             case "CONVERSATION_NOT_FOUND", "MESSAGE_NOT_FOUND", "PARTNER_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "FORBIDDEN" -> HttpStatus.FORBIDDEN;
-            case "EDIT_WINDOW_EXPIRED", "DIRECT_MEMBERS_IMMUTABLE", "OWNER_CANNOT_LEAVE", "OWNER_CANNOT_BE_REMOVED" -> HttpStatus.CONFLICT;
+            case "EDIT_WINDOW_EXPIRED", "DIRECT_MEMBERS_IMMUTABLE", "OWNER_CANNOT_LEAVE", "OWNER_CANNOT_BE_REMOVED", "SELF_CONVERSATION_FORBIDDEN" -> HttpStatus.CONFLICT;
             case "PARTNER_SERVICE_UNAVAILABLE", "PARTNER_RESOLUTION_FAILED" -> HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.BAD_REQUEST;
         };

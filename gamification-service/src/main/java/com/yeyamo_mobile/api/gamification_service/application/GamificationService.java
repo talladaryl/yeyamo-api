@@ -7,6 +7,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.yeyamo_mobile.api.gamification_service.application.badge.BadgeCatalog;
@@ -20,6 +22,8 @@ import com.yeyamo_mobile.api.gamification_service.domain.BadgeDefinition;
 import com.yeyamo_mobile.api.gamification_service.domain.Progress;
 import com.yeyamo_mobile.api.gamification_service.domain.Reward;
 import com.yeyamo_mobile.api.gamification_service.domain.XpActivity;
+import com.yeyamo_mobile.api.gamification_service.domain.XpHistoryEntry;
+import com.yeyamo_mobile.api.gamification_service.domain.RewardStatus;
 
 @Service
 public class GamificationService {
@@ -119,6 +123,24 @@ public class GamificationService {
                 .map(progress -> new LeaderboardEntry(rank.incrementAndGet(),
                         progress.userId(), progress.totalXp(), progress.level()))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PassportSummary passportSummary(String user) {
+        GamificationView view = view(user);
+        Progress progress = view.progress();
+        long currentThreshold = (long) (progress.level() - 1) * (progress.level() - 1) * 100;
+        long nextThreshold = progress.xpForNextLevel();
+        return new PassportSummary(progress.totalXp(), progress.level(), currentThreshold, nextThreshold,
+                Math.max(0, progress.totalXp() - currentThreshold),
+                Math.max(0, nextThreshold - progress.totalXp()), view.badges().size(), view.passport().size(),
+                (int) view.rewards().stream().filter(reward -> reward.status() == RewardStatus.AVAILABLE).count(),
+                progress.currentStreak(), progress.longestStreak(), progress.lastActivityDate(), progress.updatedAt());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<XpHistoryEntry> history(String user, Pageable pageable) {
+        return repo.history(user, pageable);
     }
 
     @Transactional

@@ -64,6 +64,15 @@ public class PlaceController {
         return placeService.findMyPublishedPlaces(authentication.getName(), pageable);
     }
 
+    @GetMapping
+    public Page<PlaceSummaryResponse> listPublished(
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long regionId,
+            @RequestParam(required = false) UUID cityId,
+            Pageable pageable) {
+        return placeService.listPublished(categoryId, regionId, cityId, pageable);
+    }
+
     @GetMapping("/directions")
     public DirectionsResponse directions(
             @RequestParam @NotNull @Min(-90) @Max(90) Double originLat,

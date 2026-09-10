@@ -76,6 +76,13 @@ public class SecurityConfig {
         if (!"GET".equals(method)) {
             return false;
         }
+        if ("/api/v1/public/feed".equals(path) || "/api/v1/public/search".equals(path)
+                || path.matches("^/api/v1/public/feed/users/[^/]+/posts$")) {
+            return true;
+        }
+        if (path.matches("^/api/v1/users/social/[0-9a-fA-F-]{36}/stats$")) {
+            return true;
+        }
         if ("/api/v1/events/me".equals(path)) {
             return false;
         }

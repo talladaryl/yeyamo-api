@@ -60,6 +60,38 @@ public class FeedQueryService {
         // Return combined feed (organic items were cached, ads are dynamic)
         return new FeedPage(user, p, s, itemsWithAds, organicFeed.generatedAt());
     }
+
+    @Transactional(readOnly = true)
+    public PublicFeedPage publicFeed(int page, int size) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, Math.min(50, size));
+        int candidateLimit = Math.min(1000, Math.max(200, (safePage + 1) * safeSize + 1));
+        List<PublicFeedItem> candidates = projections.candidates(candidateLimit).stream()
+                .filter(candidate -> "PUBLIC".equals(candidate.post().visibility()))
+                .filter(candidate -> "PUBLISHED".equals(candidate.post().status()))
+                .sorted(Comparator.comparing((FeedCandidate candidate) -> candidate.post().publishedAt(), Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(candidate -> candidate.post().postId()))
+                .map(candidate -> PublicFeedItem.from(candidate.post(), candidate.metric()))
+                .toList();
+        int from = Math.min(safePage * safeSize, candidates.size());
+        int to = Math.min(from + safeSize, candidates.size());
+        return new PublicFeedPage(safePage, safeSize, to < candidates.size(), List.copyOf(candidates.subList(from, to)), Instant.now());
+    }
+
+    @Transactional(readOnly = true)
+    public PublicFeedPage publicFeedByAuthor(String authorId, int page, int size) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, Math.min(50, size));
+        int candidateLimit = Math.min(1000, Math.max(200, (safePage + 1) * safeSize + 1));
+        List<PublicFeedItem> candidates = projections.candidatesByAuthor(authorId, candidateLimit).stream()
+                .filter(candidate -> "PUBLIC".equals(candidate.post().visibility()))
+                .filter(candidate -> "PUBLISHED".equals(candidate.post().status()))
+                .map(candidate -> PublicFeedItem.from(candidate.post(), candidate.metric()))
+                .toList();
+        int from = Math.min(safePage * safeSize, candidates.size());
+        int to = Math.min(from + safeSize, candidates.size());
+        return new PublicFeedPage(safePage, safeSize, to < candidates.size(), List.copyOf(candidates.subList(from, to)), Instant.now());
+    }
  
     private FeedPage buildOrganic(String user, int page, int size) {
         Instant now = Instant.now();

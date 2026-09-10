@@ -3,6 +3,7 @@ package com.yeyamo_mobile.api.catalog_service.interfaces.rest;
 import com.yeyamo_mobile.api.catalog_service.infrastructure.persistence.*;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.*;
 
 public final class ArtworkDtos { private ArtworkDtos() {}
@@ -14,6 +15,9 @@ public final class ArtworkDtos { private ArtworkDtos() {}
         @PositiveOrZero BigDecimal depth,@PositiveOrZero BigDecimal weight,@NotNull ArtworkEntity.EditionType editionType,@Positive Integer editionSize,
         @NotNull ArtworkEntity.AvailabilityStatus availabilityStatus,List<Translation> translations,List<Media> mediaIds){}
     public record Response(ArtworkEntity artwork,List<ArtworkDetails.Translation> translations,List<ArtworkDetails.Media> media){}
+    public record PublicSummary(UUID id,UUID artisanId,String title,String slug,String shortDescription,String countryCode,String cityId,String culturalCommunity,Integer yearCreated,ArtworkEntity.EditionType editionType,ArtworkEntity.AvailabilityStatus availabilityStatus,ArtworkEntity.AuthenticityStatus authenticityStatus,Instant createdAt){}
+    public record PublicMedia(UUID id,ArtworkDetails.MediaType type,int displayOrder,String contentUrl){}
+    public record PublicDetail(UUID id,UUID artisanId,String title,String slug,String shortDescription,String story,String countryCode,String adminLevel1Id,String cityId,String localityId,UUID cultureContentId,String culturalCommunity,Integer yearCreated,String productionTime,BigDecimal width,BigDecimal height,BigDecimal depth,BigDecimal weight,ArtworkEntity.EditionType editionType,Integer editionSize,ArtworkEntity.AvailabilityStatus availabilityStatus,ArtworkEntity.AuthenticityStatus authenticityStatus,List<PublicMedia> media,Instant createdAt,Instant updatedAt){}
     public record HistoryRequest(@NotBlank String title,@NotBlank String narrative,@NotBlank String languageCode,String period,String culturalMeaning,String source,String contributorId,ArtworkDetails.VerificationStatus verificationStatus){}
     public record AvailabilityRequest(@NotNull ArtworkEntity.AvailabilityStatus status){}
 }

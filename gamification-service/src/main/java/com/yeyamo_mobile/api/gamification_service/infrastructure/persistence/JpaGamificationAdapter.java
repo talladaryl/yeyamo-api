@@ -11,6 +11,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import com.yeyamo_mobile.api.gamification_service.application.port.GamificationRepositoryPort;
@@ -22,6 +24,7 @@ import com.yeyamo_mobile.api.gamification_service.domain.Progress;
 import com.yeyamo_mobile.api.gamification_service.domain.Reward;
 import com.yeyamo_mobile.api.gamification_service.domain.RewardStatus;
 import com.yeyamo_mobile.api.gamification_service.domain.XpActivity;
+import com.yeyamo_mobile.api.gamification_service.domain.XpHistoryEntry;
 
 @Component
 public class JpaGamificationAdapter implements GamificationRepositoryPort {
@@ -189,6 +192,12 @@ public class JpaGamificationAdapter implements GamificationRepositoryPort {
     @Override
     public List<Reward> rewards(String user) {
         return rewards.findByUserIdOrderByGrantedAtDesc(user).stream().map(this::reward).toList();
+    }
+
+    @Override
+    public Page<XpHistoryEntry> history(String user, Pageable pageable) {
+        return ledger.findByUserId(user, pageable).map(entry -> new XpHistoryEntry(
+                entry.getId(), entry.getPoints(), entry.getReason(), entry.getSourceId(), entry.getOccurredAt()));
     }
 
     @Override

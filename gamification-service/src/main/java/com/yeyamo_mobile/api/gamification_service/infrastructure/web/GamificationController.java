@@ -12,15 +12,20 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 
 import com.yeyamo_mobile.api.gamification_service.application.BadgeCatalogEntry;
 import com.yeyamo_mobile.api.gamification_service.application.BadgeStats;
 import com.yeyamo_mobile.api.gamification_service.application.GamificationService;
 import com.yeyamo_mobile.api.gamification_service.application.LeaderboardEntry;
+import com.yeyamo_mobile.api.gamification_service.application.PassportSummary;
 import com.yeyamo_mobile.api.gamification_service.domain.Badge;
 import com.yeyamo_mobile.api.gamification_service.domain.PassportStamp;
 import com.yeyamo_mobile.api.gamification_service.domain.Progress;
 import com.yeyamo_mobile.api.gamification_service.domain.Reward;
+import com.yeyamo_mobile.api.gamification_service.domain.XpHistoryEntry;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -69,6 +74,17 @@ public class GamificationController {
     @GetMapping("/passport")
     public List<PassportStamp> passport(Authentication authentication) {
         return service.view(authentication.getName()).passport();
+    }
+
+    @GetMapping("/passport/summary")
+    public PassportSummary passportSummary(Authentication authentication) {
+        return service.passportSummary(authentication.getName());
+    }
+
+    @GetMapping("/xp/history")
+    public Page<XpHistoryEntry> history(Authentication authentication,
+            @PageableDefault(size = 20, sort = "occurredAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
+        return service.history(authentication.getName(), pageable);
     }
 
     @GetMapping("/streaks")

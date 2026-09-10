@@ -75,6 +75,17 @@ public class MessagingApplicationService {
         return create(actor, new CreateConversation(ConversationType.DIRECT, null, Set.of(targetUserId)), correlation);
     }
 
+    public ConversationView createArtisanConversation(String actor, UUID artisanId, String correlation) {
+        if (partnerIdentityClient == null) {
+            throw error("PARTNER_SERVICE_UNAVAILABLE", "Artisan identity resolution is not configured");
+        }
+        String targetUserId = partnerIdentityClient.resolveUserId(artisanId);
+        if (actor.equals(targetUserId)) {
+            throw error("SELF_CONVERSATION_FORBIDDEN", "You cannot contact your own artisan profile");
+        }
+        return create(actor, new CreateConversation(ConversationType.DIRECT, null, Set.of(targetUserId)), correlation);
+    }
+
     public ConversationView create(String actor, CreateConversation command, String correlation) {
         ConversationType type = Objects.requireNonNull(command.type(), "type");
         Set<String> participants = new LinkedHashSet<>(command.participantIds() == null ? Set.of() : command.participantIds());
@@ -119,6 +130,11 @@ public class MessagingApplicationService {
     @Transactional(readOnly = true)
     public List<ConversationSummary> list(String actor) {
         return members.findUserConversationSummaries(actor, MemberStatus.ACTIVE);
+    }
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<ConversationSummary> page(String actor, org.springframework.data.domain.Pageable pageable) {
+        var safe = org.springframework.data.domain.PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), 100), org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "updatedAt"));
+        return members.findUserConversationSummaries(actor, MemberStatus.ACTIVE, safe);
     }
 
     public ConversationView addMember(String actor, UUID id, String user, String correlation) {

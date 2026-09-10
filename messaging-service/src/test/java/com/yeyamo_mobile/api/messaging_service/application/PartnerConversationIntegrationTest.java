@@ -105,6 +105,29 @@ class PartnerConversationIntegrationTest {
     }
 
     @Test
+    void shouldCreateAndReuseArtisanConversation() {
+        UUID artisanId = UUID.randomUUID();
+        when(partnerIdentityClient.resolveUserId(artisanId)).thenReturn("artisan-user");
+
+        var first = service.createArtisanConversation("visitor-user", artisanId, "corr-a");
+        var second = service.createArtisanConversation("visitor-user", artisanId, "corr-b");
+
+        assertThat(second.id()).isEqualTo(first.id());
+        assertThat(conversationRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRejectContactingOwnArtisanProfile() {
+        UUID artisanId = UUID.randomUUID();
+        when(partnerIdentityClient.resolveUserId(artisanId)).thenReturn("artisan-user");
+
+        assertThatThrownBy(() -> service.createArtisanConversation("artisan-user", artisanId, "corr"))
+                .isInstanceOf(MessagingException.class)
+                .satisfies(ex -> assertThat(((MessagingException) ex).getCode()).isEqualTo("SELF_CONVERSATION_FORBIDDEN"));
+        assertThat(conversationRepository.count()).isZero();
+    }
+
+    @Test
     @DisplayName("Devrait propager PARTNER_NOT_FOUND quand le client lève une 404")
     void shouldPropagatePartnerNotFound() {
         UUID partnerId = UUID.randomUUID();

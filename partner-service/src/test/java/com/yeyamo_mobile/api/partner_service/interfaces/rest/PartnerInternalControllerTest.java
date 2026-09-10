@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -29,12 +30,14 @@ class PartnerInternalControllerTest {
     private SpringPartnerRepository partnerRepository;
     private Profiles profilesRepository;
     private PartnerInternalController controller;
+    private JdbcTemplate jdbc;
 
     @BeforeEach
     void setUp() {
         partnerRepository = mock(SpringPartnerRepository.class);
         profilesRepository = mock(Profiles.class);
-        controller = new PartnerInternalController(partnerRepository, profilesRepository);
+        jdbc = mock(JdbcTemplate.class);
+        controller = new PartnerInternalController(partnerRepository, profilesRepository, jdbc);
     }
 
     @Test

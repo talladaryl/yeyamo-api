@@ -28,6 +28,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/users").permitAll()
                         .requestMatchers(RegexRequestMatcher.regexMatcher(HttpMethod.GET,
                                 "^/api/v1/users/[0-9a-fA-F-]{36}$")).permitAll()
+                        .requestMatchers(RegexRequestMatcher.regexMatcher(HttpMethod.GET,
+                                "^/api/v1/users/social/[0-9a-fA-F-]{36}/stats$")).permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> {}))
                 .build();
