@@ -1,10 +1,12 @@
 singleServerConfig:
-  address: "redis://localhost:6379"
+  address: "redis://${REDIS_HOST:-localhost}:${REDIS_PORT:-6379}"
   connectionPoolSize: 10
   connectionMinimumIdleSize: 5
   timeout: 3000
   retryAttempts: 3
-  retryInterval: 1500
+  retryDelay: !<org.redisson.config.EqualJitterDelay>
+    baseDelay: PT1S
+    maxDelay: PT2S
 threads: 16
 nettyThreads: 32
 codec: !<org.redisson.codec.JsonJacksonCodec> {}
