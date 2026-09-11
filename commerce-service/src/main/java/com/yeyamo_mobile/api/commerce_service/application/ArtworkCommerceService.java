@@ -41,7 +41,8 @@ public class ArtworkCommerceService {
             boolean customOrderAllowed, ArtworkOffer.Status status) {
     }
 
-    public record OrderCommand(UUID offerId, int quantity, ArtworkOrder.DeliveryType deliveryType) {
+    public record OrderCommand(UUID offerId, int quantity, ArtworkOrder.DeliveryType deliveryType,
+            CommerceService.CashInDetails cashInDetails) {
     }
 
     @Transactional
@@ -102,10 +103,10 @@ public class ArtworkCommerceService {
         }
         offer.reservedQuantity += command.quantity();
         offers.save(offer);
-        CommerceOrder financial = commerce.create(new CommerceService.Create(user, offer.artisanPartnerId,
-                offer.artworkId.toString(), ProductType.ARTWORK_ORDER, offer.currencyCode,
+        CommerceOrder financial = commerce.create(new CommerceService.Create(user, null,
+                offer.id.toString(), ProductType.ARTWORK_ORDER, null,
                 List.of(new CommerceService.Line(offer.artworkId.toString(), "Artwork", command.quantity(), offer.amount)),
-                null, BigDecimal.ZERO, BigDecimal.ZERO), "artwork:" + idempotencyKey);
+                offer.id.toString(), null, null, null, command.cashInDetails()), "artwork:" + idempotencyKey);
         ArtworkOrder order = new ArtworkOrder();
         order.id = UUID.randomUUID();
         order.reference = "ART-" + order.id.toString().substring(0, 8).toUpperCase();
@@ -114,7 +115,7 @@ public class ArtworkCommerceService {
         order.artisanPartnerId = offer.artisanPartnerId;
         order.offerId = offer.id;
         order.commerceOrderId = financial.id;
-        order.status = ArtworkOrder.Status.AWAITING_PAYMENT;
+        order.status = financial.totalAmount.signum() == 0 ? ArtworkOrder.Status.PAID : ArtworkOrder.Status.AWAITING_PAYMENT;
         order.deliveryType = command.deliveryType();
         order.quantity = command.quantity();
         order.grossAmount = financial.totalAmount;
@@ -122,6 +123,12 @@ public class ArtworkCommerceService {
         order.artisanAmount = financial.partnerNetAmount;
         order.currencyCode = financial.currency;
         orders.save(order);
+        if (order.status == ArtworkOrder.Status.PAID) {
+            offer.reservedQuantity -= order.quantity;
+            offer.availableQuantity -= order.quantity;
+            if (offer.availableQuantity == 0) offer.status = ArtworkOffer.Status.SOLD_OUT;
+            offers.save(offer);
+        }
         record(order, null, order.status, "created", user);
         event("ArtworkOrderCreated", order, correlationId, offer.artworkId);
         return order;

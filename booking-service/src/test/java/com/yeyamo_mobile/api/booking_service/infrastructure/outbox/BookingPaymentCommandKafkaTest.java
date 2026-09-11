@@ -12,6 +12,7 @@ import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.Test;
@@ -59,7 +60,9 @@ class BookingPaymentCommandKafkaTest {
         consumerProperties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         consumerProperties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         try (Consumer<String, String> consumer = new DefaultKafkaConsumerFactory<String, String>(consumerProperties).createConsumer()) {
-            broker.consumeFromAnEmbeddedTopic(consumer, "payment.commands");
+            TopicPartition paymentCommands = new TopicPartition("payment.commands", 0);
+            consumer.assign(List.of(paymentCommands));
+            consumer.seekToBeginning(List.of(paymentCommands));
             publisher.publish();
 
             ConsumerRecord<String, String> record = KafkaTestUtils.getSingleRecord(consumer, "payment.commands");

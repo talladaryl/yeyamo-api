@@ -59,7 +59,8 @@ public class OutboxService {
         
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("sagaId", orderId);
-        payload.put("bookingId", orderId);
+        payload.put("sourceType", "TICKET_ORDER");
+        payload.put("sourceId", orderId);
         payload.put("userId", userId);
         payload.put("partnerId", partnerId);
         payload.put("amount", amount);

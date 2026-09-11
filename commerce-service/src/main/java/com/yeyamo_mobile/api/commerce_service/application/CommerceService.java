@@ -23,13 +23,14 @@ public class CommerceService {
     private final CommerceRefundRepository refunds;
     private final InvoiceRepository invoices;
     private final OutboxService outbox;
+    private final CanonicalPriceResolver canonicalPrices;
     private final PricingEngine pricing = new PricingEngine();
 
     public CommerceService(OrderRepository orders, OrderLineRepository lines,
             PromotionRepository promotions, PromotionUsageRepository usages,
             CommissionRepository commissions, LedgerRepository ledger,
             CommerceRefundRepository refunds, InvoiceRepository invoices,
-            OutboxService outbox) {
+            OutboxService outbox, CanonicalPriceResolver canonicalPrices) {
         this.orders = orders;
         this.lines = lines;
         this.promotions = promotions;
@@ -39,12 +40,20 @@ public class CommerceService {
         this.refunds = refunds;
         this.invoices = invoices;
         this.outbox = outbox;
+        this.canonicalPrices = canonicalPrices;
     }
 
     public record Line(String productId, String description, int quantity, BigDecimal unitPrice) {}
+    /**
+     * Customer-entered data needed by an external cash-in provider. Monetary
+     * values are intentionally absent: pricing is resolved from the locked
+     * server-side offer.
+     */
+    public record CashInDetails(String operator, String country, String phoneNumber) {}
     public record Create(String userId, String partnerId, String sourceEntityId,
         ProductType productType, String currency, List<Line> lines,
-        String promotionCode, BigDecimal tax, BigDecimal serviceFee) {}
+        String offerId, String promotionCode, BigDecimal tax, BigDecimal serviceFee,
+        CashInDetails cashInDetails) {}
 
     @Transactional
     public CommerceOrder create(Create command, String idempotencyKey) {
@@ -54,32 +63,32 @@ public class CommerceService {
             throw new IllegalArgumentException("At least one line is required");
         }
 
-        BigDecimal subtotal = command.lines().stream().map(line -> {
-            if (line.quantity() <= 0 || line.unitPrice() == null || line.unitPrice().signum() < 0) {
-                throw new IllegalArgumentException("Invalid line");
-            }
-            return line.unitPrice().multiply(BigDecimal.valueOf(line.quantity()));
-        }).reduce(BigDecimal.ZERO, BigDecimal::add);
+        int quantity = command.lines().stream().mapToInt(Line::quantity).sum();
+        CanonicalPriceResolver.Price canonical = canonicalPrices.resolve(new CanonicalPriceResolver.Request(
+            command.productType(), command.sourceEntityId(), quantity, command.userId(), command.offerId()));
+        BigDecimal subtotal = canonical.unitPrice().multiply(BigDecimal.valueOf(canonical.quantity()));
 
-        Promotion promotion = resolvePromotion(command, subtotal);
-        CommissionRule commission = resolveCommission(command);
+        Promotion promotion = resolvePromotion(command, canonical.partnerId(), subtotal);
+        CommissionRule commission = resolveCommission(command.productType(), canonical.partnerId());
         PricingEngine.Result amounts = pricing.calculate(new PricingEngine.Input(
-            subtotal, command.tax(), command.serviceFee(),
+            subtotal, BigDecimal.ZERO, BigDecimal.ZERO,
             promotion == null ? null : promotion.discountType,
             promotion == null ? null : promotion.discountValue,
             promotion == null ? null : promotion.maximumDiscount,
             commission == null ? null : commission.percentage,
             commission == null ? null : commission.fixedAmount,
             commission == null ? null : commission.maximumAmount,
-            command.currency()
+            canonical.currency()
         ));
 
+        CashInDetails cashInDetails = amounts.totalAmount().signum() == 0
+            ? null : requiredCashInDetails(command.cashInDetails());
         CommerceOrder order = new CommerceOrder();
         order.id = UUID.randomUUID();
         order.reference = "COM-" + order.id.toString().substring(0, 8).toUpperCase();
         order.idempotencyKey = idempotencyKey;
         order.userId = command.userId();
-        order.partnerId = command.partnerId();
+        order.partnerId = canonical.partnerId();
         order.sourceEntityId = command.sourceEntityId();
         order.productType = command.productType();
         order.status = OrderStatus.AWAITING_PAYMENT;
@@ -90,13 +99,18 @@ public class CommerceService {
         order.commissionAmount = amounts.commissionAmount();
         order.totalAmount = amounts.totalAmount();
         order.partnerNetAmount = amounts.partnerNetAmount();
-        order.currency = command.currency().toUpperCase(Locale.ROOT);
+        order.currency = canonical.currency().toUpperCase(Locale.ROOT);
         order.promotionId = promotion == null ? null : promotion.id;
         order.pricingRuleVersion = 1;
         order.commissionRuleVersion = commission == null ? null : commission.ruleVersion;
+        if (cashInDetails != null) {
+            order.paymentOperator = cashInDetails.operator();
+            order.paymentCountryCode = cashInDetails.country();
+            order.paymentPhoneNumber = cashInDetails.phoneNumber();
+        }
         orders.save(order);
 
-        saveLines(command, order);
+        saveLine(canonical, order);
         if (promotion != null) savePromotionUsage(promotion, order);
         if (promotion != null) {
             Map<String, Object> promotionPayload = new LinkedHashMap<>();
@@ -109,7 +123,8 @@ public class CommerceService {
             outbox.append("commerce.events", "promotion.applied",
                 order.id.toString(), idempotencyKey, promotionPayload);
         }
-        requestPayment(order, idempotencyKey);
+        if (order.totalAmount.signum() == 0) completeFree(order);
+        else requestPayment(order, idempotencyKey);
         return order;
     }
 
@@ -191,7 +206,8 @@ public class CommerceService {
         outbox.append("payment.commands", "payment.refund.requested",
             orderId.toString(), refund.id.toString(), Map.of(
                 "sagaId", orderId,
-                "bookingId", orderId,
+                "sourceType", "COMMERCE_ORDER",
+                "sourceId", orderId,
                 "paymentId", order.paymentId,
                 "amount", amount,
                 "currency", order.currency,
@@ -280,30 +296,31 @@ public class CommerceService {
         return ledger.balance(partner, currency);
     }
 
-    private Promotion resolvePromotion(Create command, BigDecimal subtotal) {
+    private Promotion resolvePromotion(Create command, String canonicalPartnerId, BigDecimal subtotal) {
         if (command.promotionCode() == null || command.promotionCode().isBlank()) return null;
         Promotion promotion = promotions.lockedByCode(command.promotionCode().trim())
             .orElseThrow(() -> new IllegalArgumentException("Promotion not found"));
-        validatePromotion(promotion, command, subtotal);
+        validatePromotion(promotion, command, canonicalPartnerId, subtotal);
         promotion.usageCount++;
         return promotion;
     }
 
-    private CommissionRule resolveCommission(Create command) {
+    private CommissionRule resolveCommission(ProductType productType, String canonicalPartnerId) {
         List<CommissionRule> active = commissions.active(
-            command.partnerId(), command.productType(), Instant.now());
-        return active.stream().filter(rule -> rule.partnerId != null).findFirst()
+            canonicalPartnerId, productType, Instant.now());
+        return active.stream().filter(rule -> canonicalPartnerId.equals(rule.partnerId)).findFirst()
             .orElseGet(() -> active.stream().findFirst().orElse(null));
     }
 
-    private void validatePromotion(Promotion promotion, Create command, BigDecimal subtotal) {
+    private void validatePromotion(Promotion promotion, Create command,
+            String canonicalPartnerId, BigDecimal subtotal) {
         Instant now = Instant.now();
         if (promotion.status != PromotionStatus.ACTIVE
                 || now.isBefore(promotion.startsAt) || !now.isBefore(promotion.endsAt)) {
             throw new IllegalArgumentException("Promotion inactive");
         }
         if (promotion.partnerId != null
-                && !promotion.partnerId.equals(command.partnerId())) {
+                && !promotion.partnerId.equals(canonicalPartnerId)) {
             throw new IllegalArgumentException("Promotion not applicable");
         }
         if (subtotal.compareTo(promotion.minimumOrderAmount) < 0) {
@@ -331,22 +348,17 @@ public class CommerceService {
         return csv == null || csv.isBlank() || Set.of(csv.split(",")).contains(value);
     }
 
-    private void saveLines(Create command, CommerceOrder order) {
-        for (Line source : command.lines()) {
+    private void saveLine(CanonicalPriceResolver.Price source, CommerceOrder order) {
             OrderLine line = new OrderLine();
             line.id = UUID.randomUUID();
             line.orderId = order.id;
-            line.productId = source.productId();
-            line.description = source.description();
-            line.quantity = source.quantity();
-            line.unitPrice = source.unitPrice();
+            line.productId = source.productId(); line.description = source.description(); line.quantity = source.quantity(); line.unitPrice = source.unitPrice();
             line.lineTotal = source.unitPrice()
                 .multiply(BigDecimal.valueOf(source.quantity()));
             line.priceSnapshot = "{\"unitPrice\":\""
                 + source.unitPrice().toPlainString() + "\",\"currency\":\""
-                + order.currency + "\"}";
+                + order.currency + "\",\"source\":\"" + source.canonicalSource() + "\"}";
             lines.save(line);
-        }
     }
 
     private void savePromotionUsage(Promotion promotion, CommerceOrder order) {
@@ -363,12 +375,37 @@ public class CommerceService {
         outbox.append("payment.commands", "payment.authorization.requested",
             order.id.toString(), correlationId, Map.of(
                 "sagaId", order.id,
-                "bookingId", order.id,
+                "sourceType", "COMMERCE_ORDER",
+                "sourceId", order.id,
                 "userId", order.userId,
                 "amount", order.totalAmount,
                 "currency", order.currency,
+                "operator", order.paymentOperator,
+                "country", order.paymentCountryCode,
+                "phoneNumber", order.paymentPhoneNumber,
                 "idempotencyKey", "commerce:" + order.id + ":payment"
             ));
+    }
+
+    private CashInDetails requiredCashInDetails(CashInDetails details) {
+        if (details == null) throw new IllegalArgumentException("PAYMENT_DETAILS_REQUIRED");
+        String operator = details.operator() == null ? "" : details.operator().trim().toLowerCase(Locale.ROOT);
+        if (!Set.of("mtn", "orange", "moov", "airtel", "mpesa", "wave", "free", "tmoney", "afrimoney").contains(operator)) {
+            throw new IllegalArgumentException("PAYMENT_OPERATOR_REQUIRED");
+        }
+        String country = details.country() == null ? "" : details.country().trim().toUpperCase(Locale.ROOT);
+        if (!country.matches("[A-Z]{2}")) throw new IllegalArgumentException("PAYMENT_COUNTRY_REQUIRED");
+        String phoneNumber = details.phoneNumber() == null ? "" : details.phoneNumber().trim();
+        if (!phoneNumber.matches("\\+[1-9]\\d{1,14}")) throw new IllegalArgumentException("PAYMENT_PHONE_REQUIRED");
+        return new CashInDetails(operator, country, phoneNumber);
+    }
+
+    private void completeFree(CommerceOrder order) {
+        order.status = OrderStatus.COMPLETED;
+        orders.save(order);
+        issueInvoice(order);
+        outbox.append("commerce.events", "commerce.free.completed", order.id.toString(), order.id.toString(), Map.of(
+            "orderId", order.id, "amount", order.totalAmount, "currency", order.currency));
     }
 
     private void append(CommerceOrder order, LedgerType type,

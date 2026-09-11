@@ -50,9 +50,10 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/actuator/health/**", "/actuator/info", "/fallback/**",
-                                "/openapi/**", "/mobile-api/**", "/docs/**", "/v3/api-docs/**",
-                                "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        .requestMatchers("/actuator/health/**", "/actuator/info", "/fallback/**").permitAll()
+                        .requestMatchers("/openapi/**", "/mobile-api/**", "/docs/**", "/v3/api-docs/**",
+                                "/swagger-ui/**", "/swagger-ui.html")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN", "SUPPORT")
                         .requestMatchers(SecurityConfig::isPublicMobileRequest).permitAll()
                         .requestMatchers("/api/v1/admin/campaigns/**").authenticated()
                         .requestMatchers("/api/v1/admin/platform-users/**")
@@ -71,6 +72,11 @@ public class SecurityConfig {
             return true;
         }
         if ("POST".equals(method) && (path.startsWith("/api/v1/payments/webhooks/") || "/api/webhook/payment".equals(path))) {
+            return true;
+        }
+        if ("GET".equals(method) && "/ws/messaging".equals(path)) {
+            // The gateway only upgrades the socket. JWT authentication is enforced
+            // by messaging-service on the STOMP CONNECT frame.
             return true;
         }
         if (!"GET".equals(method)) {
@@ -156,9 +162,11 @@ public class SecurityConfig {
 
     @Bean
     CorsConfigurationSource corsConfigurationSource(
-            @Value("${security.cors.allowed-origins:http://localhost:*,http://127.0.0.1:*}") String allowedOrigins) {
+            @Value("${security.cors.allowed-origins:}") String allowedOrigins) {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of(allowedOrigins.split(",")));
+        configuration.setAllowedOriginPatterns(allowedOrigins.isBlank()
+                ? List.of()
+                : List.of(allowedOrigins.split(",")));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-ID",
                 "Idempotency-Key", "X-Requested-With"));

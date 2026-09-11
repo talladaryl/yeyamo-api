@@ -173,7 +173,8 @@ public class BookingApplicationService {
             var saga = sagas.save(PaymentSagaEntity.authorization(booking));
             Map<String, Object> paymentCommand = new LinkedHashMap<>();
             paymentCommand.put("sagaId", saga.getId());
-            paymentCommand.put("bookingId", booking.getId());
+            paymentCommand.put("sourceType", "BOOKING");
+            paymentCommand.put("sourceId", booking.getId());
             paymentCommand.put("userId", user);
             paymentCommand.put("partnerId", slot.getOwnerUserId());
             paymentCommand.put("amount", booking.getTotalAmount());
@@ -208,7 +209,7 @@ public class BookingApplicationService {
             var saga = sagas.findByBookingId(id).orElseThrow(() -> new BookingException("PAYMENT_SAGA_NOT_FOUND", "Payment saga not found"));
             saga.cancellationRequested();
             sagas.save(saga);
-            outbox.append(PAYMENT_COMMANDS, "payment.authorization.cancel.requested", id.toString(), correlation, Map.of("sagaId", saga.getId(), "bookingId", id, "idempotencyKey", "booking:" + id + ":cancel-authorization"));
+            outbox.append(PAYMENT_COMMANDS, "payment.authorization.cancel.requested", id.toString(), correlation, Map.of("sagaId", saga.getId(), "sourceType", "BOOKING", "sourceId", id, "idempotencyKey", "booking:" + id + ":cancel-authorization"));
         }
         domainEvent("booking.cancelled", booking, correlation);
         receipts.save(new CommandReceiptEntity(key, actor, operation, booking));
@@ -332,7 +333,7 @@ public class BookingApplicationService {
         var saga = sagas.findByBookingId(booking.getId()).orElseThrow(() -> new BookingException("PAYMENT_SAGA_NOT_FOUND", "Payment saga not found"));
         saga.refundRequested();
         sagas.save(saga);
-        outbox.append(PAYMENT_COMMANDS, "payment.refund.requested", booking.getId().toString(), correlation, Map.of("sagaId", saga.getId(), "bookingId", booking.getId(), "paymentId", saga.getPaymentId(), "amount", booking.getTotalAmount(), "currency", booking.getCurrency(), "idempotencyKey", "booking:" + booking.getId() + ":refund"));
+        outbox.append(PAYMENT_COMMANDS, "payment.refund.requested", booking.getId().toString(), correlation, Map.of("sagaId", saga.getId(), "sourceType", "BOOKING", "sourceId", booking.getId(), "paymentId", saga.getPaymentId(), "amount", booking.getTotalAmount(), "currency", booking.getCurrency(), "idempotencyKey", "booking:" + booking.getId() + ":refund"));
     }
 
     private String uniqueReference() {

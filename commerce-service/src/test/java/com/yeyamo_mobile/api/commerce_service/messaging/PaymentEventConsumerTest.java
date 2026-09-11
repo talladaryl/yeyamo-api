@@ -52,7 +52,7 @@ class PaymentEventConsumerTest {
         return """
             {"eventId":"%s","eventType":"%s","eventVersion":1,
              "correlationId":"%s",
-             "payload":{"bookingId":"%s",%s}}
+             "payload":{"sourceType":"COMMERCE_ORDER","sourceId":"%s",%s}}
             """.formatted(eventId, type, correlationId, orderId, payloadFields);
     }
 }

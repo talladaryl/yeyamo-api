@@ -81,6 +81,7 @@ public class HrSkillsPayIntegrationTest {
 
     @DynamicPropertySource
     static void dynamicProperties(DynamicPropertyRegistry registry) {
+        registry.add("payment.provider.name", () -> "hr-skills-pay");
         registry.add("payment.aggregator.base-url", () -> wireMockServer.baseUrl());
     }
 
@@ -156,7 +157,8 @@ public class HrSkillsPayIntegrationTest {
                   "correlationId": "corr-pair-2000",
                   "payload": {
                     "sagaId": "%s",
-                    "bookingId": "%s",
+                    "sourceType": "BOOKING",
+                    "sourceId": "%s",
                     "userId": "user-test",
                     "amount": 2000.00,
                     "currency": "XOF",
@@ -194,7 +196,8 @@ public class HrSkillsPayIntegrationTest {
                   "correlationId": "corr-odd-2001",
                   "payload": {
                     "sagaId": "%s",
-                    "bookingId": "%s",
+                    "sourceType": "BOOKING",
+                    "sourceId": "%s",
                     "userId": "user-test",
                     "amount": 2001.00,
                     "currency": "XOF",
@@ -212,6 +215,23 @@ public class HrSkillsPayIntegrationTest {
         } catch (Exception expected) {
             // Exception attendue suite au rejet 400 de l'agrégateur
         }
+    }
+
+    @Test
+    void shouldRejectCashInOutsideTheDeployedCapabilityAllowList() throws Exception {
+        UUID eventId = UUID.randomUUID();
+        UUID bookingId = UUID.randomUUID();
+        String command = String.format("""
+                {"eventId":"%s","eventType":"payment.authorization.requested","version":1,
+                 "correlationId":"corr-unconfigured-capability","payload":{"sagaId":"%s",
+                 "sourceType":"BOOKING","sourceId":"%s","userId":"user-test","amount":2000.00,
+                 "currency":"XOF","idempotencyKey":"booking:%s","operator":"mtn","country":"CM",
+                 "phone_number":"237690000000"}}
+                """, eventId, UUID.randomUUID(), bookingId, bookingId);
+
+        commandConsumer.consume(command);
+
+        wireMockServer.verify(0, postRequestedFor(urlEqualTo("/api/v1/payin/mobile-money")));
     }
 
     @Test

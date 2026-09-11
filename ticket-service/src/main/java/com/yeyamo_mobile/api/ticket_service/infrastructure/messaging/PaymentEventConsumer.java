@@ -47,7 +47,11 @@ public class PaymentEventConsumer {
         }
         String type = required(event, "eventType");
         JsonNode payload = event.path("payload");
-        UUID orderId = UUID.fromString(required(payload, "bookingId"));
+        if (!"TICKET_ORDER".equals(payload.path("sourceType").asText())) {
+            processed.save(new TicketProcessedEvent(eventId, type));
+            return;
+        }
+        UUID orderId = UUID.fromString(required(payload, "sourceId"));
         switch (type) {
             case "payment.authorized", "payment.confirmed" ->
                 confirm(orderId, payload.path("paymentId").asText(null));

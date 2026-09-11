@@ -1,6 +1,7 @@
 package com.yeyamo_mobile.api.commerce_service.interfaces;
 
 import com.yeyamo_mobile.api.commerce_service.application.ArtworkCommerceService;
+import com.yeyamo_mobile.api.commerce_service.application.CommerceService;
 import com.yeyamo_mobile.api.commerce_service.persistence.ArtworkOffer;
 import com.yeyamo_mobile.api.commerce_service.persistence.ArtworkOrder;
 import jakarta.validation.Valid;
@@ -43,7 +44,10 @@ public class ArtworkCommerceController {
             boolean customOrderAllowed, @NotNull ArtworkOffer.Status status) {
     }
     public record OfferStatus(@NotNull ArtworkOffer.Status status) { }
-    public record OrderRequest(@NotNull UUID offerId, @Min(1) int quantity, @NotNull ArtworkOrder.DeliveryType deliveryType) { }
+    public record OrderRequest(@NotNull UUID offerId, @Min(1) int quantity,
+            @NotNull ArtworkOrder.DeliveryType deliveryType,
+            @NotBlank @Pattern(regexp = "mtn|orange|moov|airtel|mpesa|wave|free|tmoney|afrimoney") String operator,
+            @NotBlank @Pattern(regexp = "\\+[1-9]\\d{1,14}") String phoneNumber) { }
     public record CancelRequest(@NotBlank String reason) { }
     public record StatusRequest(@NotNull ArtworkOrder.Status status, @NotBlank String reason) { }
 
@@ -73,7 +77,8 @@ public class ArtworkCommerceController {
     public ArtworkOrder order(@Valid @RequestBody OrderRequest request, @RequestHeader("Idempotency-Key") String idempotencyKey,
             @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId,
             @AuthenticationPrincipal Jwt jwt) {
-        return service.createOrder(new ArtworkCommerceService.OrderCommand(request.offerId(), request.quantity(), request.deliveryType()),
+        return service.createOrder(new ArtworkCommerceService.OrderCommand(request.offerId(), request.quantity(), request.deliveryType(),
+                new CommerceService.CashInDetails(request.operator(), countryClaim(jwt), request.phoneNumber())),
                 jwt.getSubject(), idempotencyKey, correlationId);
     }
 
@@ -123,5 +128,13 @@ public class ArtworkCommerceController {
         if (partnerId != null) return partnerId.toString();
         if (admin(jwt)) return jwt.getSubject();
         throw new SecurityException("Partner identity missing");
+    }
+
+    private String countryClaim(Jwt jwt) {
+        String country = jwt.getClaimAsString("country");
+        if (country == null || !country.matches("[A-Z]{2}")) {
+            throw new IllegalStateException("TOKEN_REFRESH_REQUIRED");
+        }
+        return country;
     }
 }

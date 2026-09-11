@@ -37,7 +37,11 @@ public class PaymentEventConsumer {
         String type = root.path("eventType").asText();
         String correlationId = root.path("correlationId").asText(eventId);
         JsonNode payload = root.path("payload");
-        UUID orderId = UUID.fromString(payload.path("bookingId").asText());
+        if (!"COMMERCE_ORDER".equals(payload.path("sourceType").asText())) {
+            processed.save(new ProcessedPaymentEvent(eventId, type));
+            return;
+        }
+        UUID orderId = UUID.fromString(payload.path("sourceId").asText());
         MDC.put("correlationId", correlationId);
         try {
             if ("payment.authorized".equals(type) || "payment.confirmed".equals(type)) {

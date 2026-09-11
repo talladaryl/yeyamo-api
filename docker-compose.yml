@@ -816,7 +816,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_SECRET: local-docker-secret-change-me-1234567890
-      PAYMENT_WEBHOOK_SECRET: webhook-secret-change-me
+      PAYMENT_AGGREGATOR_WEBHOOK_SECRET: webhook-secret-change-me
     ports:
       - "8103:8103"
     depends_on:

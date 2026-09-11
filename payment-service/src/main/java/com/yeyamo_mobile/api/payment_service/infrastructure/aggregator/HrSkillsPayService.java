@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,6 +16,7 @@ import javax.crypto.spec.SecretKeySpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +38,7 @@ public class HrSkillsPayService {
     private final HrSkillsPayProperties properties;
     private final ObjectMapper objectMapper;
     private final PaymentOutboxPort outbox;
+    private final String selectedProvider;
 
     @Autowired
     public HrSkillsPayService(
@@ -43,27 +46,31 @@ public class HrSkillsPayService {
             PaymentAttemptRepository attemptRepository,
             HrSkillsPayProperties properties,
             ObjectMapper objectMapper,
-            PaymentOutboxPort outbox) {
+            PaymentOutboxPort outbox,
+            @Value("${payment.provider.name:}") String selectedProvider) {
         this.client = client;
         this.attemptRepository = attemptRepository;
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.outbox = outbox;
+        this.selectedProvider = selectedProvider;
     }
 
     public boolean isEnabled() {
-        return properties.getKeyA() != null && !properties.getKeyA().isBlank()
+        return "hr-skills-pay".equalsIgnoreCase(selectedProvider)
+                && properties.getKeyA() != null && !properties.getKeyA().isBlank()
                 && properties.getKeyB() != null && !properties.getKeyB().isBlank();
     }
 
     @Transactional
     public PaymentAttemptEntity handleAuthorizationCommand(JsonNode event, JsonNode payload, String correlationId) {
-        UUID sourceId = UUID.fromString(required(payload, "bookingId"));
+        UUID sourceId = UUID.fromString(required(payload, "sourceId"));
+        String sourceType = required(payload, "sourceType");
         String idempotencyKey = required(payload, "idempotencyKey");
         BigDecimal amount = decimal(payload, "amount");
         String currency = required(payload, "currency");
 
-        String sourceService = idempotencyKey.startsWith("ticket:") ? "ticket" : "booking";
+        String sourceService = sourceType;
 
         // Détection des champs spécifiques HR-Skills Pay (operator, country, phone_number)
         String operator = text(payload, "operator");
@@ -81,7 +88,15 @@ public class HrSkillsPayService {
             log.warn(gapMessage);
 
             // Publication immédiate de l'échec vers le topic de retour
-            publishPaymentFailed(sourceId, correlationId, gapMessage);
+            publishPaymentFailed(sourceType, sourceId, correlationId, gapMessage);
+            return null;
+        }
+        if (!cashInCapabilityAllowed(country, operator)) {
+            String gapMessage = String.format(
+                    "EXTERNAL_PROVIDER_CAPABILITY_UNCONFIRMED: no deployed HR-Skills Pay capability for country=%s operator=%s",
+                    country, operator);
+            log.warn(gapMessage);
+            publishPaymentFailed(sourceType, sourceId, correlationId, gapMessage);
             return null;
         }
 
@@ -95,7 +110,7 @@ public class HrSkillsPayService {
             response = client.initiateCashIn(request);
         } catch (Exception ex) {
             log.error("Immediate failure during HR-Skills Pay Cash-In initiation: {}", ex.getMessage());
-            publishPaymentFailed(sourceId, correlationId, ex.getMessage());
+            publishPaymentFailed(sourceType, sourceId, correlationId, ex.getMessage());
             return null;
         }
 
@@ -134,7 +149,7 @@ public class HrSkillsPayService {
         if ("payment.succeeded".equalsIgnoreCase(eventType) || "SUCCESS".equalsIgnoreCase(status)) {
             attempt.markSuccess();
             attemptRepository.save(attempt);
-            publishPaymentAuthorized(attempt.getSourceId(), reference, attempt.getAmount(), attempt.getCurrency());
+            publishPaymentAuthorized(attempt.getSourceService(), attempt.getSourceId(), reference, attempt.getAmount(), attempt.getCurrency());
         } else if ("payment.failed".equalsIgnoreCase(eventType) || "FAILED".equalsIgnoreCase(status)) {
             String failureReason = text(root, "message");
             if (failureReason == null) {
@@ -145,7 +160,7 @@ public class HrSkillsPayService {
             }
             attempt.markFailed(failureReason);
             attemptRepository.save(attempt);
-            publishPaymentFailed(attempt.getSourceId(), null, failureReason);
+            publishPaymentFailed(attempt.getSourceService(), attempt.getSourceId(), null, failureReason);
         } else if ("payment.hold".equalsIgnoreCase(eventType) || "HOLD".equalsIgnoreCase(status)) {
             // Traitement AML à part : log d'alerte sans validation/rejet automatique
             String holdReason = text(root, "message");
@@ -190,18 +205,37 @@ public class HrSkillsPayService {
         }
     }
 
-    private void publishPaymentAuthorized(UUID sourceId, String reference, BigDecimal amount, String currency) {
+    private boolean cashInCapabilityAllowed(String country, String operator) {
+        String rawCapabilities = properties.getCashInCapabilities();
+        if (rawCapabilities == null || rawCapabilities.isBlank()) return false;
+        try {
+            JsonNode operators = objectMapper.readTree(rawCapabilities)
+                    .path(country.trim().toUpperCase(Locale.ROOT));
+            if (!operators.isArray()) return false;
+            for (JsonNode configuredOperator : operators) {
+                if (operator.trim().equalsIgnoreCase(configuredOperator.asText())) return true;
+            }
+            return false;
+        } catch (Exception exception) {
+            log.error("Invalid payment.aggregator.cash-in-capabilities configuration", exception);
+            return false;
+        }
+    }
+
+    private void publishPaymentAuthorized(String sourceType, UUID sourceId, String reference, BigDecimal amount, String currency) {
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("bookingId", sourceId.toString());
+        payload.put("sourceType", sourceType);
+        payload.put("sourceId", sourceId.toString());
         payload.put("paymentId", reference);
         payload.put("amount", amount);
         payload.put("currency", currency);
         outbox.append("payment.authorized", sourceId.toString(), UUID.randomUUID().toString(), payload);
     }
 
-    private void publishPaymentFailed(UUID sourceId, String correlationId, String reason) {
+    private void publishPaymentFailed(String sourceType, UUID sourceId, String correlationId, String reason) {
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("bookingId", sourceId.toString());
+        payload.put("sourceType", sourceType);
+        payload.put("sourceId", sourceId.toString());
         payload.put("reason", reason != null ? reason : "Payment failed");
         outbox.append("payment.failed", sourceId.toString(),
                 correlationId != null ? correlationId : UUID.randomUUID().toString(), payload);

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.*;
 import com.yeyamo_mobile.api.payment_service.application.PaymentApplicationService;
+import com.yeyamo_mobile.api.payment_service.domain.PaymentSourceType;
 import com.yeyamo_mobile.api.payment_service.infrastructure.aggregator.HrSkillsPayService;
 
 @Component
@@ -57,7 +58,8 @@ public class PaymentCommandConsumer {
                 } else {
                     service.authorize(new Authorize(
                             uuid(p, "sagaId"),
-                            uuid(p, "bookingId"),
+                            sourceType(p),
+                            sourceId(p),
                             required(p, "userId"),
                             text(p, "partnerId"),
                             decimal(p, "amount"),
@@ -70,14 +72,14 @@ public class PaymentCommandConsumer {
             case "payment.authorization.cancel.requested" ->
                 service.cancelAuthorization(new CancelAuthorization(
                         uuid(p, "sagaId"),
-                        uuid(p, "bookingId"),
+                        sourceType(p), sourceId(p),
                         required(p, "idempotencyKey"),
                         correlation
                 ));
             case "payment.refund.requested" ->
                 service.refund(new Refund(
                         uuid(p, "sagaId"),
-                        uuid(p, "bookingId"),
+                        sourceType(p), sourceId(p),
                         text(p, "paymentId"),
                         decimal(p, "amount"),
                         required(p, "currency"),
@@ -90,6 +92,14 @@ public class PaymentCommandConsumer {
     }
 
     private UUID uuid(JsonNode n, String f) { return UUID.fromString(required(n, f)); }
+    private PaymentSourceType sourceType(JsonNode payload) {
+        String value = text(payload, "sourceType");
+        return value == null ? PaymentSourceType.BOOKING : PaymentSourceType.valueOf(value);
+    }
+    private UUID sourceId(JsonNode payload) {
+        String value = text(payload, "sourceId");
+        return UUID.fromString(value == null ? required(payload, "bookingId") : value);
+    }
     private BigDecimal decimal(JsonNode n, String f) {
         String v = required(n, f);
         try {
