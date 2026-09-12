@@ -25,6 +25,8 @@ import com.yeyamo_mobile.api.event_service.dto.EventResponse;
 import com.yeyamo_mobile.api.event_service.dto.EventStatusRequest;
 import com.yeyamo_mobile.api.event_service.dto.EventSummaryResponse;
 import com.yeyamo_mobile.api.event_service.dto.EventUpdateRequest;
+import com.yeyamo_mobile.api.event_service.dto.EventInvitationRequest;
+import com.yeyamo_mobile.api.event_service.dto.EventInvitationResponse;
 import com.yeyamo_mobile.api.event_service.service.EventService;
 
 import jakarta.validation.Valid;
@@ -76,15 +78,16 @@ public class EventController {
     }
 
     @GetMapping("/{id}")
-    public EventResponse getById(@PathVariable UUID id) {
-        return eventService.getById(id);
+    public EventResponse getById(@PathVariable UUID id, Authentication authentication) {
+        return eventService.getById(id, authentication == null ? null : authentication.getName(), admin(authentication));
     }
 
     @GetMapping("/{id}/participants")
     public List<EventParticipantResponse> participants(
             @PathVariable UUID id,
+            Authentication authentication,
             @RequestParam(defaultValue = "100") @Min(1) @Max(200) int limit) {
-        return eventService.findParticipants(id, limit);
+        return eventService.findParticipants(id, limit, authentication == null ? null : authentication.getName(), admin(authentication));
     }
 
     @PutMapping("/{id}")
@@ -104,7 +107,7 @@ public class EventController {
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
             Authentication authentication
     ) {
-        return eventService.updateStatus(id, request, correlationId, authentication.getName());
+        return eventService.updateStatus(id, request, correlationId, authentication.getName(), admin(authentication));
     }
 
     @PostMapping("/{id}/register")
@@ -122,5 +125,28 @@ public class EventController {
             Authentication authentication
     ) {
         return eventService.unregister(id, authentication.getName());
+    }
+
+    @PostMapping("/{id}/invitations")
+    @ResponseStatus(HttpStatus.CREATED)
+    public EventInvitationResponse invite(@PathVariable UUID id, @Valid @RequestBody EventInvitationRequest request,
+            Authentication authentication) {
+        return eventService.invite(id, request.userId(), authentication.getName(), admin(authentication));
+    }
+
+    @GetMapping("/{id}/invitations")
+    public List<EventInvitationResponse> invitations(@PathVariable UUID id, Authentication authentication) {
+        return eventService.invitations(id, authentication.getName(), admin(authentication));
+    }
+
+    @DeleteMapping("/{id}/invitations/{userId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revokeInvitation(@PathVariable UUID id, @PathVariable String userId, Authentication authentication) {
+        eventService.revokeInvitation(id, userId, authentication.getName(), admin(authentication));
+    }
+
+    private boolean admin(Authentication authentication) {
+        return authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(value -> "ROLE_ADMIN".equals(value.getAuthority()) || "ROLE_SUPER_ADMIN".equals(value.getAuthority()));
     }
 }

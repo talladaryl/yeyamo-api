@@ -86,6 +86,7 @@ COMMENT ON TABLE language_learning_daily IS 'Daily language learning metrics and
 CREATE TABLE artwork_popularity_daily (
     id UUID PRIMARY KEY,
     aggregation_date DATE NOT NULL,
+    country_code VARCHAR(2),
     artwork_id VARCHAR(120) NOT NULL,
     artisan_id VARCHAR(120) NOT NULL,
     
@@ -115,6 +116,7 @@ CREATE TABLE artwork_popularity_daily (
 );
 
 CREATE INDEX idx_artwork_pop_date ON artwork_popularity_daily(aggregation_date DESC);
+CREATE INDEX idx_artwork_pop_country ON artwork_popularity_daily(country_code, aggregation_date DESC);
 CREATE INDEX idx_artwork_pop_id ON artwork_popularity_daily(artwork_id, aggregation_date DESC);
 CREATE INDEX idx_artwork_pop_artisan ON artwork_popularity_daily(artisan_id, aggregation_date DESC);
 

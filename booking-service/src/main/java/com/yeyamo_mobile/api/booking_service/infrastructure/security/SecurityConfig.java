@@ -26,6 +26,7 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(a -> a
                         .requestMatchers("/actuator/health/**", "/actuator/info", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        .requestMatchers("/internal/**").permitAll()
                         .requestMatchers("/api/v1/activities/**", "/api/v1/activities").authenticated()
                         .requestMatchers("/api/v1/booking-management/bookings/**", "/api/v1/booking-management/bookings").hasAnyRole("ADMIN", "SUPER_ADMIN", "SUPPORT")
                         .requestMatchers("/api/v1/booking-management/**").hasAnyRole("ADMIN", "PARTNER")

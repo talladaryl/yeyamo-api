@@ -16,7 +16,8 @@ public class R2StorageConfiguration {
   required(properties.getAccountId(),"R2_ACCOUNT_ID");
   required(properties.getAccessKeyId(),"R2_ACCESS_KEY_ID");
   required(properties.getSecretAccessKey(),"R2_SECRET_ACCESS_KEY");
-  required(properties.getBucketName(),"R2_BUCKET_NAME");
+  required(properties.getPublicBucketName(),"R2_PUBLIC_BUCKET_NAME");
+  required(properties.getPrivateBucketName(),"R2_PRIVATE_BUCKET_NAME");
   String endpoint=properties.getEndpointOverride();
   if(endpoint==null||endpoint.isBlank())endpoint="https://"+properties.getAccountId()+".r2.cloudflarestorage.com";
   return S3Client.builder()

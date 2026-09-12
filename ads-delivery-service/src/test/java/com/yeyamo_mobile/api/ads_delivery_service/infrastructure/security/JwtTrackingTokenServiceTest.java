@@ -20,6 +20,19 @@ class JwtTrackingTokenServiceTest {
     }
 
     @Test
+    void acceptsSecretContainingAtLeast32Bytes() {
+        ReflectionTestUtils.setField(tokenService, "secret", "01234567890123456789012345678901");
+        assertDoesNotThrow(tokenService::validateSecret);
+    }
+
+    @Test
+    void rejectsSecretShorterThan32Bytes() {
+        ReflectionTestUtils.setField(tokenService, "secret", "too-short");
+        IllegalStateException failure = assertThrows(IllegalStateException.class, tokenService::validateSecret);
+        assertEquals("ADS_TOKEN_SECRET must contain at least 32 bytes", failure.getMessage());
+    }
+
+    @Test
     void shouldGenerateAndVerifyImpressionToken() {
         // Given
         String deliveryId = "DEL123";

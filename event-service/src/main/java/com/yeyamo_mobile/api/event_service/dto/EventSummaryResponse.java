@@ -9,6 +9,8 @@ import com.yeyamo_mobile.api.event_service.models.Event;
 public record EventSummaryResponse(
         UUID id,
         UUID placeId,
+        String locationName,
+        String visibility,
         String title,
         Instant startAt,
         Instant endAt,
@@ -20,6 +22,8 @@ public record EventSummaryResponse(
         return new EventSummaryResponse(
                 event.getId(),
                 event.getPlaceId(),
+                event.getLocationName(),
+                event.getVisibility().name(),
                 event.getTitle(),
                 event.getStartAt(),
                 event.getEndAt(),

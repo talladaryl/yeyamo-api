@@ -27,7 +27,7 @@ public class InteractionQueryService{
  
  @Transactional(readOnly=true)
  public List<com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.ReviewEntity> reviewsByUser(String userId,int limit){
-  return reviews.findByUserIdOrderByCreatedAtDesc(userId,org.springframework.data.domain.PageRequest.of(0,cap(limit)));
+  return reviews.findByUserIdOrderByCreatedAtDesc(userId,org.springframework.data.domain.PageRequest.of(0,cap(limit))).stream().filter(review->"ACTIVE".equals(review.getStatus())).toList();
  }
  
  private int cap(int n){return Math.max(1,Math.min(n,100));}

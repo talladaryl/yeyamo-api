@@ -11,6 +11,7 @@ import jakarta.persistence.LockModeType;
 import java.util.Optional;
 
 import com.yeyamo_mobile.api.event_service.enums.EventStatus;
+import com.yeyamo_mobile.api.event_service.enums.EventVisibility;
 import com.yeyamo_mobile.api.event_service.models.Event;
 
 public interface EventRepository extends JpaRepository<Event, UUID>,org.springframework.data.jpa.repository.JpaSpecificationExecutor<Event> {
@@ -21,7 +22,11 @@ public interface EventRepository extends JpaRepository<Event, UUID>,org.springfr
 
     List<Event> findByPlaceIdAndStatusOrderByStartAtAsc(UUID placeId, EventStatus status);
 
+    List<Event> findByPlaceIdAndStatusAndVisibilityOrderByStartAtAsc(UUID placeId, EventStatus status, EventVisibility visibility);
+
     List<Event> findByPlaceIdOrderByStartAtAsc(UUID placeId);
 
     List<Event> findByStatusAndStartAtAfterOrderByStartAtAsc(EventStatus status, Instant after);
+
+    List<Event> findByStatusAndVisibilityAndStartAtAfterOrderByStartAtAsc(EventStatus status, EventVisibility visibility, Instant after);
 }

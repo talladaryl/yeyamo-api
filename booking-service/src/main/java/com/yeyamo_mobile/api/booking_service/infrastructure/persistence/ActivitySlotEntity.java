@@ -16,6 +16,10 @@ public class ActivitySlotEntity {
     @Column(name = "activity_id", nullable = false, length = 120)
     private String activityId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "activity_type", nullable = false, length = 20)
+    private ActivityType activityType = ActivityType.ACTIVITY;
+
     @Column(name = "place_id")
     private UUID placeId;
 
@@ -75,6 +79,10 @@ public class ActivitySlotEntity {
     }
 
     public static ActivitySlotEntity create(String activity, String owner, Instant start, Instant end, int capacity, boolean isPaid, BigDecimal amount, String currency, String country, UUID placeId) {
+        return create(activity, ActivityType.ACTIVITY, owner, start, end, capacity, isPaid, amount, currency, country, placeId);
+    }
+
+    public static ActivitySlotEntity create(String activity, ActivityType activityType, String owner, Instant start, Instant end, int capacity, boolean isPaid, BigDecimal amount, String currency, String country, UUID placeId) {
         if (activity == null || activity.isBlank() || owner == null || owner.isBlank() || start == null || end == null || !end.isAfter(start) || capacity < 1 || currency == null || currency.length() != 3) {
             throw new BookingException("INVALID_SLOT", "Invalid activity slot");
         }
@@ -84,6 +92,7 @@ public class ActivitySlotEntity {
         var e = new ActivitySlotEntity();
         e.id = UUID.randomUUID();
         e.activityId = activity;
+        e.activityType = activityType == null ? ActivityType.ACTIVITY : activityType;
         e.placeId = placeId;
         e.ownerUserId = owner;
         e.startsAt = start;
@@ -128,6 +137,10 @@ public class ActivitySlotEntity {
 
     public String getActivityId() {
         return activityId;
+    }
+
+    public ActivityType getActivityType() {
+        return activityType;
     }
 
     public UUID getPlaceId() {

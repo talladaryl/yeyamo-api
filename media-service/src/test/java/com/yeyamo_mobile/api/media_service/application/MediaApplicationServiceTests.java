@@ -9,6 +9,10 @@ class MediaApplicationServiceTests{
   assertEquals(List.of("media.uploaded","media.ready"),events);assertEquals(2,storage.data.size());}
  @Test void duplicateIsRejected()throws Exception{MemoryRepository repo=new MemoryRepository();MemoryStorage storage=new MemoryStorage();MediaApplicationService service=new MediaApplicationService(repo,storage,(a,b,c,d)->{},new MediaContentPolicy(100000,100000),List.of(new ImageThumbnailStrategy(100,100)));
   byte[] png=image();service.upload("u","a.png","image/png",png,null,null,null,null);assertThrows(MediaException.class,()->service.upload("u","b.png","image/png",png,null,null,null,null));}
+ @Test void routesPublicImagesAndPrivateDocumentsWithExplicitStoragePrefixes()throws Exception{MemoryRepository repo=new MemoryRepository();MemoryStorage storage=new MemoryStorage();MediaApplicationService service=new MediaApplicationService(repo,storage,(a,b,c,d)->{},new MediaContentPolicy(100000,100000),List.of());
+  byte[] png=image();MediaAsset image=service.upload("image-owner","photo.png","image/png",png,null,null,null,null);assertTrue(image.getStorageKey().startsWith("public/originals/"));
+  byte[] pdf="%PDF-1.4\nprivate document".getBytes();MediaAsset document=service.upload("document-owner","id.pdf","application/pdf",pdf,null,null,null,null);assertTrue(document.getStorageKey().startsWith("private/originals/"));
+  assertTrue(storage.data.keySet().stream().noneMatch(key->key.startsWith("public/")&&key.contains("id.pdf")));}
  private static byte[] image()throws Exception{BufferedImage i=new BufferedImage(20,10,BufferedImage.TYPE_INT_RGB);ByteArrayOutputStream o=new ByteArrayOutputStream();ImageIO.write(i,"png",o);return o.toByteArray();}
  static class MemoryRepository implements MediaRepository{Map<UUID,MediaAsset> data=new HashMap<>();public MediaAsset save(MediaAsset m){data.put(m.getId(),m);return m;}public Optional<MediaAsset> findById(UUID id){return Optional.ofNullable(data.get(id));}
   public boolean existsByChecksumAndOwnerId(String c,String o){return data.values().stream().anyMatch(m->m.getChecksum().equals(c)&&m.getOwnerId().equals(o)&&m.getStatus()!=MediaStatus.DELETED);}}

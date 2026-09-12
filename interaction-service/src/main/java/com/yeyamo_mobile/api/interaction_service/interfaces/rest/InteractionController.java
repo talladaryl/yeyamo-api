@@ -1,10 +1,10 @@
 package com.yeyamo_mobile.api.interaction_service.interfaces.rest;
 import java.util.*;import org.springframework.http.*;import org.springframework.security.core.*;import org.springframework.validation.annotation.Validated;import org.springframework.web.bind.annotation.*;
-import com.yeyamo_mobile.api.interaction_service.application.*;import com.yeyamo_mobile.api.interaction_service.domain.model.RelationType;
+import com.yeyamo_mobile.api.interaction_service.application.*;import com.yeyamo_mobile.api.interaction_service.domain.model.RelationType;import com.yeyamo_mobile.api.interaction_service.domain.model.ReviewTargetType;
 import io.swagger.v3.oas.annotations.*;import io.swagger.v3.oas.annotations.security.SecurityRequirement;import io.swagger.v3.oas.annotations.tags.Tag;import jakarta.validation.Valid;import jakarta.validation.constraints.*;
 @RestController @RequestMapping("/api/v1/interactions")@Validated @Tag(name="Interactions",description="Likes, comments, favorites and shares")
 public class InteractionController{
- private final InteractionCommandService commands;private final InteractionQueryService queries;private final CommentLikeService commentLikes;public InteractionController(InteractionCommandService c,InteractionQueryService q,CommentLikeService commentLikes){commands=c;queries=q;this.commentLikes=commentLikes;}
+ private final InteractionCommandService commands;private final InteractionQueryService queries;private final CommentLikeService commentLikes;private final VerifiedReviewService verifiedReviews;public InteractionController(InteractionCommandService c,InteractionQueryService q,CommentLikeService commentLikes,VerifiedReviewService verifiedReviews){commands=c;queries=q;this.commentLikes=commentLikes;this.verifiedReviews=verifiedReviews;}
  @PutMapping("/posts/{postId}/like")@Operation(summary="Like a post",security=@SecurityRequirement(name="bearerAuth"))
  public CommandResponse like(@PathVariable UUID postId,@RequestHeader("Idempotency-Key")@NotBlank String key,@RequestHeader(value="X-Correlation-Id",required=false)String correlation,Authentication auth){return CommandResponse.from(commands.addRelation(postId,auth.getName(),RelationType.LIKE,key,correlation));}
  @DeleteMapping("/posts/{postId}/like")@Operation(summary="Remove a like",security=@SecurityRequirement(name="bearerAuth"))
@@ -46,7 +46,7 @@ public class InteractionController{
   @RequestHeader("Idempotency-Key")@NotBlank String key,
   @RequestHeader(value="X-Correlation-Id",required=false)String correlation,
   Authentication auth){
-  var review=commands.createReview(placeId,auth.getName(),request.rating().shortValue(),request.comment(),key,correlation);
+  var review=verifiedReviews.create(ReviewTargetType.PLACE,placeId,auth.getName(),request.rating().shortValue(),request.comment(),key,correlation);
   return com.yeyamo_mobile.api.interaction_service.interfaces.rest.ReviewResponse.from(review);
  }
  
@@ -58,7 +58,7 @@ public class InteractionController{
   @RequestHeader("Idempotency-Key")@NotBlank String key,
   @RequestHeader(value="X-Correlation-Id",required=false)String correlation,
   Authentication auth){
-  var review=commands.updateReview(id,auth.getName(),request.rating().shortValue(),request.comment(),key,correlation);
+  var review=verifiedReviews.update(id,auth.getName(),request.rating().shortValue(),request.comment(),key,correlation);
   return com.yeyamo_mobile.api.interaction_service.interfaces.rest.ReviewResponse.from(review);
  }
  
@@ -70,7 +70,7 @@ public class InteractionController{
   @RequestHeader("Idempotency-Key")@NotBlank String key,
   @RequestHeader(value="X-Correlation-Id",required=false)String correlation,
   Authentication auth){
-  commands.deleteReview(id,auth.getName(),admin(auth),key,correlation);
+  verifiedReviews.delete(id,auth.getName(),key,correlation);
  }
  
  @GetMapping("/places/{placeId}/reviews")
@@ -78,7 +78,7 @@ public class InteractionController{
  public List<com.yeyamo_mobile.api.interaction_service.interfaces.rest.ReviewResponse> placeReviews(
   @PathVariable UUID placeId,
   @RequestParam(defaultValue="50")@Min(1)@Max(100)int limit){
-  return queries.reviewsByPlace(placeId,limit).stream()
+  return verifiedReviews.publicReviews(ReviewTargetType.PLACE,placeId,org.springframework.data.domain.PageRequest.of(0,limit)).getContent().stream()
    .map(com.yeyamo_mobile.api.interaction_service.interfaces.rest.ReviewResponse::from).toList();
  }
  

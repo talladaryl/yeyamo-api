@@ -11,6 +11,7 @@ import com.yeyamo_mobile.api.booking_service.application.BookingDtos.*;
 import com.yeyamo_mobile.api.booking_service.application.port.BookingOutboxPort;
 import com.yeyamo_mobile.api.booking_service.domain.*;
 import com.yeyamo_mobile.api.booking_service.infrastructure.persistence.*;
+import com.yeyamo_mobile.api.booking_service.infrastructure.client.ExperienceCatalogClient;
 import com.yeyamo_mobile.shared.country.CountryConfigClient;
 import com.yeyamo_mobile.shared.country.CountryConfigClient.CountryFeature;
 
@@ -29,6 +30,7 @@ public class BookingApplicationService {
     private final BookingReferenceGenerator references;
     private final CountryConfigClient countries;
     private final PlaceReadModelRepository placeReadModelRepository;
+    private final ExperienceCatalogClient experienceCatalog;
 
     public BookingApplicationService(
             ActivitySlotRepository s,
@@ -39,7 +41,7 @@ public class BookingApplicationService {
             BookingOutboxPort o,
             BookingReferenceGenerator ref
     ) {
-        this(s, b, g, r, h, o, ref, null, null);
+        this(s, b, g, r, h, o, ref, null, null, null);
     }
 
     public BookingApplicationService(
@@ -52,7 +54,14 @@ public class BookingApplicationService {
             BookingReferenceGenerator ref,
             PlaceReadModelRepository placeReadModelRepository
     ) {
-        this(s, b, g, r, h, o, ref, null, placeReadModelRepository);
+        this(s, b, g, r, h, o, ref, null, placeReadModelRepository, null);
+    }
+
+    public BookingApplicationService(
+            ActivitySlotRepository s, BookingRepository b, PaymentSagaRepository g, CommandReceiptRepository r,
+            BookingHistoryRepository h, BookingOutboxPort o, BookingReferenceGenerator ref,
+            CountryConfigClient countries, PlaceReadModelRepository placeReadModelRepository) {
+        this(s, b, g, r, h, o, ref, countries, placeReadModelRepository, null);
     }
 
     @Autowired
@@ -65,7 +74,8 @@ public class BookingApplicationService {
             BookingOutboxPort o,
             BookingReferenceGenerator ref,
             @Autowired(required = false) CountryConfigClient countries,
-            @Autowired(required = false) PlaceReadModelRepository placeReadModelRepository
+            @Autowired(required = false) PlaceReadModelRepository placeReadModelRepository,
+            @Autowired(required = false) ExperienceCatalogClient experienceCatalog
     ) {
         this.slots = s;
         this.bookings = b;
@@ -76,6 +86,7 @@ public class BookingApplicationService {
         this.references = ref;
         this.countries = countries;
         this.placeReadModelRepository = placeReadModelRepository;
+        this.experienceCatalog = experienceCatalog;
     }
 
     @Transactional
@@ -113,6 +124,37 @@ public class BookingApplicationService {
         p.put("startsAt", slot.getStartsAt());
         p.put("countryCode", slot.getCountryCode());
         outbox.append(BOOKING_EVENTS, "booking.slot.created", slot.getId().toString(), correlation, p);
+        return slotView(slot);
+    }
+
+    @Transactional
+    public SlotView createExperienceSlot(CreateExperienceSlot command, String actor, String correlation) {
+        if (!command.startsAt().isAfter(Instant.now()) || !command.endsAt().isAfter(command.startsAt())) {
+            throw new BookingException("INVALID_SLOT", "Le creneau d'experience doit etre futur et avoir une fin posterieure au debut");
+        }
+        if (experienceCatalog == null) {
+            throw new BookingException("EXPERIENCE_CATALOG_UNAVAILABLE", "Le catalogue des experiences est indisponible");
+        }
+        ExperienceCatalogClient.CanonicalExperience experience = experienceCatalog.requireExperience(command.experienceId());
+        experienceCatalog.requirePartnerOwner(experience.ownerId(), actor);
+        if (experience.capacityMax() != null && command.capacity() > experience.capacityMax()) {
+            throw new BookingException("EXPERIENCE_CAPACITY_EXCEEDED", "La capacite du creneau depasse la capacite canonique de l'experience");
+        }
+        if (experience.capacityMin() != null && command.capacity() < experience.capacityMin()) {
+            throw new BookingException("EXPERIENCE_CAPACITY_TOO_LOW", "La capacite du creneau est inferieure au minimum canonique de l'experience");
+        }
+        validate(experience.countryCode(), CountryFeature.BOOKING);
+        ActivitySlotEntity slot = slots.save(ActivitySlotEntity.create(command.experienceId(), ActivityType.EXPERIENCE,
+                actor, command.startsAt(), command.endsAt(), command.capacity(), experience.price().signum() > 0,
+                experience.price(), experience.currency(), experience.countryCode(), experience.placeId()));
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("slotId", slot.getId());
+        payload.put("activityId", slot.getActivityId());
+        payload.put("activityType", slot.getActivityType().name());
+        payload.put("ownerUserId", actor);
+        payload.put("startsAt", slot.getStartsAt());
+        payload.put("countryCode", slot.getCountryCode());
+        outbox.append(BOOKING_EVENTS, "booking.experience-slot.created", slot.getId().toString(), correlation, payload);
         return slotView(slot);
     }
 
@@ -197,15 +239,20 @@ public class BookingApplicationService {
         var booking = lockedOwned(actor, id, privileged);
         boolean paid = booking.getPaymentStatus() == PaymentStatus.AUTHORIZED;
         boolean authorizationPending = booking.getPaymentStatus() == PaymentStatus.AUTHORIZATION_PENDING;
-        booking.cancel(reason);
+        boolean experience = booking.getActivityType() == ActivityType.EXPERIENCE;
+        if (experience) {
+            booking.cancelWithoutAutomaticRefund(reason);
+        } else {
+            booking.cancel(reason);
+        }
         bookings.save(booking);
         var slot = slots.findLocked(booking.getSlot().getId()).orElseThrow();
         slot.release(booking.getQuantity());
         slots.save(slot);
         history.save(new BookingHistoryEntity(id, actor, "CANCELLED", reason));
-        if (paid) {
+        if (paid && !experience) {
             requestRefund(booking, correlation);
-        } else if (authorizationPending) {
+        } else if (authorizationPending && !experience) {
             var saga = sagas.findByBookingId(id).orElseThrow(() -> new BookingException("PAYMENT_SAGA_NOT_FOUND", "Payment saga not found"));
             saga.cancellationRequested();
             sagas.save(saga);
@@ -238,6 +285,13 @@ public class BookingApplicationService {
         var saga = sagas.findByBookingId(bookingId).orElseThrow();
         if (booking.getStatus() == BookingStatus.CANCELLED && booking.getPaymentStatus() == PaymentStatus.AUTHORIZATION_PENDING) {
             saga.authorized(paymentId);
+            if (booking.getActivityType() == ActivityType.EXPERIENCE) {
+                booking.authorizationAfterCancellationWithoutRefund();
+                sagas.save(saga);
+                bookings.save(booking);
+                history.save(new BookingHistoryEntity(bookingId, "payment-service", "LATE_PAYMENT_AUTHORIZED_NO_AUTO_REFUND", "Experience cancellation requires manual refund review"));
+                return;
+            }
             booking.authorizationAfterCancellation();
             sagas.save(saga);
             bookings.save(booking);
@@ -415,11 +469,12 @@ public class BookingApplicationService {
                 s.getCountryCode(),
                 s.getStatus(),
                 s.isPaid(),
-                s.getAmount()
+                s.getAmount(),
+                s.getActivityType()
         );
     }
 
     private BookingView bookingView(BookingEntity b) {
-        return new BookingView(b.getId(), b.getReference(), b.getUserId(), b.getActivityId(), b.getSlot().getId(), b.getQuantity(), b.getUnitPrice(), b.getTotalAmount(), b.getCurrency(), b.getCountryCode(), b.getStatus(), b.getPaymentStatus(), b.getCancellationReason(), b.getCreatedAt(), b.getConfirmedAt(), b.getCancelledAt(), b.getCompletedAt());
+        return new BookingView(b.getId(), b.getReference(), b.getUserId(), b.getActivityId(), b.getSlot().getId(), b.getQuantity(), b.getUnitPrice(), b.getTotalAmount(), b.getCurrency(), b.getCountryCode(), b.getStatus(), b.getPaymentStatus(), b.getCancellationReason(), b.getCreatedAt(), b.getConfirmedAt(), b.getCancelledAt(), b.getCompletedAt(), b.getActivityType(), b.getActivityType() != ActivityType.EXPERIENCE);
     }
 }

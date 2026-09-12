@@ -16,6 +16,7 @@ public class ArtworkPopularityDaily {
     private String id;
 
     @Column(name = "aggregation_date", nullable = false) private LocalDate aggregationDate;
+    @Column(name = "country_code", length = 2) private String countryCode;
     @Column(name = "artwork_id",       nullable = false, length = 120) private String artworkId;
     @Column(name = "artisan_id",       nullable = false, length = 120) private String artisanId;
 

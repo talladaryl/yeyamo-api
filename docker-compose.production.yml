@@ -43,18 +43,13 @@ x-production-java-env: &production-java-env
   EMAIL_FROM_NAME: "${EMAIL_FROM_NAME:-YeYamo}"
   PUSH_PROVIDER_ACCESS_TOKEN: "${PUSH_PROVIDER_ACCESS_TOKEN:-}"
   GOOGLE_MAPS_SERVER_API_KEY: "${GOOGLE_MAPS_SERVER_API_KEY:-}"
-  R2_ACCOUNT_ID: "${R2_ACCOUNT_ID:-}"
-  R2_ACCESS_KEY_ID: "${R2_ACCESS_KEY_ID:-}"
-  R2_SECRET_ACCESS_KEY: "${R2_SECRET_ACCESS_KEY:-}"
-  R2_BUCKET_NAME: "${R2_BUCKET_NAME:-}"
-  R2_PUBLIC_BASE_URL: "${R2_PUBLIC_BASE_URL:-}"
   PAYMENT_PROVIDER_NAME: "${PAYMENT_PROVIDER_NAME:?PAYMENT_PROVIDER_NAME is required}"
   PAYMENT_AGGREGATOR_BASE_URL: "${PAYMENT_AGGREGATOR_BASE_URL:?PAYMENT_AGGREGATOR_BASE_URL is required}"
   PAYMENT_AGGREGATOR_KEY_A: "${PAYMENT_AGGREGATOR_KEY_A:?PAYMENT_AGGREGATOR_KEY_A is required}"
   PAYMENT_AGGREGATOR_KEY_B: "${PAYMENT_AGGREGATOR_KEY_B:?PAYMENT_AGGREGATOR_KEY_B is required}"
   PAYMENT_AGGREGATOR_WEBHOOK_SECRET: "${PAYMENT_AGGREGATOR_WEBHOOK_SECRET:?PAYMENT_AGGREGATOR_WEBHOOK_SECRET is required}"
   PAYMENT_CASH_IN_CAPABILITIES: "${PAYMENT_CASH_IN_CAPABILITIES:?PAYMENT_CASH_IN_CAPABILITIES is required}"
-  ADS_TOKEN_SECRET: "${ADS_TOKEN_SECRET:-}"
+  ADS_TOKEN_SECRET: "${ADS_TOKEN_SECRET:?ADS_TOKEN_SECRET is required and must contain at least 32 bytes}"
   TICKET_QR_PRIVATE_KEY_BASE64: "${TICKET_QR_PRIVATE_KEY_BASE64:-}"
   TICKET_QR_PUBLIC_KEY_BASE64: "${TICKET_QR_PUBLIC_KEY_BASE64:-}"
   TURNSTILE_SECRET_KEY: "${TURNSTILE_SECRET_KEY:-}"
@@ -234,6 +229,14 @@ services:
     extends: { file: docker-compose.yml, service: media-service }
     build: { context: ., dockerfile: media-service/Dockerfile }
     <<: *private-service
+    environment:
+      <<: *production-java-env
+      R2_ACCOUNT_ID: "${R2_ACCOUNT_ID:?R2_ACCOUNT_ID is required}"
+      R2_ACCESS_KEY_ID: "${R2_ACCESS_KEY_ID:?R2_ACCESS_KEY_ID is required}"
+      R2_SECRET_ACCESS_KEY: "${R2_SECRET_ACCESS_KEY:?R2_SECRET_ACCESS_KEY is required}"
+      R2_PUBLIC_BUCKET_NAME: "${R2_PUBLIC_BUCKET_NAME:?R2_PUBLIC_BUCKET_NAME is required}"
+      R2_PRIVATE_BUCKET_NAME: "${R2_PRIVATE_BUCKET_NAME:?R2_PRIVATE_BUCKET_NAME is required}"
+      R2_PUBLIC_BASE_URL: "${R2_PUBLIC_BASE_URL:-}"
   notification-service:
     extends: { file: docker-compose.yml, service: notification-service }
     build: { context: ., dockerfile: notification-service/Dockerfile }
@@ -246,6 +249,9 @@ services:
     extends: { file: docker-compose.yml, service: payment-service }
     build: { context: ., dockerfile: payment-service/Dockerfile }
     <<: *private-service
+    environment:
+      <<: *production-java-env
+      SPRING_PROFILES_ACTIVE: prod
   messaging-service:
     extends: { file: docker-compose.yml, service: messaging-service }
     build: { context: ., dockerfile: messaging-service/Dockerfile }

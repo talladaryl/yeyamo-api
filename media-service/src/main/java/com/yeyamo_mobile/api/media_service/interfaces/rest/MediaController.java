@@ -82,14 +82,22 @@ public class MediaController{
   if(meta.getType()==com.yeyamo_mobile.api.media_service.domain.model.MediaType.DOCUMENT
    ||meta.getType()==com.yeyamo_mobile.api.media_service.domain.model.MediaType.CERTIFICATE){
    if(expires==null||sig==null) throw new com.yeyamo_mobile.api.media_service.application.MediaException("SIGNED_URL_REQUIRED","A signed URL is required for this media type");
-   return stream(service.protectedContent(id,expires,sig,signedUrlService));
+   return stream(service.protectedContent(id,expires,sig,signedUrlService),true);
   }
-  return stream(service.content(id,false));}
+  return stream(service.content(id,false),false);}
 
  @Operation(summary="Download generated thumbnail")
  @GetMapping("/{id}/thumbnail")
- public ResponseEntity<InputStreamResource> thumbnail(@PathVariable UUID id){
-  return stream(service.content(id,true));}
+ public ResponseEntity<InputStreamResource> thumbnail(@PathVariable UUID id,
+   @RequestParam(required=false) Long expires,
+   @RequestParam(required=false) String sig){
+  var meta=service.metadata(id);
+  boolean privateMedia=isPrivate(meta);
+  if(privateMedia){
+   if(expires==null||sig==null) throw new com.yeyamo_mobile.api.media_service.application.MediaException("SIGNED_URL_REQUIRED","A signed URL is required for this media type");
+   signedUrlService.validate(id,expires,sig);
+  }
+  return stream(service.content(id,true),privateMedia);}
 
  @Operation(summary="Generate a signed URL for protected media (DOCUMENT/CERTIFICATE)",
             security=@SecurityRequirement(name="bearerAuth"))
@@ -119,10 +127,14 @@ public class MediaController{
   service.delete(id,auth.getName(),admin,correlationId);}
 
  // ---- Helpers -----------------------------------------------------------------
- private ResponseEntity<InputStreamResource> stream(ObjectStoragePort.StoredObject o){
-  return ResponseEntity.ok()
+ private boolean isPrivate(com.yeyamo_mobile.api.media_service.domain.model.MediaAsset media){
+  return media.getType()==com.yeyamo_mobile.api.media_service.domain.model.MediaType.DOCUMENT
+   ||media.getType()==com.yeyamo_mobile.api.media_service.domain.model.MediaType.CERTIFICATE;
+ }
+ private ResponseEntity<InputStreamResource> stream(ObjectStoragePort.StoredObject o,boolean privateContent){
+  ResponseEntity.BodyBuilder response=ResponseEntity.ok()
    .contentType(MediaType.parseMediaType(o.contentType()))
-   .contentLength(o.length())
-   .cacheControl(CacheControl.maxAge(java.time.Duration.ofDays(30)).cachePublic())
-   .body(new InputStreamResource(o.content()));}
+   .contentLength(o.length());
+  response.cacheControl(privateContent?CacheControl.noStore():CacheControl.maxAge(java.time.Duration.ofDays(30)).cachePublic());
+  return response.body(new InputStreamResource(o.content()));}
 }

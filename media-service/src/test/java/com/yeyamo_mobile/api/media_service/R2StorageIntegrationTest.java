@@ -47,15 +47,15 @@ class R2StorageIntegrationTest {
  @DynamicPropertySource static void properties(DynamicPropertyRegistry registry){registry.add("r2.endpoint-override",r2::baseUrl);}
  @BeforeEach void reset() throws Exception {
   r2.resetAll();
-  r2.stubFor(put(urlPathMatching("/yeyamo-test/thumbnails/.*")).atPriority(1).willReturn(aResponse().withStatus(200).withHeader("ETag","\""+md5(thumbnail())+"\"")));
-  r2.stubFor(put(urlPathMatching("/yeyamo-test/.*")).atPriority(2).willReturn(aResponse().withStatus(200).withHeader("ETag","\""+md5(png())+"\"")));
+  r2.stubFor(put(urlPathMatching("/yeyamo-test-public/thumbnails/.*")).atPriority(1).willReturn(aResponse().withStatus(200).withHeader("ETag","\""+md5(thumbnail())+"\"")));
+  r2.stubFor(put(urlPathMatching("/yeyamo-test-public/.*")).atPriority(2).willReturn(aResponse().withStatus(200).withHeader("ETag","\""+md5(png())+"\"")));
  }
 
  @Test void shouldUploadMediaToR2AndReturnId() throws Exception {
   String body=mockMvc.perform(upload("r2-upload-user"))
    .andExpect(status().isCreated()).andExpect(jsonPath("$.id").isNotEmpty()).andReturn().getResponse().getContentAsString();
   UUID id=UUID.fromString(objectMapper.readTree(body).path("id").asText());
-  r2.verify(putRequestedFor(urlPathMatching("/yeyamo-test/.*")));
+  r2.verify(putRequestedFor(urlPathMatching("/yeyamo-test-public/.*")));
   org.junit.jupiter.api.Assertions.assertNotNull(id);
  }
 
@@ -63,7 +63,7 @@ class R2StorageIntegrationTest {
   String body=mockMvc.perform(upload("r2-content-user")).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
   UUID id=UUID.fromString(objectMapper.readTree(body).path("id").asText());
   byte[] bytes=png();
-  r2.stubFor(com.github.tomakehurst.wiremock.client.WireMock.get(urlPathMatching("/yeyamo-test/.*")).willReturn(aResponse().withStatus(200)
+  r2.stubFor(com.github.tomakehurst.wiremock.client.WireMock.get(urlPathMatching("/yeyamo-test-public/.*")).willReturn(aResponse().withStatus(200)
    .withHeader("Content-Type","image/png").withHeader("Content-Length",String.valueOf(bytes.length)).withBody(bytes)));
   mockMvc.perform(get("/api/v1/media/{id}/content",id))
    .andExpect(status().isOk()).andExpect(content().contentType(MediaType.IMAGE_PNG)).andExpect(content().bytes(bytes));
@@ -71,7 +71,7 @@ class R2StorageIntegrationTest {
 
  @Test void shouldRejectUploadOnR2Failure() throws Exception {
   r2.resetAll();
-  r2.stubFor(put(urlPathMatching("/yeyamo-test/.*")).willReturn(aResponse().withStatus(503).withBody("R2 unavailable")));
+  r2.stubFor(put(urlPathMatching("/yeyamo-test-public/.*")).willReturn(aResponse().withStatus(503).withBody("R2 unavailable")));
   mockMvc.perform(upload("r2-failure-user"))
    .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("STORAGE_UNAVAILABLE"));
  }

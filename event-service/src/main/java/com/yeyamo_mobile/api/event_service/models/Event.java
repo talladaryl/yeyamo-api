@@ -8,6 +8,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import com.yeyamo_mobile.api.event_service.enums.EventStatus;
+import com.yeyamo_mobile.api.event_service.enums.EventVisibility;
 import com.yeyamo_mobile.shared.geography.GeographicFields;
 
 import jakarta.persistence.Column;
@@ -43,8 +44,9 @@ public class Event {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "place_id", nullable = false)
+    @Column(name = "place_id")
     private UUID placeId;
+    @Column(name = "owner_user_id", length = 120) private String ownerUserId;
     @Column(name="organizer_id") private UUID organizerId;
     @Column(name="partner_id") private UUID partnerId;
     @Column(name="region_id") private Long regionId;
@@ -56,6 +58,20 @@ public class Event {
 
     @Column(columnDefinition = "TEXT")
     private String description;
+
+    @Column(name = "location_name", length = 255) private String locationName;
+    @Column(name = "location_address", length = 500) private String locationAddress;
+    @Column(name = "location_latitude") private Double locationLatitude;
+    @Column(name = "location_longitude") private Double locationLongitude;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private EventVisibility visibility = EventVisibility.PUBLIC;
+
+    @Column(name = "allow_uninvited_participants", nullable = false) private boolean allowUninvitedParticipants = true;
+    @Column(name = "comments_participants_only", nullable = false) private boolean commentsParticipantsOnly;
+    @Column(name = "show_participants", nullable = false) private boolean showParticipants = true;
+    @Column(name = "sharing_enabled", nullable = false) private boolean sharingEnabled = true;
 
     @Column(name = "cover_media_id")
     private UUID coverMediaId;
@@ -103,4 +119,6 @@ public class Event {
     @LastModifiedDate
     @Column(name = "updated_at")
     private Instant updatedAt;
+
+    @jakarta.persistence.Version private long version;
 }

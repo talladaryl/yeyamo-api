@@ -71,7 +71,8 @@ public class MediaApplicationService{
 
   // 7. Store original (or transcoded) file
   String safeFilename = safe(filename);
-  String originalKey = key("originals", safeFilename);
+  String storageVisibility = storageVisibility(effectiveType);
+  String originalKey = key(storageVisibility,"originals", safeFilename);
   String stored = null, thumbKey = null;
 
   try{
@@ -95,7 +96,7 @@ public class MediaApplicationService{
    try{
     ThumbnailStrategy strategy = thumbnails.stream().filter(t->t.supports(effectiveType)).findFirst().orElseThrow();
     ThumbnailStrategy.Thumbnail thumb = strategy.generate(finalBytes,finalContentType);
-    thumbKey = key("thumbnails",media.getId()+".jpg");
+    thumbKey = key(storageVisibility,"thumbnails",media.getId()+".jpg");
     storage.store(thumbKey,new ByteArrayInputStream(thumb.bytes()),thumb.bytes().length,thumb.contentType());
     media.ready(thumbKey,thumb.width(),thumb.height(),thumb.durationMs());
    }catch(Exception thumbnailFailure){
@@ -157,7 +158,8 @@ public class MediaApplicationService{
 
  // -------------------------------------------------------------------------
  private MediaAsset required(UUID id){return repository.findById(id).orElseThrow(()->new MediaException("MEDIA_NOT_FOUND","Media not found"));}
- private String key(String prefix,String filename){LocalDate d=LocalDate.now(ZoneOffset.UTC);return prefix+"/"+d.getYear()+"/"+String.format("%02d",d.getMonthValue())+"/"+UUID.randomUUID()+"-"+filename;}
+ private String storageVisibility(MediaType type){return type==MediaType.DOCUMENT||type==MediaType.CERTIFICATE?"private":"public";}
+ private String key(String visibility,String prefix,String filename){LocalDate d=LocalDate.now(ZoneOffset.UTC);return visibility+"/"+prefix+"/"+d.getYear()+"/"+String.format("%02d",d.getMonthValue())+"/"+UUID.randomUUID()+"-"+filename;}
  private String safe(String filename){String f=filename==null?"upload":filename.replace("\\","/");f=f.substring(f.lastIndexOf('/')+1).replaceAll("[^a-zA-Z0-9._-]","_");return f.isBlank()?"upload":f.substring(0,Math.min(f.length(),180));}
  private String sha256(byte[] bytes){try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));}catch(NoSuchAlgorithmException e){throw new IllegalStateException(e);}}
  private void safeDelete(String key){if(key==null)return;try{storage.delete(key);}catch(RuntimeException ignored){}}

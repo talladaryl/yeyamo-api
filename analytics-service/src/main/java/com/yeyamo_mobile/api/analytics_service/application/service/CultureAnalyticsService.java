@@ -147,6 +147,26 @@ public class CultureAnalyticsService {
         return result;
     }
 
+    /** Partner-facing report: empty source data remains null, never fabricated as zero. */
+    public Map<String, Object> getArtisanAnalyticsForPeriod(String artisanId, int periodDays) {
+        if (periodDays != 7 && periodDays != 30 && periodDays != 90) {
+            throw new IllegalArgumentException("periodDays must be 7, 30 or 90");
+        }
+        LocalDate to = today();
+        LocalDate from = to.minusDays(periodDays - 1L);
+        List<ArtisanKpisDaily> rows = artisanRepo.findByArtisanIdAndAggregationDateBetweenOrderByAggregationDateDesc(artisanId, from, to);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("artisanId", artisanId);
+        result.put("period", Map.of("days", periodDays, "from", from, "to", to));
+        result.put("dataAvailable", !rows.isEmpty());
+        result.put("totalSales", rows.isEmpty() ? null : rows.stream().mapToLong(value -> value.getSales() == null ? 0L : value.getSales()).sum());
+        result.put("revenue", rows.isEmpty() || rows.stream().allMatch(value -> value.getRevenue() == null) ? null : rows.stream().map(ArtisanKpisDaily::getRevenue).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add));
+        result.put("totalViews", rows.isEmpty() ? null : rows.stream().mapToLong(value -> value.getTotalViews() == null ? 0L : value.getTotalViews()).sum());
+        result.put("newFollowers", rows.isEmpty() ? null : rows.stream().mapToLong(value -> value.getNewFollowers() == null ? 0L : value.getNewFollowers()).sum());
+        result.put("dailyKpis", rows.stream().map(this::toArtisanRow).toList());
+        return result;
+    }
+
     // =========================================================================
     // Artwork analytics
     // =========================================================================

@@ -59,4 +59,17 @@ class SimulatedPaymentProviderProfileTest {
                 assertEquals("hr-skills-pay", c.getBean(PaymentProviderPort.class).name());
             });
     }
+
+    @Test void productionFailsFastWhenHrSkillsPayCredentialsAreMissing() {
+        new ApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(ConfigurationPropertiesAutoConfiguration.class))
+            .withUserConfiguration(ProductionPaymentProviderGuard.class, HrSkillsPayProvider.class,
+                com.yeyamo_mobile.api.payment_service.infrastructure.aggregator.HrSkillsPayProperties.class)
+            .withInitializer(context -> context.getEnvironment().setActiveProfiles("prod"))
+            .withPropertyValues(
+                "payment.provider.name=hr-skills-pay",
+                "payment.aggregator.base-url=https://api.hrskills-pay.com",
+                "payment.aggregator.cash-in-capabilities={\"CI\":[\"orange\"]}")
+            .run(c -> assertNotNull(c.getStartupFailure()));
+    }
 }

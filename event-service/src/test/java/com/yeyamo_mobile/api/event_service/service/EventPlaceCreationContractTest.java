@@ -98,7 +98,9 @@ class EventPlaceCreationContractTest {
     void requiresTheMandatoryMobileFields() {
         var violations = Validation.buildDefaultValidatorFactory().getValidator().validate(new EventRequest());
 
-        assertEquals(5, violations.size());
+        // A physical event may now use either a canonical place or a complete
+        // free-form location; that cross-field rule is enforced by EventService.
+        assertEquals(4, violations.size());
     }
 
     private EventService service(EventRepository events, PlaceReadModelRepository places) {

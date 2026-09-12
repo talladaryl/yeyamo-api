@@ -88,6 +88,16 @@ public class BookingController {
         return service.createSlot(body, a.getName(), c);
     }
 
+    @PostMapping("/api/v1/booking-management/experience-slots")
+    @ResponseStatus(HttpStatus.CREATED)
+    public SlotView experienceSlot(
+            Authentication a,
+            @Valid @RequestBody CreateExperienceSlot body,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String c
+    ) {
+        return service.createExperienceSlot(body, a.getName(), c);
+    }
+
     @PostMapping("/api/v1/booking-management/slots/{id}/close")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void close(

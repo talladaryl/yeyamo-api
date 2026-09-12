@@ -16,8 +16,25 @@ import jakarta.validation.constraints.DecimalMax;
 
 public class EventRequest {
 
-    @NotNull
     private UUID placeId;
+
+    @Size(max = 255)
+    private String locationName;
+
+    @Size(max = 500)
+    private String locationAddress;
+
+    @DecimalMin("-90.0") @DecimalMax("90.0")
+    private Double locationLatitude;
+
+    @DecimalMin("-180.0") @DecimalMax("180.0")
+    private Double locationLongitude;
+
+    private com.yeyamo_mobile.api.event_service.enums.EventVisibility visibility = com.yeyamo_mobile.api.event_service.enums.EventVisibility.PUBLIC;
+    private boolean allowUninvitedParticipants = true;
+    private boolean commentsParticipantsOnly;
+    private boolean showParticipants = true;
+    private boolean sharingEnabled = true;
 
     @NotBlank
     @Size(max = 255)
@@ -58,6 +75,25 @@ public class EventRequest {
     public void setPlaceId(UUID placeId) {
         this.placeId = placeId;
     }
+
+    public String getLocationName() { return locationName; }
+    public void setLocationName(String locationName) { this.locationName = locationName; }
+    public String getLocationAddress() { return locationAddress; }
+    public void setLocationAddress(String locationAddress) { this.locationAddress = locationAddress; }
+    public Double getLocationLatitude() { return locationLatitude; }
+    public void setLocationLatitude(Double locationLatitude) { this.locationLatitude = locationLatitude; }
+    public Double getLocationLongitude() { return locationLongitude; }
+    public void setLocationLongitude(Double locationLongitude) { this.locationLongitude = locationLongitude; }
+    public com.yeyamo_mobile.api.event_service.enums.EventVisibility getVisibility() { return visibility; }
+    public void setVisibility(com.yeyamo_mobile.api.event_service.enums.EventVisibility visibility) { this.visibility = visibility; }
+    public boolean isAllowUninvitedParticipants() { return allowUninvitedParticipants; }
+    public void setAllowUninvitedParticipants(boolean allowUninvitedParticipants) { this.allowUninvitedParticipants = allowUninvitedParticipants; }
+    public boolean isCommentsParticipantsOnly() { return commentsParticipantsOnly; }
+    public void setCommentsParticipantsOnly(boolean commentsParticipantsOnly) { this.commentsParticipantsOnly = commentsParticipantsOnly; }
+    public boolean isShowParticipants() { return showParticipants; }
+    public void setShowParticipants(boolean showParticipants) { this.showParticipants = showParticipants; }
+    public boolean isSharingEnabled() { return sharingEnabled; }
+    public void setSharingEnabled(boolean sharingEnabled) { this.sharingEnabled = sharingEnabled; }
 
     public String getTitle() {
         return title;

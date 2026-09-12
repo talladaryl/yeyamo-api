@@ -34,7 +34,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/admin/**").authenticated()
                 
                 // Actuator endpoints
-                .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                 .requestMatchers("/actuator/**").authenticated()
                 
                 // OpenAPI documentation

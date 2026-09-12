@@ -75,4 +75,12 @@ public interface PlaceRepository extends JpaRepository<Place, UUID>, org.springf
     boolean existsByCityId(UUID id);
     boolean existsByDistrictId(Long id);
     boolean existsByCategoryId(Long id);
+
+    @Query("""
+            SELECT p FROM Place p
+            WHERE lower(trim(p.name)) = :normalizedName
+               OR lower(trim(coalesce(p.address, ''))) = :normalizedAddress
+            """)
+    List<Place> findDuplicateCandidates(@Param("normalizedName") String normalizedName,
+            @Param("normalizedAddress") String normalizedAddress);
 }

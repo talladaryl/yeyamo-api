@@ -24,12 +24,17 @@ public class SecurityConfig {
                 .sessionManagement(session->session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth->auth
                     .requestMatchers("/actuator/health/**","/actuator/info","/v3/api-docs/**","/swagger-ui/**","/swagger-ui.html").permitAll()
+                    .requestMatchers("/internal/**").permitAll()
                     .requestMatchers("/api/v1/admin/**").authenticated()
                     .requestMatchers(HttpMethod.GET,"/api/v1/events/me").authenticated()
                     .requestMatchers(HttpMethod.GET,"/api/v1/events/*/participants").authenticated()
+                    .requestMatchers("/api/v1/events/*/invitations/**").authenticated()
                     .requestMatchers(HttpMethod.GET,"/api/v1/events/**","/api/v1/places/*/events").permitAll()
                     .requestMatchers(HttpMethod.POST,"/api/v1/events/*/register").authenticated()
                     .requestMatchers(HttpMethod.DELETE,"/api/v1/events/*/unregister").authenticated()
+                    .requestMatchers(HttpMethod.POST,"/api/v1/events").authenticated()
+                    .requestMatchers(HttpMethod.PUT,"/api/v1/events/**").authenticated()
+                    .requestMatchers(HttpMethod.PATCH,"/api/v1/events/**").authenticated()
                     .requestMatchers("/api/v1/events/**").hasAnyRole("ADMIN","SUPER_ADMIN","PARTNER")
                     .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth->oauth.jwt(jwt->jwt.jwtAuthenticationConverter(converter))).build();

@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.time.LocalDate;
 import java.util.Map;
@@ -70,6 +71,7 @@ public class CultureAnalyticsController {
      * Get artisan performance metrics
      */
     @GetMapping("/artisans/{artisanId}")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @Operation(summary = "Get artisan analytics")
     public ResponseEntity<Map<String, Object>> getArtisanAnalytics(
             @PathVariable String artisanId,

@@ -46,6 +46,14 @@ public final class BookingDtos {
         }
     }
 
+    /** Partner-side command. Price, currency, place and country come from catalog, never this request. */
+    public record CreateExperienceSlot(
+            @NotBlank String experienceId,
+            @NotNull Instant startsAt,
+            @NotNull Instant endsAt,
+            @Positive int capacity
+    ) { }
+
     public record CancelBooking(
             @NotBlank @Size(max = 500) String reason
     ) {}
@@ -64,10 +72,17 @@ public final class BookingDtos {
             String countryCode,
             SlotStatus status,
             boolean isPaid,
-            BigDecimal amount
+            BigDecimal amount,
+            ActivityType activityType
     ) {
+        public SlotView(UUID id, String activityId, UUID placeId, Instant startsAt, Instant endsAt, int capacity,
+                int reserved, int available, BigDecimal unitPrice, String currency, String countryCode,
+                SlotStatus status, boolean isPaid, BigDecimal amount) {
+            this(id, activityId, placeId, startsAt, endsAt, capacity, reserved, available, unitPrice, currency,
+                    countryCode, status, isPaid, amount, ActivityType.ACTIVITY);
+        }
         public SlotView(UUID id, String activityId, Instant startsAt, Instant endsAt, int capacity, int reserved, int available, BigDecimal unitPrice, String currency, String countryCode, SlotStatus status) {
-            this(id, activityId, null, startsAt, endsAt, capacity, reserved, available, unitPrice, currency, countryCode, status, false, BigDecimal.ZERO);
+            this(id, activityId, null, startsAt, endsAt, capacity, reserved, available, unitPrice, currency, countryCode, status, false, BigDecimal.ZERO, ActivityType.ACTIVITY);
         }
     }
 
@@ -88,7 +103,9 @@ public final class BookingDtos {
             Instant createdAt,
             Instant confirmedAt,
             Instant cancelledAt,
-            Instant completedAt
+            Instant completedAt,
+            ActivityType activityType,
+            boolean automaticRefundAvailable
     ) {}
 
     public record HistoryView(

@@ -15,14 +15,18 @@ import com.yeyamo_mobile.api.event_service.dto.EventResponse;
 import com.yeyamo_mobile.api.event_service.dto.EventStatusRequest;
 import com.yeyamo_mobile.api.event_service.dto.EventSummaryResponse;
 import com.yeyamo_mobile.api.event_service.dto.EventUpdateRequest;
+import com.yeyamo_mobile.api.event_service.dto.EventInvitationResponse;
 import com.yeyamo_mobile.api.event_service.enums.EventStatus;
+import com.yeyamo_mobile.api.event_service.enums.EventVisibility;
 import com.yeyamo_mobile.api.event_service.enums.RegistrationStatus;
 import com.yeyamo_mobile.api.event_service.event.EventPublisher;
 import com.yeyamo_mobile.api.event_service.exception.ApiException;
 import com.yeyamo_mobile.api.event_service.models.Event;
 import com.yeyamo_mobile.api.event_service.models.EventRegistration;
+import com.yeyamo_mobile.api.event_service.models.EventInvitation;
 import com.yeyamo_mobile.api.event_service.repository.EventRegistrationRepository;
 import com.yeyamo_mobile.api.event_service.repository.EventRepository;
+import com.yeyamo_mobile.api.event_service.repository.EventInvitationRepository;
 import com.yeyamo_mobile.api.event_service.repository.PlaceReadModelRepository;
 import com.yeyamo_mobile.api.event_service.models.PlaceReadModel;
 import com.yeyamo_mobile.shared.country.CountryConfigClient;
@@ -38,13 +42,24 @@ public class EventService {
     private final EventPublisher eventPublisher;
     private final CountryConfigClient countries;
     private final PlaceReadModelRepository places;
+    private final EventInvitationRepository invitations;
 
     public EventService(
             EventRepository eventRepository,
             EventRegistrationRepository registrationRepository,
             EventPublisher eventPublisher
     ) {
-        this(eventRepository, registrationRepository, eventPublisher, null, null);
+        this(eventRepository, registrationRepository, eventPublisher, null, null, null);
+    }
+
+    public EventService(
+            EventRepository eventRepository,
+            EventRegistrationRepository registrationRepository,
+            EventPublisher eventPublisher,
+            CountryConfigClient countries,
+            PlaceReadModelRepository places
+    ) {
+        this(eventRepository, registrationRepository, eventPublisher, countries, places, null);
     }
 
     @Autowired
@@ -53,13 +68,15 @@ public class EventService {
             EventRegistrationRepository registrationRepository,
             EventPublisher eventPublisher,
             CountryConfigClient countries,
-            PlaceReadModelRepository places
+            PlaceReadModelRepository places,
+            @Autowired(required = false) EventInvitationRepository invitations
     ) {
         this.eventRepository = eventRepository;
         this.registrationRepository = registrationRepository;
         this.eventPublisher = eventPublisher;
         this.countries = countries;
         this.places = places;
+        this.invitations = invitations;
     }
 
     @Transactional(readOnly = true)
@@ -69,9 +86,18 @@ public class EventService {
     }
 
     @Transactional(readOnly = true)
+    public EventResponse getById(UUID id, String actor, boolean privileged) {
+        Event event = findEventOrThrow(id);
+        if (event.getVisibility() == EventVisibility.PRIVATE && !canAccess(event, actor, privileged)) {
+            throw new ApiException("EVENT_PRIVATE", "Cet evenement est prive", HttpStatus.FORBIDDEN);
+        }
+        return EventResponse.from(event);
+    }
+
+    @Transactional(readOnly = true)
     public List<EventSummaryResponse> findByPlaceId(UUID placeId, boolean publishedOnly) {
         List<Event> events = publishedOnly
-                ? eventRepository.findByPlaceIdAndStatusOrderByStartAtAsc(placeId, EventStatus.PUBLISHED)
+                ? eventRepository.findByPlaceIdAndStatusAndVisibilityOrderByStartAtAsc(placeId, EventStatus.PUBLISHED, EventVisibility.PUBLIC)
                 : eventRepository.findByPlaceIdOrderByStartAtAsc(placeId);
         return events.stream().map(EventSummaryResponse::from).toList();
     }
@@ -79,7 +105,7 @@ public class EventService {
     @Transactional(readOnly = true)
     public List<EventSummaryResponse> findUpcoming() {
         return eventRepository
-                .findByStatusAndStartAtAfterOrderByStartAtAsc(EventStatus.PUBLISHED, Instant.now())
+                .findByStatusAndVisibilityAndStartAtAfterOrderByStartAtAsc(EventStatus.PUBLISHED, EventVisibility.PUBLIC, Instant.now())
                 .stream()
                 .map(EventSummaryResponse::from)
                 .toList();
@@ -90,20 +116,31 @@ public class EventService {
         validateCapacity(request.getCapacity(), 0);
         GeographicFields geography = geography(request);
         validateCountryFeatures(request, geography);
-        if (!request.isVirtual() && request.getPlaceId() == null) {
+        if (!request.isVirtual() && request.getPlaceId() == null && request.getLocationName() == null) {
             throw new ApiException("PLACE_REQUIRED", "Un Ã©vÃ©nement physique doit Ãªtre associÃ© Ã  un lieu", HttpStatus.BAD_REQUEST);
         }
+        validateLocation(request);
         validatePlace(request);
 
         Event event = new Event();
         event.setPlaceId(request.getPlaceId());
+        event.setOwnerUserId(actorId);
         event.setTitle(request.getTitle());
         event.setDescription(request.getDescription());
+        event.setLocationName(blankToNull(request.getLocationName()));
+        event.setLocationAddress(blankToNull(request.getLocationAddress()));
+        event.setLocationLatitude(request.getLocationLatitude());
+        event.setLocationLongitude(request.getLocationLongitude());
+        event.setVisibility(request.getVisibility() == null ? EventVisibility.PUBLIC : request.getVisibility());
+        event.setAllowUninvitedParticipants(request.isAllowUninvitedParticipants());
+        event.setCommentsParticipantsOnly(request.isCommentsParticipantsOnly());
+        event.setShowParticipants(request.isShowParticipants());
+        event.setSharingEnabled(request.isSharingEnabled());
         event.setCoverMediaId(request.getCoverMediaId());
         event.setStartAt(request.getStartAt());
         event.setEndAt(request.getEndAt());
         event.setCapacity(request.getCapacity());
-        event.setStatus(request.getStatus() != null ? request.getStatus() : EventStatus.PENDING);
+        event.setStatus(EventStatus.PENDING);
         event.setRegisteredCount(0);
         event.setVirtual(request.isVirtual());
         event.setAccessibleCountries(request.getAccessibleCountries() == null ? new java.util.HashSet<>() : new java.util.HashSet<>(request.getAccessibleCountries()));
@@ -116,6 +153,7 @@ public class EventService {
 
     public EventResponse update(UUID id, EventUpdateRequest request, String correlationId, String actorId) {
         Event event = findEventOrThrow(id);
+        requireOwner(event, actorId, false);
         ensureModifiable(event);
 
         validateDates(request.getStartAt(), request.getEndAt());
@@ -134,9 +172,18 @@ public class EventService {
     }
 
     public EventResponse updateStatus(UUID id, EventStatusRequest request, String correlationId, String actorId) {
+        return updateStatus(id, request, correlationId, actorId, true);
+    }
+
+    public EventResponse updateStatus(UUID id, EventStatusRequest request, String correlationId, String actorId, boolean privileged) {
         Event event = findEventOrThrow(id);
+        requireOwner(event, actorId, privileged);
         EventStatus currentStatus = event.getStatus();
         EventStatus newStatus = request.getStatus();
+
+        if (!privileged && newStatus == EventStatus.PUBLISHED) {
+            throw new ApiException("EVENT_PUBLICATION_REVIEW_REQUIRED", "La publication d'une sortie requiert une moderation", HttpStatus.FORBIDDEN);
+        }
 
         if (currentStatus == newStatus) {
             return EventResponse.from(event);
@@ -160,6 +207,9 @@ public class EventService {
     public EventResponse register(UUID eventId, String userId) {
         Event event = findEventForUpdateOrThrow(eventId);
         ensureRegisterable(event);
+        if (!event.isAllowUninvitedParticipants() && (invitations == null || !invitations.existsByEventIdAndUserId(eventId, userId))) {
+            throw new ApiException("EVENT_INVITATION_REQUIRED", "Une invitation est requise pour cet evenement", HttpStatus.FORBIDDEN);
+        }
 
         var existingRegistration = registrationRepository.findByEventIdAndUserId(eventId, userId);
         if (existingRegistration.filter(r -> r.getStatus() == RegistrationStatus.CONFIRMED).isPresent()) {
@@ -222,6 +272,45 @@ public class EventService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<EventParticipantResponse> findParticipants(UUID eventId, int limit, String actor, boolean privileged) {
+        Event event = findEventOrThrow(eventId);
+        if (!event.isShowParticipants() && !canAccess(event, actor, privileged)) {
+            throw new ApiException("EVENT_PARTICIPANTS_PRIVATE", "La liste des participants est privee", HttpStatus.FORBIDDEN);
+        }
+        if (event.isShowParticipants() && !canAccess(event, actor, privileged)) {
+            throw new ApiException("EVENT_PARTICIPANTS_FORBIDDEN", "Acces aux participants refuse", HttpStatus.FORBIDDEN);
+        }
+        return findParticipants(eventId, limit);
+    }
+
+    @Transactional
+    public EventInvitationResponse invite(UUID eventId, String inviteeUserId, String actor, boolean privileged) {
+        Event event = findEventForUpdateOrThrow(eventId);
+        requireOwner(event, actor, privileged);
+        if (inviteeUserId.equals(actor)) throw new ApiException("EVENT_INVITATION_INVALID", "L'organisateur ne peut pas etre invite", HttpStatus.BAD_REQUEST);
+        if (invitations == null) throw new ApiException("EVENT_INVITATIONS_UNAVAILABLE", "Les invitations ne sont pas disponibles", HttpStatus.SERVICE_UNAVAILABLE);
+        EventInvitation invitation = invitations.findByEventIdAndUserId(eventId, inviteeUserId)
+                .orElseGet(() -> invitations.save(EventInvitation.create(eventId, inviteeUserId, actor)));
+        return EventInvitationResponse.from(invitation);
+    }
+
+    @Transactional(readOnly = true)
+    public List<EventInvitationResponse> invitations(UUID eventId, String actor, boolean privileged) {
+        Event event = findEventOrThrow(eventId);
+        requireOwner(event, actor, privileged);
+        if (invitations == null) throw new ApiException("EVENT_INVITATIONS_UNAVAILABLE", "Les invitations ne sont pas disponibles", HttpStatus.SERVICE_UNAVAILABLE);
+        return invitations.findByEventIdOrderByCreatedAtAsc(eventId).stream().map(EventInvitationResponse::from).toList();
+    }
+
+    @Transactional
+    public void revokeInvitation(UUID eventId, String inviteeUserId, String actor, boolean privileged) {
+        Event event = findEventForUpdateOrThrow(eventId);
+        requireOwner(event, actor, privileged);
+        if (invitations == null) throw new ApiException("EVENT_INVITATIONS_UNAVAILABLE", "Les invitations ne sont pas disponibles", HttpStatus.SERVICE_UNAVAILABLE);
+        invitations.findByEventIdAndUserId(eventId, inviteeUserId).ifPresent(invitations::delete);
+    }
+
     private Event findEventOrThrow(UUID id) {
         return eventRepository.findById(id)
                 .orElseThrow(() -> new ApiException("EVENT_NOT_FOUND", "Evenement introuvable", HttpStatus.NOT_FOUND));
@@ -270,6 +359,21 @@ public class EventService {
         }
     }
 
+    private void requireOwner(Event event, String actor, boolean privileged) {
+        if (privileged) return;
+        if (actor == null || event.getOwnerUserId() == null || !event.getOwnerUserId().equals(actor)) {
+            throw new ApiException("EVENT_FORBIDDEN", "Cet evenement ne vous appartient pas", HttpStatus.FORBIDDEN);
+        }
+    }
+
+    private boolean canAccess(Event event, String actor, boolean privileged) {
+        if (event.getVisibility() == EventVisibility.PUBLIC || privileged) return true;
+        if (actor == null) return false;
+        if (actor.equals(event.getOwnerUserId())) return true;
+        if (registrationRepository.existsByEventIdAndUserIdAndStatus(event.getId(), actor, RegistrationStatus.CONFIRMED)) return true;
+        return invitations != null && invitations.existsByEventIdAndUserId(event.getId(), actor);
+    }
+
     private void validateStatusTransition(EventStatus current, EventStatus next) {
         boolean valid = switch (current) {
             case DRAFT -> next == EventStatus.PENDING_REVIEW || next == EventStatus.ARCHIVED;
@@ -315,7 +419,7 @@ public class EventService {
     }
 
     private void validatePlace(EventRequest request) {
-        if (request.isVirtual() || places == null) {
+        if (request.isVirtual() || request.getPlaceId() == null || places == null) {
             return;
         }
         PlaceReadModel place = places.findById(request.getPlaceId())
@@ -323,5 +427,24 @@ public class EventService {
         if (!place.isActive()) {
             throw new ApiException("PLACE_NOT_ACTIVE", "Le lieu selectionne n'est pas actif", HttpStatus.BAD_REQUEST);
         }
+    }
+
+    private void validateLocation(EventRequest request) {
+        if (request.isVirtual()) return;
+        if (request.getPlaceId() != null) {
+            if (request.getLocationName() != null || request.getLocationAddress() != null
+                    || request.getLocationLatitude() != null || request.getLocationLongitude() != null) {
+                throw new ApiException("EVENT_LOCATION_AMBIGUOUS", "Choisissez un lieu canonique ou une localisation libre", HttpStatus.BAD_REQUEST);
+            }
+            return;
+        }
+        if (blankToNull(request.getLocationName()) == null || blankToNull(request.getLocationAddress()) == null
+                || request.getLocationLatitude() == null || request.getLocationLongitude() == null) {
+            throw new ApiException("EVENT_LOCATION_REQUIRED", "Un lieu canonique ou une localisation libre complete est requis", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }
