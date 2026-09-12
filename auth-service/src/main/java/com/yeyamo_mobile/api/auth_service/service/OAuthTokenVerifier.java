@@ -1,7 +1,10 @@
 package com.yeyamo_mobile.api.auth_service.service;
 
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,23 +21,34 @@ import com.yeyamo_mobile.api.auth_service.exception.ApiException;
 @Service
 public class OAuthTokenVerifier {
 
-    private final String googleClientId;
+    private final Set<String> googleClientIds;
     private final String appleClientId;
     private final JwtDecoder googleDecoder;
     private final JwtDecoder appleDecoder;
 
     @Autowired
     public OAuthTokenVerifier(
+            @Value("${oauth.google.client-ids:}") String googleClientIds,
             @Value("${oauth.google.client-id:}") String googleClientId,
             @Value("${oauth.apple.client-id:}") String appleClientId
     ) {
-        this(googleClientId, appleClientId,
+        this(googleClientIds, googleClientId, appleClientId,
                 NimbusJwtDecoder.withJwkSetUri("https://www.googleapis.com/oauth2/v3/certs").build(),
                 NimbusJwtDecoder.withJwkSetUri("https://appleid.apple.com/auth/keys").build());
     }
 
     OAuthTokenVerifier(String googleClientId, String appleClientId, JwtDecoder googleDecoder, JwtDecoder appleDecoder) {
-        this.googleClientId = normalizeClientId(googleClientId);
+        this("", googleClientId, appleClientId, googleDecoder, appleDecoder);
+    }
+
+    OAuthTokenVerifier(
+            String googleClientIds,
+            String googleClientId,
+            String appleClientId,
+            JwtDecoder googleDecoder,
+            JwtDecoder appleDecoder
+    ) {
+        this.googleClientIds = normalizeClientIds(googleClientIds, googleClientId);
         this.appleClientId = normalizeClientId(appleClientId);
         this.googleDecoder = googleDecoder;
         this.appleDecoder = appleDecoder;
@@ -95,17 +109,18 @@ public class OAuthTokenVerifier {
     }
 
     private void validateAudience(String provider, Jwt jwt) {
-        String expectedAudience = switch (provider) {
-            case "google" -> googleClientId;
-            case "apple" -> appleClientId;
-            default -> "";
+        Set<String> expectedAudiences = switch (provider) {
+            case "google" -> googleClientIds;
+            case "apple" -> Set.of(appleClientId);
+            default -> Set.of();
         };
 
         List<String> audiences = jwt.getAudience();
-        if (!audiences.contains(expectedAudience)) {
+        boolean containsExpectedAudience = audiences.stream().anyMatch(expectedAudiences::contains);
+        if (!containsExpectedAudience) {
             throw new ApiException(providerCode(provider, "AUDIENCE_INVALID"), "Audience OAuth invalide", HttpStatus.UNAUTHORIZED);
         }
-        if (audiences.size() > 1 && !expectedAudience.equals(jwt.getClaimAsString("azp"))) {
+        if (audiences.size() > 1 && !expectedAudiences.contains(jwt.getClaimAsString("azp"))) {
             throw new ApiException("OAUTH_AUTHORIZED_PARTY_INVALID", "Authorized party OAuth invalide", HttpStatus.UNAUTHORIZED);
         }
     }
@@ -120,15 +135,15 @@ public class OAuthTokenVerifier {
     }
 
     private void requireConfiguredProvider(String provider) {
-        String clientId = switch (provider) {
-            case "google" -> googleClientId;
-            case "apple" -> appleClientId;
+        boolean configured = switch (provider) {
+            case "google" -> !googleClientIds.isEmpty();
+            case "apple" -> !appleClientId.isBlank();
             default -> throw new ApiException(
                     "OAUTH_PROVIDER_UNSUPPORTED",
                     "Provider OAuth non supporte",
                     HttpStatus.BAD_REQUEST);
         };
-        if (clientId.isBlank()) {
+        if (!configured) {
             throw new ApiException(
                     "OAUTH_PROVIDER_NOT_CONFIGURED",
                     "Provider OAuth non configure sur cet environnement",
@@ -141,6 +156,19 @@ public class OAuthTokenVerifier {
             return "";
         }
         return value.trim();
+    }
+
+    private static Set<String> normalizeClientIds(String values, String legacyValue) {
+        Set<String> clientIds = new LinkedHashSet<>();
+        Arrays.stream((values == null ? "" : values).split(","))
+                .map(OAuthTokenVerifier::normalizeClientId)
+                .filter(value -> !value.isBlank())
+                .forEach(clientIds::add);
+
+        String legacyClientId = normalizeClientId(legacyValue);
+        if (!legacyClientId.isBlank()) clientIds.add(legacyClientId);
+
+        return Set.copyOf(clientIds);
     }
 
     public record OAuthUserInfo(String provider, String providerUserId, String email) {

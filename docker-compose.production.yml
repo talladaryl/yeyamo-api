@@ -149,6 +149,16 @@ services:
     extends: { file: docker-compose.yml, service: auth-service }
     build: { context: ., dockerfile: auth-service/Dockerfile }
     <<: *private-service
+    environment:
+      <<: *production-java-env
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
+      GOOGLE_CLIENT_IDS: "${EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID:-},${EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID:-},${EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID:-}"
+      APPLE_CLIENT_ID: "${APPLE_CLIENT_ID:-}"
+      TURNSTILE_ENABLED: "${TURNSTILE_ENABLED:-false}"
+      TURNSTILE_SECRET_KEY: "${TURNSTILE_SECRET_KEY:-}"
+      TURNSTILE_VERIFY_URL: "${TURNSTILE_VERIFY_URL:-https://challenges.cloudflare.com/turnstile/v0/siteverify}"
+      TURNSTILE_EXPECTED_HOSTNAME: "${TURNSTILE_EXPECTED_HOSTNAME:-yeyamo.com}"
+      LOGIN_TURNSTILE_THRESHOLD: "${LOGIN_TURNSTILE_THRESHOLD:-3}"
   user-service:
     extends: { file: docker-compose.yml, service: user-service }
     build: { context: ., dockerfile: user-service/Dockerfile }

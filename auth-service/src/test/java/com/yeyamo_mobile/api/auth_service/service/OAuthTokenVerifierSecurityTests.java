@@ -24,6 +24,17 @@ class OAuthTokenVerifierSecurityTests {
     }
 
     @Test
+    void acceptsGoogleTokensIssuedForConfiguredMobileClients() {
+        JwtDecoder google = token -> jwt("https://accounts.google.com", List.of(token), true);
+        OAuthTokenVerifier verifier = new OAuthTokenVerifier(
+                "web-client,ios-client,android-client", "legacy-client", "yeyamo-apple", google, google);
+
+        assertDoesNotThrow(() -> verifier.verify("google", "web-client"));
+        assertDoesNotThrow(() -> verifier.verify("google", "ios-client"));
+        assertDoesNotThrow(() -> verifier.verify("google", "android-client"));
+    }
+
+    @Test
     void rejectsInvalidSignatureAndWrongIssuer() {
         JwtDecoder invalidSignature = token -> { throw new org.springframework.security.oauth2.jwt.JwtException("invalid signature"); };
         OAuthTokenVerifier invalidVerifier = new OAuthTokenVerifier("yeyamo-google", "yeyamo-apple", invalidSignature, invalidSignature);
