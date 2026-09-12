@@ -31,6 +31,8 @@ public interface SpringReviewRepository extends JpaRepository<ReviewEntity, UUID
      */
     boolean existsByUserIdAndPlaceId(String userId, UUID placeId);
 
+    boolean existsByUserIdAndTargetTypeAndEvidenceReference(String userId, String targetType, String evidenceReference);
+
     org.springframework.data.domain.Page<ReviewEntity> findByTargetTypeAndPlaceIdAndStatusOrderByCreatedAtDesc(String targetType, UUID targetId, String status, Pageable pageable);
 
     @Query("select count(r), avg(r.rating) from ReviewEntity r where r.targetType = :targetType and r.placeId = :targetId and r.status = 'ACTIVE'")

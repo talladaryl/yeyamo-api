@@ -237,6 +237,8 @@ services:
       R2_PUBLIC_BUCKET_NAME: "${R2_PUBLIC_BUCKET_NAME:?R2_PUBLIC_BUCKET_NAME is required}"
       R2_PRIVATE_BUCKET_NAME: "${R2_PRIVATE_BUCKET_NAME:?R2_PRIVATE_BUCKET_NAME is required}"
       R2_PUBLIC_BASE_URL: "${R2_PUBLIC_BASE_URL:-}"
+      R2_ENABLED: "true"
+      MEDIA_STORAGE_LOCAL_ENABLED: "false"
   notification-service:
     extends: { file: docker-compose.yml, service: notification-service }
     build: { context: ., dockerfile: notification-service/Dockerfile }

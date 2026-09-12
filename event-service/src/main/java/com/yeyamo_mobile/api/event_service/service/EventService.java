@@ -117,7 +117,7 @@ public class EventService {
         GeographicFields geography = geography(request);
         validateCountryFeatures(request, geography);
         if (!request.isVirtual() && request.getPlaceId() == null && request.getLocationName() == null) {
-            throw new ApiException("PLACE_REQUIRED", "Un Ã©vÃ©nement physique doit Ãªtre associÃ© Ã  un lieu", HttpStatus.BAD_REQUEST);
+            throw new ApiException("PLACE_REQUIRED", "Un événement physique doit être associé à un lieu", HttpStatus.BAD_REQUEST);
         }
         validateLocation(request);
         validatePlace(request);
@@ -405,7 +405,7 @@ public class EventService {
 
     private void validateCountryFeatures(EventRequest request, GeographicFields geography) {
         if (geography == null) {
-            if (countries != null) throw new ApiException("COUNTRY_REQUIRED", "Un pays est requis pour crÃ©er un Ã©vÃ©nement", HttpStatus.BAD_REQUEST);
+            if (countries != null) throw new ApiException("COUNTRY_REQUIRED", "Un pays est requis pour créer un événement", HttpStatus.BAD_REQUEST);
             return;
         }
         if (countries == null) return;

@@ -59,8 +59,8 @@ public class VerifiedReviewService {
         if (replay.isPresent()) return required(replay.get().resultId());
 
         Eligibility eligibility = verify(targetType, targetId, actor);
-        if (reviews.existsByUserIdAndPlaceId(actor, targetId)) {
-            throw new InteractionException("REVIEW_ALREADY_EXISTS", "Vous avez deja publie un avis pour cette cible");
+        if (reviews.existsByUserIdAndTargetTypeAndEvidenceReference(actor, targetType.name(), eligibility.reference())) {
+            throw new InteractionException("REVIEW_ALREADY_EXISTS", "Vous avez deja publie un avis pour cette interaction verifiee");
         }
         ReviewEntity review = new ReviewEntity();
         review.setId(UUID.randomUUID());

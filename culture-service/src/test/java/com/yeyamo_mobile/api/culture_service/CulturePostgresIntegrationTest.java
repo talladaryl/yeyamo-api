@@ -10,9 +10,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.web.client.RestClient;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+
+import com.yeyamo_mobile.shared.country.CountryConfigClient;
 
 @Tag("integration")
 @Testcontainers
@@ -36,6 +39,8 @@ class CulturePostgresIntegrationTest {
     }
 
     @Autowired DataSource dataSource;
+    @Autowired RestClient.Builder restClientBuilder;
+    @Autowired CountryConfigClient countryConfigClient;
 
     @Test
     void flywayCreatesCultureSchema() throws Exception {
@@ -44,5 +49,11 @@ class CulturePostgresIntegrationTest {
                         "select exists(select 1 from information_schema.tables where table_name='culture_contents')")) {
             assertTrue(result.next() && result.getBoolean(1));
         }
+    }
+
+    @Test
+    void contextProvidesCountryConfigClientAndRestClientBuilder() {
+        assertTrue(restClientBuilder != null);
+        assertTrue(countryConfigClient != null);
     }
 }

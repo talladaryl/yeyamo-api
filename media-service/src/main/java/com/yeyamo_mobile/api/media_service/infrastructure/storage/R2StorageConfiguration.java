@@ -1,6 +1,7 @@
 package com.yeyamo_mobile.api.media_service.infrastructure.storage;
 
 import java.net.URI;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -10,6 +11,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 
 @Configuration
+@ConditionalOnProperty(prefix = "r2", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class R2StorageConfiguration {
  @Bean
  S3Client r2S3Client(R2StorageProperties properties){

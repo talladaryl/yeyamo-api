@@ -1,6 +1,7 @@
 package com.yeyamo_mobile.api.media_service.infrastructure.storage;
 
 import java.io.InputStream;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 @Component
+@ConditionalOnProperty(prefix = "r2", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class R2StorageAdapter {
  private static final Logger log=LoggerFactory.getLogger(R2StorageAdapter.class);
  private final S3Client client; private final R2StorageProperties properties;

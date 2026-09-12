@@ -8,12 +8,14 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import com.yeyamo_mobile.api.media_service.application.MediaException;
 import com.yeyamo_mobile.api.media_service.application.port.ObjectStoragePort;
 
 @Component
+@ConditionalOnProperty(prefix = "media.storage.local", name = "enabled", havingValue = "true")
 public class LocalObjectStorageAdapter implements ObjectStoragePort {
     private final Path root;
 

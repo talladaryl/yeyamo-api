@@ -56,6 +56,7 @@ public class SecurityConfig {
                         .hasAnyRole("ADMIN", "SUPER_ADMIN", "SUPPORT")
                         .requestMatchers(SecurityConfig::isPublicMobileRequest).permitAll()
                         .requestMatchers("/api/v1/admin/campaigns/**").authenticated()
+                        .requestMatchers("/api/v1/analytics/artisans/me").hasRole("PARTNER")
                         .requestMatchers("/api/v1/admin/platform-users/**")
                         .hasAnyRole("ADMIN", "SUPER_ADMIN", "SUPPORT")
                         .requestMatchers("/api/v1/admin/**", "/api/v1/analytics/**")
@@ -93,6 +94,7 @@ public class SecurityConfig {
             return false;
         }
         return path.matches("^/api/v1/(places|regions|cities|districts|categories|events|media)(/.*)?$")
+                || path.matches("^/api/v1/reviews(?:/.*)?$")
                 || path.matches("^/api/v1/countries(?:/.*)?$")
                 || path.matches("^/api/v1/(administrative-areas|localities)(?:/.*)?$")
                 || path.matches("^/api/v1/catalog/(assets|regions|cities|categories)(/.*)?$")

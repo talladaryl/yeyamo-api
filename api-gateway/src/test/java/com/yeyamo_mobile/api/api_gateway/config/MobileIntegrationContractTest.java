@@ -62,10 +62,12 @@ class MobileIntegrationContractTest {
         assertTrue(SecurityConfig.isPublicMobileRequest(request("GET", "/api/v1/culture-graph/discover")));
         assertTrue(SecurityConfig.isPublicMobileRequest(request("GET", "/api/v1/artworks")));
         assertTrue(SecurityConfig.isPublicMobileRequest(request("GET", "/api/v1/artisans")));
+        assertTrue(SecurityConfig.isPublicMobileRequest(request("GET", "/api/v1/reviews/PLACE/00000000-0000-0000-0000-000000000000")));
 
         assertTrue(!SecurityConfig.isPublicMobileRequest(request("GET", "/api/v1/auth/me")));
         assertTrue(!SecurityConfig.isPublicMobileRequest(request("POST", "/api/v1/auth/logout")));
         assertTrue(!SecurityConfig.isPublicMobileRequest(request("GET", "/api/v1/events/me")));
+        assertTrue(!SecurityConfig.isPublicMobileRequest(request("POST", "/api/v1/place-suggestions")));
     }
 
     private MockHttpServletRequest request(String method, String path) {
