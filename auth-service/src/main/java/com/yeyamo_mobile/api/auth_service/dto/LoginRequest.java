@@ -6,6 +6,6 @@ import jakarta.validation.constraints.Size;
 public record LoginRequest(
         @NotBlank @Size(max = 254) String identifier,
         @NotBlank @Size(min = 8, max = 128) String password,
-        @NotBlank @Size(max = 4096) String turnstileToken
+        @Size(max = 4096) String turnstileToken
 ) {
 }
