@@ -7,6 +7,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
@@ -20,7 +21,32 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    /**
+     * Country discovery is used before authentication on registration. Keep it
+     * in a dedicated chain so an expired Authorization header cannot make the
+     * resource-server filter reject an otherwise public GET request.
+     */
     @Bean
+    @Order(1)
+    public SecurityFilterChain publicCountryReadFilterChain(HttpSecurity http) throws Exception {
+        return http
+            .securityMatcher(
+                "/api/v1/countries", "/api/v1/countries/**",
+                "/api/v1/administrative-areas", "/api/v1/administrative-areas/**",
+                "/api/v1/cities", "/api/v1/cities/**",
+                "/api/v1/localities", "/api/v1/localities/**"
+            )
+            .csrf(csrf -> csrf.disable())
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.GET).permitAll()
+                .anyRequest().denyAll()
+            )
+            .build();
+    }
+
+    @Bean
+    @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
