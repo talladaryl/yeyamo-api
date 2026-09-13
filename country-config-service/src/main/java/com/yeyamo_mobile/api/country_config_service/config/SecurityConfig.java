@@ -1,5 +1,6 @@
 package com.yeyamo_mobile.api.country_config_service.config;
 
+import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -49,6 +50,10 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // Preserve the original 5xx response when a controller error is
+                // dispatched internally to /error. This does not permit direct
+                // client requests to /error.
+                .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                 // Public endpoints - no authentication
                 .requestMatchers(HttpMethod.GET, "/api/v1/administrative-areas/**",
                         "/api/v1/cities/**", "/api/v1/localities/**").permitAll()

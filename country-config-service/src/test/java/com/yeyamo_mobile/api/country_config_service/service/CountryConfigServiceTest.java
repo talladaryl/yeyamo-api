@@ -115,6 +115,18 @@ class CountryConfigServiceTest {
     }
 
     @Test
+    @DisplayName("Should get all countries from the repository before the result is cached")
+    void shouldGetAllCountries() {
+        when(countryRepository.findAll()).thenReturn(List.of(cameroon));
+        when(mapper.toDto(cameroon)).thenReturn(cameroonDto);
+
+        List<CountryDto> result = service.getAllCountries();
+
+        assertThat(result).containsExactly(cameroonDto);
+        verify(countryRepository).findAll();
+    }
+
+    @Test
     @DisplayName("Should update launch status and publish event")
     void shouldUpdateLaunchStatusAndPublishEvent() {
         // Given

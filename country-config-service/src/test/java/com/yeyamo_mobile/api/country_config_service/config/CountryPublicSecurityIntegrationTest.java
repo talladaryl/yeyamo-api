@@ -5,6 +5,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.RequestDispatcher;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -56,6 +58,23 @@ class CountryPublicSecurityIntegrationTest {
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/actuator/env"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void internalErrorDispatchIsNotTurnedIntoAnUnauthorizedResponse() throws Exception {
+        mockMvc.perform(get("/error")
+                .with(request -> {
+                    request.setDispatcherType(DispatcherType.ERROR);
+                    return request;
+                })
+                .requestAttr(RequestDispatcher.ERROR_STATUS_CODE, 500))
+                .andExpect(status().isInternalServerError());
+    }
+
+    @Test
+    void directErrorEndpointRemainsProtected() throws Exception {
+        mockMvc.perform(get("/error"))
                 .andExpect(status().isUnauthorized());
     }
 }
