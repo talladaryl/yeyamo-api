@@ -31,10 +31,7 @@ public class SecurityConfig {
     public SecurityFilterChain publicCountryReadFilterChain(HttpSecurity http) throws Exception {
         return http
             .securityMatcher(
-                "/api/v1/countries", "/api/v1/countries/**",
-                "/api/v1/administrative-areas", "/api/v1/administrative-areas/**",
-                "/api/v1/cities", "/api/v1/cities/**",
-                "/api/v1/localities", "/api/v1/localities/**"
+                "/api/v1/countries", "/api/v1/countries/**"
             )
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -53,7 +50,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints - no authentication
-                .requestMatchers(HttpMethod.GET, "/api/v1/countries/**", "/api/v1/administrative-areas/**",
+                .requestMatchers(HttpMethod.GET, "/api/v1/administrative-areas/**",
                         "/api/v1/cities/**", "/api/v1/localities/**").permitAll()
                 
                 // Admin endpoints - authentication required
