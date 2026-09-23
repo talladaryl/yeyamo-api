@@ -7,6 +7,7 @@ import org.slf4j.MDC;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yeyamo_mobile.api.place_service.models.Place;
+import com.yeyamo_mobile.api.place_service.models.PlaceSuggestion;
 import com.yeyamo_mobile.api.place_service.outbox.PlaceOutboxMessage;
 import com.yeyamo_mobile.api.place_service.outbox.PlaceOutboxRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -33,6 +34,21 @@ public class PlaceEventPublisher {
         publish(PlaceEvent.updated(toPayload(place), correlationId(), actorId()));
     }
 
+    public void publishSuggestionCreated(PlaceSuggestion suggestion) {
+        publishSuggestion(PlaceSuggestionEvent.created(suggestion.getId(), suggestion.getSubmitterUserId(),
+                suggestion.getCountryCode(), correlationId(), actorId()));
+    }
+
+    public void publishSuggestionApproved(PlaceSuggestion suggestion) {
+        publishSuggestion(PlaceSuggestionEvent.approved(suggestion.getId(), suggestion.getSubmitterUserId(),
+                suggestion.getCanonicalPlaceId(), suggestion.getCountryCode(), suggestion.getName(), correlationId(), actorId()));
+    }
+
+    public void publishSuggestionRejected(PlaceSuggestion suggestion) {
+        publishSuggestion(PlaceSuggestionEvent.rejected(suggestion.getId(), suggestion.getSubmitterUserId(),
+                suggestion.getCountryCode(), suggestion.getName(), correlationId(), actorId()));
+    }
+
     private PlaceEventPayload toPayload(Place place) {
         return new PlaceEventPayload(
                 place.getId(),
@@ -47,6 +63,7 @@ public class PlaceEventPublisher {
                 place.getCity() != null ? place.getCity().getName() : null,
                 place.getDistrict() != null ? place.getDistrict().getName() : null,
                 place.getAddress(),
+                place.getCountryCode(),
                 place.getStatus() != null ? place.getStatus().name() : null,
                 place.getUpdatedAt() != null ? place.getUpdatedAt() : place.getCreatedAt()
         );
@@ -60,6 +77,21 @@ public class PlaceEventPublisher {
             repository.save(message);
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Impossible de serialiser l'evenement du lieu "+event.payload().placeId(),exception);
+        }
+    }
+
+    private void publishSuggestion(PlaceSuggestionEvent event) {
+        try {
+            PlaceOutboxMessage message = new PlaceOutboxMessage();
+            message.setId(event.eventId());
+            message.setAggregateId(event.aggregateId());
+            message.setEventType(event.eventType());
+            message.setPayload(objectMapper.writeValueAsString(event));
+            message.setOccurredAt(event.occurredAt());
+            repository.save(message);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Impossible de serialiser l'evenement de suggestion "
+                    + event.payload().suggestionId(), exception);
         }
     }
 

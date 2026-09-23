@@ -33,7 +33,10 @@ public class NotificationEventConsumer {
             "${yeyamo.kafka.topics.catalog-events:catalog.events}",
             "${yeyamo.kafka.topics.commerce-events:commerce.events}",
             "${yeyamo.kafka.topics.interaction-events:interaction.events}",
-            "${yeyamo.kafka.topics.artisan-events:artisan.events}" },
+            "${yeyamo.kafka.topics.artisan-events:artisan.events}",
+            "${yeyamo.kafka.topics.place-events:place.events}",
+            "${yeyamo.kafka.topics.booking-events:booking.events}",
+            "${yeyamo.kafka.topics.event-events:event.events}" },
             groupId = "${spring.kafka.consumer.group-id:notification-service}")
     @Transactional
     public void consume(String raw) throws Exception {

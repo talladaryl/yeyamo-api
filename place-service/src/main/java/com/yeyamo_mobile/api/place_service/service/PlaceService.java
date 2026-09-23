@@ -18,6 +18,7 @@ import com.yeyamo_mobile.api.place_service.dto.AdminPlaceResponse;
 import com.yeyamo_mobile.api.place_service.dto.PartnerPlaceResponse;
 import com.yeyamo_mobile.api.place_service.dto.PlaceStatusRequest;
 import com.yeyamo_mobile.api.place_service.enums.PlaceStatus;
+import com.yeyamo_mobile.api.place_service.enums.MediaType;
 import com.yeyamo_mobile.api.place_service.event.PlaceEventPublisher;
 import com.yeyamo_mobile.api.place_service.exception.ApiException;
 import com.yeyamo_mobile.api.place_service.models.City;
@@ -155,6 +156,30 @@ public class PlaceService {
         return PlaceResponse.from(placeRepository.findDetailedById(saved.getId()).orElse(saved));
     }
 
+    /**
+     * Reuses media-service assets for a newly approved suggestion. Existing canonical
+     * places are deliberately untouched so their curated cover/gallery is preserved.
+     */
+    public void attachApprovedSuggestionMedia(UUID placeId, List<ApprovedMediaReference> references) {
+        if (references == null || references.isEmpty()) return;
+        Place place = placeRepository.findDetailedById(placeId)
+                .orElseThrow(() -> new ApiException("PLACE_NOT_FOUND", "Lieu introuvable", HttpStatus.NOT_FOUND));
+        if (!place.getMedia().isEmpty()) return;
+        for (ApprovedMediaReference reference : references) {
+            PlaceMedia media = new PlaceMedia();
+            media.setPlace(place);
+            media.setMediaId(reference.mediaId());
+            media.setUrl(reference.contentUrl());
+            media.setType(reference.type());
+            media.setDisplayOrder(reference.displayOrder());
+            place.getMedia().add(media);
+        }
+        Place saved = placeRepository.save(place);
+        eventPublisher.publishUpdated(saved);
+    }
+
+    public record ApprovedMediaReference(UUID mediaId, String contentUrl, MediaType type, int displayOrder) { }
+
     public PlaceResponse update(UUID id, PlaceRequest request) {
         Place place = placeRepository.findDetailedById(id)
                 .orElseThrow(() -> new ApiException("PLACE_NOT_FOUND", "Lieu introuvable", HttpStatus.NOT_FOUND));
@@ -256,6 +281,14 @@ public class PlaceService {
         place.setLatitude(request.getLatitude());
         place.setLongitude(request.getLongitude());
         place.setAddress(request.getAddress());
+        String requestedCountry = request.getCountryCode() == null || request.getCountryCode().isBlank() ? null
+                : request.getCountryCode().trim().toUpperCase(java.util.Locale.ROOT);
+        if (requestedCountry != null && region.getCountryCode() != null
+                && !requestedCountry.equalsIgnoreCase(region.getCountryCode())) {
+            throw new ApiException("COUNTRY_REGION_MISMATCH", "Le pays ne correspond pas a la region selectionnee",
+                    HttpStatus.BAD_REQUEST);
+        }
+        place.setCountryCode(requestedCountry == null ? region.getCountryCode() : requestedCountry);
         place.setPhone(request.getPhone());
         place.setWebsite(request.getWebsite());
         if (request.getStatus() != null) {

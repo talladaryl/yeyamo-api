@@ -83,4 +83,20 @@ public interface PlaceRepository extends JpaRepository<Place, UUID>, org.springf
             """)
     List<Place> findDuplicateCandidates(@Param("normalizedName") String normalizedName,
             @Param("normalizedAddress") String normalizedAddress);
+
+    @Query(value = """
+            SELECT p.* FROM places p
+            WHERE ST_DWithin(
+                p.location::geography,
+                ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
+                :radiusMeters
+            )
+            ORDER BY ST_Distance(
+                p.location::geography,
+                ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+            )
+            LIMIT 50
+            """, nativeQuery = true)
+    List<Place> findNearbyDuplicateCandidates(@Param("lat") double latitude, @Param("lng") double longitude,
+            @Param("radiusMeters") double radiusMeters);
 }

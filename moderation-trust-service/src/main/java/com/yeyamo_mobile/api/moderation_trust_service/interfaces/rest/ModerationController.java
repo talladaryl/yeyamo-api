@@ -25,7 +25,7 @@ public class ModerationController {
 
     @PostMapping @ResponseStatus(HttpStatus.CREATED)
     public ReportResponse create(@Valid@RequestBody ReportRequest request,@RequestHeader(value="X-Correlation-Id",required=false)String correlation,Authentication auth){
-        return ReportResponse.from(service.report(request.targetType(),request.targetId(),request.targetOwnerId(),auth.getName(),request.reason(),request.details(),correlation));
+        return ReportResponse.from(service.report(request.targetType(),request.targetId(),auth.getName(),request.reason(),request.details(),correlation));
     }
     @GetMapping("/me")
     public List<ReportResponse> mine(@RequestParam(defaultValue="50")@Min(1)@Max(200)int limit,Authentication auth){

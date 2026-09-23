@@ -57,15 +57,23 @@ x-production-java-env: &production-java-env
   YEYAMO_BOOTSTRAP_ADMIN_EMAIL: "${YEYAMO_BOOTSTRAP_ADMIN_EMAIL:-}"
   YEYAMO_BOOTSTRAP_ADMIN_PASSWORD: "${YEYAMO_BOOTSTRAP_ADMIN_PASSWORD:-}"
 
+x-default-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 x-private-service: &private-service
   restart: unless-stopped
   ports: !reset []
+  logging: *default-logging
   environment:
     <<: *production-java-env
 
 services:
   postgres:
     extends: { file: docker-compose.yml, service: postgres }
+    logging: *default-logging
     build: { context: ., dockerfile: deploy/postgres-init.Dockerfile }
     restart: unless-stopped
     ports: !reset []
@@ -76,6 +84,7 @@ services:
 
   postgres-init:
     extends: { file: docker-compose.yml, service: postgres-init }
+    logging: *default-logging
     build: { context: ., dockerfile: deploy/postgres-init.Dockerfile }
     restart: "no"
     volumes: !reset []
@@ -86,17 +95,20 @@ services:
 
   redis:
     extends: { file: docker-compose.yml, service: redis }
+    logging: *default-logging
     restart: unless-stopped
     ports: !reset []
 
   opensearch:
     extends: { file: docker-compose.yml, service: opensearch }
+    logging: *default-logging
     restart: unless-stopped
     container_name: !reset null
     ports: !reset []
 
   neo4j:
     extends: { file: docker-compose.yml, service: neo4j }
+    logging: *default-logging
     restart: unless-stopped
     ports: !reset []
     environment:
@@ -104,15 +116,18 @@ services:
 
   kafka:
     extends: { file: docker-compose.yml, service: kafka }
+    logging: *default-logging
     restart: unless-stopped
     ports: !reset []
 
   kafka-init:
     extends: { file: docker-compose.yml, service: kafka-init }
+    logging: *default-logging
     restart: "no"
 
   config-server:
     extends: { file: docker-compose.yml, service: config-server }
+    logging: *default-logging
     build: { context: ., dockerfile: config-server/Dockerfile }
     restart: unless-stopped
     ports: !reset []

@@ -49,6 +49,9 @@ public class PlaceRequest {
 
     private String address;
 
+    @Size(min = 2, max = 2)
+    private String countryCode;
+
     private String phone;
 
     private String website;
@@ -147,6 +150,14 @@ public class PlaceRequest {
 
     public void setAddress(String address) {
         this.address = address;
+    }
+
+    public String getCountryCode() {
+        return countryCode;
+    }
+
+    public void setCountryCode(String countryCode) {
+        this.countryCode = countryCode;
     }
 
     public String getPhone() {

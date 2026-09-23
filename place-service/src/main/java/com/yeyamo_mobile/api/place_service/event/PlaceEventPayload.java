@@ -16,6 +16,7 @@ public record PlaceEventPayload(
         String city,
         String district,
         String address,
+        String countryCode,
         String status,
         Instant updatedAt
 ) {

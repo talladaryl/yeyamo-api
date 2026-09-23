@@ -26,13 +26,15 @@ public class LegacyPlaceEventConsumer {
         if(processed.existsById(eventId))return;
         String eventType=required(event,"eventType");
         int version=event.path("eventVersion").asInt(0);
-        if(!eventType.startsWith("place.")||version<1||version>2)
-            throw new IllegalArgumentException("Unsupported place event contract");
+        if(!"place.created".equals(eventType)&&!"place.updated".equals(eventType)&&!"place.deleted".equals(eventType)) {
+            return; // place.suggestion.* has its own payload and must not be projected as a canonical Place.
+        }
+        if(version<1||version>2) throw new IllegalArgumentException("Unsupported place event contract");
         JsonNode p=event.path("payload");
         String placeId=required(p,"placeId");
         service.synchronizeLegacyPlace(placeId,uuid(p,"partnerId"),required(p,"name"),
                 text(p,"slug",null),text(p,"description",null),text(p,"category",null),
-                text(p,"regionCode",null),text(p,"city",null),text(p,"district",null),
+                text(p,"countryCode",null),text(p,"regionCode",null),text(p,"city",null),text(p,"district",null),
                 text(p,"address",null),p.path("latitude").asDouble(),p.path("longitude").asDouble(),
                 status(text(p,"status","DRAFT")),text(event,"correlationId",eventId.toString()));
         ProcessedEventEntity done=new ProcessedEventEntity();done.setEventId(eventId);

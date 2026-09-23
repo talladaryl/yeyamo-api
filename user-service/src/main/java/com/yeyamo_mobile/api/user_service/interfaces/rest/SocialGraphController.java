@@ -184,6 +184,22 @@ public class SocialGraphController {
         socialGraphService.unblock(authentication.getName(), userId, correlationId);
     }
 
+    @PutMapping("/{userId}/mute")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Mute a user in my personalized feed")
+    public void mute(@PathVariable UUID userId, Authentication authentication,
+            @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
+        socialGraphService.mute(authentication.getName(), userId, correlationId);
+    }
+
+    @DeleteMapping("/{userId}/mute")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Unmute a user in my personalized feed")
+    public void unmute(@PathVariable UUID userId, Authentication authentication,
+            @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
+        socialGraphService.unmute(authentication.getName(), userId, correlationId);
+    }
+
     // ─── SUGGESTIONS ────────────────────────────────────────────────────────────
 
     @GetMapping("/blocked")
@@ -192,6 +208,13 @@ public class SocialGraphController {
         return socialGraphService.getBlockedUsers(authentication.getName()).stream()
                 .map(UserProfileSummaryResponse::fromBasic)
                 .toList();
+    }
+
+    @GetMapping("/muted")
+    @Operation(summary = "Get profiles muted in my personalized feed")
+    public List<UserProfileSummaryResponse> getMutedUsers(Authentication authentication) {
+        return socialGraphService.getMutedUsers(authentication.getName()).stream()
+                .map(UserProfileSummaryResponse::fromBasic).toList();
     }
 
     @DeleteMapping("/followers/{userId}")

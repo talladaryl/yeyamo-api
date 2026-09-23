@@ -23,6 +23,8 @@ import com.yeyamo_mobile.api.user_service.infrastructure.persistence.BlockEntity
 import com.yeyamo_mobile.api.user_service.infrastructure.persistence.FollowEntity;
 import com.yeyamo_mobile.api.user_service.infrastructure.persistence.SpringDataBlockRepository;
 import com.yeyamo_mobile.api.user_service.infrastructure.persistence.SpringDataFollowRepository;
+import com.yeyamo_mobile.api.user_service.infrastructure.persistence.MuteEntity;
+import com.yeyamo_mobile.api.user_service.infrastructure.persistence.SpringDataMuteRepository;
 
 @Service
 public class SocialGraphService {
@@ -30,16 +32,19 @@ public class SocialGraphService {
     private final UserProfileRepository profileRepository;
     private final SpringDataFollowRepository followRepository;
     private final SpringDataBlockRepository blockRepository;
+    private final SpringDataMuteRepository muteRepository;
     private final OutboxPort outbox;
 
     public SocialGraphService(
             UserProfileRepository profileRepository,
             SpringDataFollowRepository followRepository,
             SpringDataBlockRepository blockRepository,
+            SpringDataMuteRepository muteRepository,
             OutboxPort outbox) {
         this.profileRepository = profileRepository;
         this.followRepository = followRepository;
         this.blockRepository = blockRepository;
+        this.muteRepository = muteRepository;
         this.outbox = outbox;
     }
 
@@ -224,6 +229,37 @@ public class SocialGraphService {
     @Transactional(readOnly = true)
     public List<UserProfile> getBlockedUsers(String authUserId) {
         return profileRepository.findByIdIn(getBlockedUserIds(authUserId));
+    }
+
+    @Transactional
+    public void mute(String muterAuthId, UUID mutedId, String correlationId) {
+        UUID muterId = getProfileId(muterAuthId);
+        UserProfile muted = requireProfile(mutedId);
+        if (muterId.equals(mutedId)) {
+            throw new UserProfileException("CANNOT_MUTE_YOURSELF", "Vous ne pouvez pas vous mettre en sourdine", HttpStatus.BAD_REQUEST);
+        }
+        if (muteRepository.existsByIdMuterIdAndIdMutedId(muterId, mutedId)) return;
+        muteRepository.save(new MuteEntity(muterId, mutedId));
+        outbox.append("social.muted", mutedId, muterAuthId, correlationId,
+                java.util.Map.of("muterProfileId", muterId.toString(), "mutedProfileId", mutedId.toString(),
+                        "muterAuthUserId", muterAuthId, "mutedAuthUserId", muted.getAuthUserId()));
+    }
+
+    @Transactional
+    public void unmute(String muterAuthId, UUID mutedId, String correlationId) {
+        UUID muterId = getProfileId(muterAuthId);
+        UserProfile muted = requireProfile(mutedId);
+        MuteEntity.MuteId id = new MuteEntity.MuteId(muterId, mutedId);
+        if (!muteRepository.existsById(id)) return;
+        muteRepository.deleteById(id);
+        outbox.append("social.unmuted", mutedId, muterAuthId, correlationId,
+                java.util.Map.of("muterProfileId", muterId.toString(), "mutedProfileId", mutedId.toString(),
+                        "muterAuthUserId", muterAuthId, "mutedAuthUserId", muted.getAuthUserId()));
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserProfile> getMutedUsers(String authUserId) {
+        return profileRepository.findByIdIn(muteRepository.findMutedIds(getProfileId(authUserId)));
     }
 
     @Transactional(readOnly = true)

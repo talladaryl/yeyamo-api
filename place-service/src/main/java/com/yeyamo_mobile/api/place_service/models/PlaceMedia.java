@@ -1,6 +1,7 @@
 package com.yeyamo_mobile.api.place_service.models;
 
 import java.time.Instant;
+import java.util.UUID;
 
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -40,6 +41,9 @@ public class PlaceMedia {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "place_id", nullable = false)
     private Place place;
+
+    @Column(name = "media_id")
+    private UUID mediaId;
 
     @Column(nullable = false)
     private String url;

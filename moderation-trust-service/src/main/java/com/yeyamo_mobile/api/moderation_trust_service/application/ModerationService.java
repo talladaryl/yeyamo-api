@@ -3,11 +3,11 @@ import java.util.*;import org.springframework.stereotype.Service;import org.spri
 import com.yeyamo_mobile.api.moderation_trust_service.application.port.*;import com.yeyamo_mobile.api.moderation_trust_service.domain.model.*;import com.yeyamo_mobile.api.moderation_trust_service.domain.port.*;
 @Service
 public class ModerationService{
- private final ModerationReportRepository reports;private final TrustScoreRepository scores;private final ModerationAuditPort audit;private final ModerationOutboxPort outbox;private final ObjectMapper mapper;
- public ModerationService(ModerationReportRepository r,TrustScoreRepository s,ModerationAuditPort a,ModerationOutboxPort o,ObjectMapper m){reports=r;scores=s;audit=a;outbox=o;mapper=m;}
- @Transactional public ModerationReport report(TargetType type,String target,String owner,String reporter,ReportReason reason,String details,String correlation){
+ private final ModerationReportRepository reports;private final TrustScoreRepository scores;private final ModerationAuditPort audit;private final ModerationOutboxPort outbox;private final ObjectMapper mapper;private final ReportedTargetResolver targets;
+ public ModerationService(ModerationReportRepository r,TrustScoreRepository s,ModerationAuditPort a,ModerationOutboxPort o,ObjectMapper m,ReportedTargetResolver targets){reports=r;scores=s;audit=a;outbox=o;mapper=m;this.targets=targets;}
+ @Transactional public ModerationReport report(TargetType type,String target,String reporter,ReportReason reason,String details,String correlation){
   if(reports.existsOpen(type,target,reporter))throw new ModerationException("REPORT_ALREADY_OPEN","An open report already exists for this target");
-  ModerationReport saved=reports.save(ModerationReport.create(type,target,owner,reporter,reason,details));
+  ModerationReport saved=reports.save(ModerationReport.create(type,target,targets.require(type,target).ownerId(),reporter,reason,details));
   audit("REPORT_CREATED",saved.getId().toString(),reporter,correlation,Map.of("targetType",type,"targetId",target,"reason",reason));event("moderation.report.created",saved,reporter,correlation);return saved;}
  @Transactional public ModerationReport review(UUID id,String moderator,String correlation){ModerationReport r=required(id);r.startReview(moderator);r=reports.save(r);audit("REPORT_REVIEW_STARTED",id.toString(),moderator,correlation,Map.of());event("moderation.report.review_started",r,moderator,correlation);return r;}
  @Transactional public ModerationReport decide(UUID id,ReportStatus decision,String moderator,String resolution,String correlation){ModerationReport r=required(id);r.decide(decision,moderator,resolution);r=reports.save(r);

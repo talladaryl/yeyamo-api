@@ -915,6 +915,8 @@ services:
           payment.commands.DLT payment.events.DLT \
           booking.events.DLT partner-events.DLT \
           ticket.events.DLT admin.audit.events.DLT \
+          content.events.DLT culture.events.DLT interaction.events.DLT \
+          user.events.DLT user-events.DLT \
           culture.events artisan.events catalog.events commerce.events interaction.events \
           partner-events moderation.events \
           --brokers kafka:9092 || true

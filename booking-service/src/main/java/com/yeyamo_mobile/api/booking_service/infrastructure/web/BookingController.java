@@ -48,8 +48,8 @@ public class BookingController {
     }
 
     @GetMapping("/api/v1/bookings/me")
-    public List<BookingView> mine(Authentication a) {
-        return service.mine(a.getName());
+    public Page<BookingView> mine(Authentication a, @PageableDefault(size = 20) Pageable pageable) {
+        return service.mine(a.getName(), pageable);
     }
 
     @GetMapping("/api/v1/bookings/partner/me")
@@ -76,6 +76,16 @@ public class BookingController {
             @RequestHeader(value = "X-Correlation-Id", required = false) String c
     ) {
         return service.cancel(a.getName(), id, body.reason(), requiredKey(key), c, admin(a));
+    }
+
+    @PostMapping("/api/v1/bookings/{id}/complete")
+    public BookingView complete(
+            Authentication a,
+            @PathVariable UUID id,
+            @RequestHeader("Idempotency-Key") String key,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String c
+    ) {
+        return service.complete(a.getName(), id, requiredKey(key), c, admin(a));
     }
 
     @PostMapping("/api/v1/booking-management/slots")
@@ -117,7 +127,7 @@ public class BookingController {
 
     private boolean admin(Authentication a) {
         return a.getAuthorities().stream().map(GrantedAuthority::getAuthority)
-                .anyMatch("ROLE_ADMIN"::equals);
+                .anyMatch(role -> "ROLE_ADMIN".equals(role) || "ROLE_SUPER_ADMIN".equals(role));
     }
 
     private String countryClaim(Authentication authentication) {

@@ -92,6 +92,10 @@ public class Place {
 
     private String geohash;
 
+    /** Existing V4 schema field; now projected for canonical places created from suggestions. */
+    @Column(name = "country_code", length = 2)
+    private String countryCode;
+
     private String address;
 
     private String phone;

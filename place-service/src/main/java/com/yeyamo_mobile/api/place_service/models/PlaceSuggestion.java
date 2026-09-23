@@ -1,6 +1,8 @@
 package com.yeyamo_mobile.api.place_service.models;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
@@ -10,6 +12,9 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
@@ -54,6 +59,19 @@ public class PlaceSuggestion {
     @Column(name = "country_code", length = 2)
     private String countryCode;
 
+    @Column(name = "dedupe_key", length = 900)
+    private String dedupeKey;
+
+    @Column(name = "administrative_area_id")
+    private UUID administrativeAreaId;
+
+    /** Country-config-service city identifier; distinct from the legacy place-service city. */
+    @Column(name = "country_city_id")
+    private UUID countryCityId;
+
+    @Column(name = "locality_id")
+    private UUID localityId;
+
     @Column(nullable = false)
     private double latitude;
 
@@ -85,9 +103,14 @@ public class PlaceSuggestion {
     @Version
     private long version;
 
+    @OneToMany(mappedBy = "suggestion", cascade = CascadeType.ALL, orphanRemoval = true)
+    @jakarta.persistence.OrderBy("displayOrder ASC")
+    private List<PlaceSuggestionMedia> media = new ArrayList<>();
+
     public static PlaceSuggestion pending(String submitterUserId, String name, String normalizedName, String address,
             String normalizedAddress, String description, String categoryLabel, String placeType, String regionLabel,
-            String countryCode, double latitude, double longitude) {
+            String countryCode, String dedupeKey, UUID administrativeAreaId, UUID countryCityId, UUID localityId,
+            double latitude, double longitude) {
         PlaceSuggestion suggestion = new PlaceSuggestion();
         suggestion.submitterUserId = submitterUserId;
         suggestion.name = name;
@@ -99,6 +122,10 @@ public class PlaceSuggestion {
         suggestion.placeType = placeType;
         suggestion.regionLabel = regionLabel;
         suggestion.countryCode = countryCode;
+        suggestion.dedupeKey = dedupeKey;
+        suggestion.administrativeAreaId = administrativeAreaId;
+        suggestion.countryCityId = countryCityId;
+        suggestion.localityId = localityId;
         suggestion.latitude = latitude;
         suggestion.longitude = longitude;
         suggestion.createdAt = Instant.now();
@@ -106,10 +133,16 @@ public class PlaceSuggestion {
         return suggestion;
     }
 
+    public void addMedia(UUID mediaId, String type, String contentType, String contentUrl, String thumbnailUrl,
+            int displayOrder) {
+        media.add(PlaceSuggestionMedia.from(this, mediaId, type, contentType, contentUrl, thumbnailUrl, displayOrder));
+    }
+
     public void approve(UUID placeId, String moderator, String reason) {
         if (status == Status.APPROVED) return;
         if (status != Status.PENDING) throw new IllegalStateException("Only pending suggestions may be approved");
         status = Status.APPROVED;
+        dedupeKey = null;
         canonicalPlaceId = placeId;
         moderationReason = reason;
         reviewedBy = moderator;
@@ -121,6 +154,7 @@ public class PlaceSuggestion {
         if (status == Status.REJECTED) return;
         if (status != Status.PENDING) throw new IllegalStateException("Only pending suggestions may be rejected");
         status = Status.REJECTED;
+        dedupeKey = null;
         moderationReason = reason;
         reviewedBy = moderator;
         reviewedAt = Instant.now();
@@ -138,6 +172,9 @@ public class PlaceSuggestion {
     public String getPlaceType() { return placeType; }
     public String getRegionLabel() { return regionLabel; }
     public String getCountryCode() { return countryCode; }
+    public UUID getAdministrativeAreaId() { return administrativeAreaId; }
+    public UUID getCountryCityId() { return countryCityId; }
+    public UUID getLocalityId() { return localityId; }
     public double getLatitude() { return latitude; }
     public double getLongitude() { return longitude; }
     public Status getStatus() { return status; }
@@ -147,4 +184,5 @@ public class PlaceSuggestion {
     public Instant getReviewedAt() { return reviewedAt; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+    public List<PlaceSuggestionMedia> getMedia() { return List.copyOf(media); }
 }

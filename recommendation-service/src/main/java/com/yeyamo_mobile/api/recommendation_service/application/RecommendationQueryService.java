@@ -54,10 +54,16 @@ public class RecommendationQueryService {
 
         RecommendationProfile profile = projections.profile(user);
 
-        List<RecommendationItem> ranked = projections.activeCandidates(500).stream()
+        List<Candidate> eligible = projections.activeCandidates(500).stream()
                 .filter(candidate -> matchesCountry(candidate, profile))
                 .filter(candidate -> matchesLanguage(candidate, profile, context))
-                .map(c -> item(c, profile, context))
+                .toList();
+        Set<FeedbackTarget> targets = eligible.stream().map(this::feedbackTarget).collect(java.util.stream.Collectors.toSet());
+        Map<FeedbackTarget, String> feedback = projections.feedbackFor(user, targets);
+        List<RecommendationItem> ranked = eligible.stream()
+                .filter(candidate -> !"NOT_INTERESTED".equals(feedback.get(feedbackTarget(candidate))))
+                .map(candidate -> item(candidate, profile, context,
+                        new RecommendationViewerState(feedback.get(feedbackTarget(candidate)))))
                 .sorted(Comparator.comparingDouble((RecommendationItem i) -> i.score().total())
                                   .reversed()
                                   .thenComparing(RecommendationItem::targetId))
@@ -84,13 +90,48 @@ public class RecommendationQueryService {
 
     private RecommendationItem item(
             Candidate c, RecommendationProfile p, RecommendationContext x) {
+        return item(c, p, x, RecommendationViewerState.NONE);
+    }
+
+    private RecommendationItem item(
+            Candidate c, RecommendationProfile p, RecommendationContext x, RecommendationViewerState viewerState) {
         Map<String, Double> parts = new LinkedHashMap<>();
         strategies.forEach(strategy ->
             parts.put(strategy.name(), round(strategy.score(c, p, x) * weights.weight(strategy.name()))));
         double total = round(parts.values().stream().mapToDouble(Double::doubleValue).sum());
         return new RecommendationItem(c.targetId(), c.kind(), c.title(),
                 c.categoryCode(), c.regionCode(), c.latitude(), c.longitude(),
-                new RecommendationScore(total, parts));
+                new RecommendationScore(total, parts), viewerState);
+    }
+
+    /**
+     * Reuses the same scoring strategies for an Adventure Plan after that
+     * workflow has applied its non-negotiable country/date/budget filters.
+     */
+    @Transactional(readOnly = true)
+    public List<AdventureRankedCandidate> rankForAdventure(
+            String user, List<Candidate> candidates, Set<String> interestCodes) {
+        RecommendationProfile profile = projections.profile(user);
+        RecommendationContext context = new RecommendationContext(null, null, List.copyOf(profile.contentLanguages()), "adventure");
+        Set<String> interests = interestCodes == null ? Set.of() : interestCodes;
+        return candidates.stream()
+                .filter(candidate -> matchesLanguage(candidate, profile, context))
+                .map(candidate -> rankedAdventureCandidate(candidate, profile, context, interests))
+                .sorted(Comparator.comparingDouble((AdventureRankedCandidate item) -> item.score().total())
+                        .reversed()
+                        .thenComparing(item -> item.candidate().targetId()))
+                .toList();
+    }
+
+    private AdventureRankedCandidate rankedAdventureCandidate(
+            Candidate candidate, RecommendationProfile profile, RecommendationContext context, Set<String> interests) {
+        RecommendationItem base = item(candidate, profile, context);
+        Map<String, Double> components = new LinkedHashMap<>(base.score().components());
+        double interest = candidate.categoryCode() != null && interests.contains(candidate.categoryCode().toLowerCase(Locale.ROOT))
+                ? 30d : 0d;
+        if (interest > 0) components.put("adventure_interest", interest);
+        double total = round(base.score().total() + interest);
+        return new AdventureRankedCandidate(candidate, new RecommendationScore(total, Map.copyOf(components)));
     }
 
     private double round(double value) { return Math.round(value * 100d) / 100d; }
@@ -107,5 +148,17 @@ public class RecommendationQueryService {
         Set<String> languages = new HashSet<>(profile.contentLanguages());
         languages.addAll(context.languageCodes());
         return languages.isEmpty() || languages.contains(candidate.languageCode());
+    }
+
+    private FeedbackTarget feedbackTarget(Candidate candidate) {
+        String targetType = switch (candidate.kind()) {
+            case CONTENT -> "POST";
+            case EVENT -> "EVENT";
+            case PLACE, DESTINATION -> "PLACE";
+            case EXPERIENCE -> "ACTIVITY";
+            case CULTURE, LANGUAGE, TRADITION -> "CULTURE_CONTENT";
+            default -> candidate.kind().name();
+        };
+        return new FeedbackTarget(targetType, candidate.targetId());
     }
 }

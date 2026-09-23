@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import com.yeyamo_mobile.api.content_service.infrastructure.client.UserServiceClient;
 import com.yeyamo_mobile.api.content_service.infrastructure.outbox.ContentOutboxPort;
 import com.yeyamo_mobile.api.content_service.infrastructure.persistence.*;
+import com.yeyamo_mobile.api.content_service.domain.model.PostReferenceType;
 import com.yeyamo_mobile.shared.country.CountryConfigClient;
 import com.yeyamo_mobile.shared.country.CountryConfigClient.CountryFeature;
 import com.yeyamo_mobile.shared.geography.GeographicFields;
@@ -58,6 +59,13 @@ public class StoryService {
     @Transactional
     public StoryEntity create(String authorId, UUID mediaId, String caption, int durationSeconds,
             GeographicFields geography, String correlationId) {
+        return create(authorId, mediaId, caption, durationSeconds, geography, PostReferenceType.NONE, null, correlationId);
+    }
+
+    /** Creates a Story with a generic Content reference when one is available. */
+    @Transactional
+    public StoryEntity create(String authorId, UUID mediaId, String caption, int durationSeconds,
+            GeographicFields geography, PostReferenceType referenceType, String referenceId, String correlationId) {
         validateGeography(geography);
         Instant now = Instant.now();
         Instant expiresAt = now.plus(24, ChronoUnit.HOURS); // Stories expirent après 24h
@@ -71,6 +79,8 @@ public class StoryService {
         story.setCreatedAt(now);
         story.setExpiresAt(expiresAt);
         story.setGeography(geography);
+        story.setReferenceType(referenceType);
+        story.setReferenceId(referenceId);
 
         StoryEntity saved = storyRepository.save(story);
 
@@ -79,6 +89,8 @@ public class StoryService {
         eventPayload.put("storyId", saved.getId().toString()); eventPayload.put("authorId", authorId);
         eventPayload.put("mediaId", mediaId.toString()); eventPayload.put("countryCode", geography == null ? null : geography.getCountryCode());
         eventPayload.put("languageCode", geography == null ? null : geography.getLanguageCode());
+        eventPayload.put("referenceType", story.getReferenceType().name());
+        eventPayload.put("referenceId", story.getReferenceId());
         outbox.append("content.story.created", saved.getId().toString(), authorId, correlationId, eventPayload);
 
         return saved;

@@ -169,15 +169,15 @@ public class BookingApplicationService {
 
     @Transactional(readOnly = true)
     public List<SlotView> availability(String activity) {
-        return slots.findByActivityIdAndStartsAtAfterOrderByStartsAtAsc(activity, Instant.now()).stream().map(this::slotView).toList();
+        return slots.findBookableByActivityId(activity, Instant.now()).stream().map(this::slotView).toList();
     }
 
     @Transactional(readOnly = true)
     public Page<SlotView> listActivities(UUID placeId, Pageable pageable) {
         if (placeId != null) {
-            return slots.findByPlaceIdAndStartsAtAfterOrderByStartsAtAsc(placeId, Instant.now(), pageable).map(this::slotView);
+            return slots.findBookableByPlaceIdAfter(placeId, Instant.now(), pageable).map(this::slotView);
         }
-        return slots.findByStartsAtAfterOrderByStartsAtAsc(Instant.now(), pageable).map(this::slotView);
+        return slots.findBookableAfter(Instant.now(), pageable).map(this::slotView);
     }
 
     @Transactional
@@ -237,22 +237,14 @@ public class BookingApplicationService {
         var replay = receipts.findByKeyAndUserIdAndOperation(key, actor, operation);
         if (replay.isPresent()) return bookingView(replay.get().getBooking());
         var booking = lockedOwned(actor, id, privileged);
-        boolean paid = booking.getPaymentStatus() == PaymentStatus.AUTHORIZED;
         boolean authorizationPending = booking.getPaymentStatus() == PaymentStatus.AUTHORIZATION_PENDING;
-        boolean experience = booking.getActivityType() == ActivityType.EXPERIENCE;
-        if (experience) {
-            booking.cancelWithoutAutomaticRefund(reason);
-        } else {
-            booking.cancel(reason);
-        }
+        booking.cancelWithoutAutomaticRefund(reason);
         bookings.save(booking);
         var slot = slots.findLocked(booking.getSlot().getId()).orElseThrow();
         slot.release(booking.getQuantity());
         slots.save(slot);
         history.save(new BookingHistoryEntity(id, actor, "CANCELLED", reason));
-        if (paid && !experience) {
-            requestRefund(booking, correlation);
-        } else if (authorizationPending && !experience) {
+        if (authorizationPending) {
             var saga = sagas.findByBookingId(id).orElseThrow(() -> new BookingException("PAYMENT_SAGA_NOT_FOUND", "Payment saga not found"));
             saga.cancellationRequested();
             sagas.save(saga);
@@ -285,18 +277,10 @@ public class BookingApplicationService {
         var saga = sagas.findByBookingId(bookingId).orElseThrow();
         if (booking.getStatus() == BookingStatus.CANCELLED && booking.getPaymentStatus() == PaymentStatus.AUTHORIZATION_PENDING) {
             saga.authorized(paymentId);
-            if (booking.getActivityType() == ActivityType.EXPERIENCE) {
-                booking.authorizationAfterCancellationWithoutRefund();
-                sagas.save(saga);
-                bookings.save(booking);
-                history.save(new BookingHistoryEntity(bookingId, "payment-service", "LATE_PAYMENT_AUTHORIZED_NO_AUTO_REFUND", "Experience cancellation requires manual refund review"));
-                return;
-            }
-            booking.authorizationAfterCancellation();
+            booking.authorizationAfterCancellationWithoutRefund();
             sagas.save(saga);
             bookings.save(booking);
-            history.save(new BookingHistoryEntity(bookingId, "payment-service", "LATE_PAYMENT_AUTHORIZED", "Compensating refund requested"));
-            requestRefund(booking, correlation);
+            history.save(new BookingHistoryEntity(bookingId, "payment-service", "LATE_PAYMENT_AUTHORIZED_NO_AUTO_REFUND", "Cancelled bookings require manual refund review"));
             return;
         }
         if (booking.getStatus() != BookingStatus.PENDING) return;
@@ -346,8 +330,10 @@ public class BookingApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public List<BookingView> mine(String user) {
-        return bookings.findByUserIdOrderByCreatedAtDesc(user).stream().map(this::bookingView).toList();
+    public Page<BookingView> mine(String user, Pageable pageable) {
+        var safe = org.springframework.data.domain.PageRequest.of(Math.max(0, pageable.getPageNumber()),
+                Math.max(1, Math.min(pageable.getPageSize(), 100)), pageable.getSort());
+        return bookings.findByUserIdOrderByCreatedAtDesc(user, safe).map(this::bookingView);
     }
 
     @Transactional(readOnly = true)
@@ -374,7 +360,7 @@ public class BookingApplicationService {
     }
 
     private BookingEntity owned(String actor, UUID id, boolean privileged) {
-        var b = bookings.findById(id).orElseThrow(() -> new NoSuchElementException("Booking not found"));
+        var b = bookings.findDetailedById(id).orElseThrow(() -> new NoSuchElementException("Booking not found"));
         if (!privileged && !b.getUserId().equals(actor) && !b.getSlot().getOwnerUserId().equals(actor)) throw new BookingException("BOOKING_FORBIDDEN", "Booking is not accessible");
         return b;
     }
@@ -407,12 +393,18 @@ public class BookingApplicationService {
         p.put("bookingId", b.getId());
         p.put("userId", b.getUserId());
         p.put("activityId", b.getActivityId());
+        p.put("activityType", b.getActivityType().name());
         p.put("slotId", b.getSlot().getId());
+        p.put("placeId", b.getSlot().getPlaceId());
+        p.put("ownerUserId", b.getSlot().getOwnerUserId());
+        p.put("startsAt", b.getSlot().getStartsAt());
+        p.put("endsAt", b.getSlot().getEndsAt());
         p.put("quantity", b.getQuantity());
         p.put("amount", b.getTotalAmount());
         p.put("currency", b.getCurrency());
         p.put("countryCode", b.getCountryCode());
         p.put("status", b.getStatus().name());
+        p.put("paymentStatus", b.getPaymentStatus().name());
         return p;
     }
 
@@ -475,6 +467,6 @@ public class BookingApplicationService {
     }
 
     private BookingView bookingView(BookingEntity b) {
-        return new BookingView(b.getId(), b.getReference(), b.getUserId(), b.getActivityId(), b.getSlot().getId(), b.getQuantity(), b.getUnitPrice(), b.getTotalAmount(), b.getCurrency(), b.getCountryCode(), b.getStatus(), b.getPaymentStatus(), b.getCancellationReason(), b.getCreatedAt(), b.getConfirmedAt(), b.getCancelledAt(), b.getCompletedAt(), b.getActivityType(), b.getActivityType() != ActivityType.EXPERIENCE);
+        return new BookingView(b.getId(), b.getReference(), b.getUserId(), b.getActivityId(), b.getSlot().getId(), b.getQuantity(), b.getUnitPrice(), b.getTotalAmount(), b.getCurrency(), b.getCountryCode(), b.getStatus(), b.getPaymentStatus(), b.getCancellationReason(), b.getCreatedAt(), b.getConfirmedAt(), b.getCancelledAt(), b.getCompletedAt(), b.getActivityType(), false);
     }
 }

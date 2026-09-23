@@ -9,6 +9,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import com.yeyamo_mobile.api.event_service.enums.EventStatus;
 import com.yeyamo_mobile.api.event_service.enums.EventVisibility;
+import com.yeyamo_mobile.api.event_service.enums.SocialDistributionStatus;
 import com.yeyamo_mobile.shared.geography.GeographicFields;
 
 import jakarta.persistence.Column;
@@ -75,6 +76,32 @@ public class Event {
 
     @Column(name = "cover_media_id")
     private UUID coverMediaId;
+
+    @Column(name = "publish_to_feed", nullable = false)
+    private boolean publishToFeed;
+
+    @Column(name = "publish_to_story", nullable = false)
+    private boolean publishToStory;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "feed_distribution_status", nullable = false, length = 40)
+    private SocialDistributionStatus feedDistributionStatus = SocialDistributionStatus.NOT_REQUESTED;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "story_distribution_status", nullable = false, length = 40)
+    private SocialDistributionStatus storyDistributionStatus = SocialDistributionStatus.NOT_REQUESTED;
+
+    @Column(name = "feed_post_id")
+    private UUID feedPostId;
+
+    @Column(name = "story_id")
+    private UUID storyId;
+
+    @Column(name = "feed_distribution_reason", length = 1000)
+    private String feedDistributionReason;
+
+    @Column(name = "story_distribution_reason", length = 1000)
+    private String storyDistributionReason;
 
     @Column(name = "start_at", nullable = false)
     private Instant startAt;

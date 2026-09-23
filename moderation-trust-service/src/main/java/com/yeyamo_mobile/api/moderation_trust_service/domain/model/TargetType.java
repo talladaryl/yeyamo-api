@@ -9,6 +9,7 @@ public enum TargetType {
     COMMENT, 
     MEDIA, 
     MESSAGE, 
+    STORY,
     
     // Actors
     USER, 
@@ -16,6 +17,9 @@ public enum TargetType {
     
     // Commerce
     CATALOG_ASSET,
+    EVENT,
+    PLACE,
+    PLACE_SUGGESTION,
     
     // Culture & Artisan content
     ARTWORK,

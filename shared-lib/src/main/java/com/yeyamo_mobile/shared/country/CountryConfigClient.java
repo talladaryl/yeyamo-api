@@ -3,8 +3,11 @@ package com.yeyamo_mobile.shared.country;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -35,6 +38,7 @@ public class CountryConfigClient {
     private final String serviceUrl;
     private final CircuitBreaker circuitBreaker;
     private final Map<String, CachedCountryConfig> cache = new ConcurrentHashMap<>();
+    private final Map<String, CachedCurrencies> currenciesCache = new ConcurrentHashMap<>();
     private static final Duration CACHE_TTL = Duration.ofSeconds(60);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(2);
 
@@ -125,6 +129,50 @@ public class CountryConfigClient {
         }
     }
 
+    /** Validates against the real list exposed by country-config-service, not only ISO syntax. */
+    public void validateCurrency(String countryCode, String currencyCode) {
+        String country = normalizeCountryCode(countryCode);
+        if (currencyCode == null || !currencyCode.trim().matches("[A-Za-z]{3}")) {
+            throw new CountryConfigException("Currency code must be an ISO 4217 alpha-3 code");
+        }
+        String currency = currencyCode.trim().toUpperCase(Locale.ROOT);
+        if (!currencies(country).contains(currency)) {
+            throw new CountryConfigException("Currency " + currency + " is not configured for country " + country);
+        }
+    }
+
+    private Set<String> currencies(String countryCode) {
+        CachedCurrencies cached = currenciesCache.get(countryCode);
+        if (cached != null && cached.expiresAt().isAfter(Instant.now())) return cached.values();
+        // Ensures the country exists and remains operational before accepting its currency.
+        getCountry(countryCode);
+        return circuitBreaker.executeSupplier(() -> {
+            try {
+                List<Map<String, Object>> response = restClient.get()
+                        .uri("/api/v1/countries/{code}/currencies", countryCode)
+                        .retrieve()
+                        .onStatus(HttpStatusCode::is4xxClientError, (request, resp) -> {
+                            throw new CountryConfigException("Currencies not found for country: " + countryCode);
+                        })
+                        .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+                Set<String> values = new LinkedHashSet<>();
+                if (response != null) response.stream()
+                        .map(currency -> currency.get("currencyCode"))
+                        .filter(String.class::isInstance)
+                        .map(String.class::cast)
+                        .map(value -> value.toUpperCase(Locale.ROOT))
+                        .forEach(values::add);
+                if (values.isEmpty()) throw new CountryConfigException("No currencies configured for country: " + countryCode);
+                Set<String> immutable = Set.copyOf(values);
+                currenciesCache.put(countryCode, new CachedCurrencies(immutable, Instant.now().plus(CACHE_TTL)));
+                return immutable;
+            } catch (Exception exception) {
+                if (exception instanceof CountryConfigException countryConfigException) throw countryConfigException;
+                throw new CountryConfigException("Failed to fetch country currencies: " + exception.getMessage(), exception);
+            }
+        });
+    }
+
     private boolean isFeatureEnabled(CountryConfig config, CountryFeature feature) {
         return switch (feature) {
             case CONTENT_PUBLISHING -> config.contentPublishingEnabled();
@@ -151,26 +199,88 @@ public class CountryConfigClient {
      * @throws CountryConfigException if city not found or doesn't belong to country
      */
     public void validateCity(String countryCode, UUID cityId) {
+        validateCity(countryCode, cityId, null);
+    }
+
+    /** Validates a country city and, when provided, its parent administrative area. */
+    public void validateCity(String countryCode, UUID cityId, UUID expectedAdministrativeAreaId) {
         if (cityId == null) {
             return; // City is optional
         }
 
         circuitBreaker.executeSupplier(() -> {
             try {
-                restClient.get()
+                Map<String, Object> city = restClient.get()
                         .uri("/api/v1/countries/{code}/cities/{cityId}", normalizeCountryCode(countryCode), cityId)
                         .retrieve()
                         .onStatus(HttpStatusCode::is4xxClientError, (request, resp) -> {
                             throw new CountryConfigException(
                                     "City not found or doesn't belong to country: " + cityId);
                         })
-                        .toBodilessEntity();
+                        .body(new ParameterizedTypeReference<Map<String, Object>>() {});
+                if (city == null || !Boolean.TRUE.equals(city.get("active"))
+                        || (expectedAdministrativeAreaId != null
+                                && !expectedAdministrativeAreaId.toString().equals(String.valueOf(city.get("administrativeAreaId"))))) {
+                    throw new CountryConfigException("City does not match the selected administrative area");
+                }
                 return null;
             } catch (Exception e) {
                 if (e instanceof CountryConfigException countryConfigException) {
                     throw countryConfigException;
                 }
                 throw new CountryConfigException("Failed to validate city: " + e.getMessage(), e);
+            }
+        });
+    }
+
+    /** Validates that an active administrative area belongs to the selected country. */
+    public void validateAdministrativeArea(String countryCode, UUID administrativeAreaId) {
+        if (administrativeAreaId == null) return;
+        validateGeographyCountry("/api/v1/administrative-areas/{id}", administrativeAreaId, countryCode,
+                "Administrative area");
+    }
+
+    /** Validates that an active locality belongs to the selected country. */
+    public void validateLocality(String countryCode, UUID localityId) {
+        validateLocality(countryCode, localityId, null, null);
+    }
+
+    /** Validates locality country and its optional city/administrative-area parent references. */
+    public void validateLocality(String countryCode, UUID localityId, UUID expectedCityId,
+            UUID expectedAdministrativeAreaId) {
+        if (localityId == null) return;
+        Map<String, Object> locality = geography("/api/v1/localities/{id}", localityId, countryCode, "Locality");
+        if (expectedCityId != null && !expectedCityId.toString().equals(String.valueOf(locality.get("cityId")))) {
+            throw new CountryConfigException("Locality does not belong to the selected city");
+        }
+        if (expectedAdministrativeAreaId != null
+                && !expectedAdministrativeAreaId.toString().equals(String.valueOf(locality.get("administrativeAreaId")))) {
+            throw new CountryConfigException("Locality does not belong to the selected administrative area");
+        }
+    }
+
+    private void validateGeographyCountry(String path, UUID geographyId, String countryCode, String label) {
+        geography(path, geographyId, countryCode, label);
+    }
+
+    private Map<String, Object> geography(String path, UUID geographyId, String countryCode, String label) {
+        String country = normalizeCountryCode(countryCode);
+        return circuitBreaker.executeSupplier(() -> {
+            try {
+                Map<String, Object> response = restClient.get().uri(path, geographyId).retrieve()
+                        .onStatus(HttpStatusCode::is4xxClientError, (request, resp) -> {
+                            throw new CountryConfigException(label + " not found: " + geographyId);
+                        })
+                        .body(new ParameterizedTypeReference<Map<String, Object>>() {});
+                if (response == null || !country.equalsIgnoreCase((String) response.get("countryCode"))
+                        || !Boolean.TRUE.equals(response.get("active"))) {
+                    throw new CountryConfigException(label + " does not belong to active country " + country);
+                }
+                return response;
+            } catch (Exception exception) {
+                if (exception instanceof CountryConfigException countryConfigException) throw countryConfigException;
+                throw new CountryConfigException("Failed to validate " + label.toLowerCase(Locale.ROOT)
+                        + ": " + exception.getMessage(), exception);
             }
         });
     }
@@ -223,6 +333,7 @@ public class CountryConfigClient {
     }
 
     private record CachedCountryConfig(CountryConfig value, Instant expiresAt) {}
+    private record CachedCurrencies(Set<String> values, Instant expiresAt) {}
 
     public enum CountryFeature {
         CONTENT_PUBLISHING,

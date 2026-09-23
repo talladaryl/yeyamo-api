@@ -27,7 +27,9 @@ public class PlaceEventConsumer {
     @Transactional
     public void consume(String raw) throws Exception {
         JsonNode event = mapper.readTree(raw);
-        if (!event.path("eventType").asText("").startsWith("place.")) {
+        String eventType = event.path("eventType").asText("");
+        if (!"place.created".equals(eventType) && !"place.updated".equals(eventType)
+                && !"place.deleted".equals(eventType)) {
             return;
         }
         JsonNode payload = event.path("payload");
@@ -37,7 +39,6 @@ public class PlaceEventConsumer {
             throw new IllegalArgumentException("placeId is required in place event");
         }
         UUID placeId = UUID.fromString(rawPlaceId);
-        String eventType = event.path("eventType").asText();
         boolean active = "PUBLISHED".equalsIgnoreCase(text(payload, "status"))
                 && !"place.deleted".equalsIgnoreCase(eventType);
         Instant updatedAt = instant(text(payload, "updatedAt"));

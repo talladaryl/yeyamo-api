@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.yeyamo_mobile.api.place_service.dto.PlaceSuggestionRequest;
 import com.yeyamo_mobile.api.place_service.dto.PlaceSuggestionResponse;
+import com.yeyamo_mobile.api.place_service.dto.PlaceSuggestionDuplicateCheckRequest;
+import com.yeyamo_mobile.api.place_service.dto.PlaceSuggestionDuplicateCheckResponse;
 import com.yeyamo_mobile.api.place_service.service.PlaceSuggestionService;
 
 import jakarta.validation.Valid;
@@ -26,6 +28,13 @@ public class PlaceSuggestionController {
     @ResponseStatus(HttpStatus.CREATED)
     public PlaceSuggestionResponse create(@Valid @RequestBody PlaceSuggestionRequest request, Authentication authentication) {
         return service.create(request, authentication.getName());
+    }
+
+    /** Advisory preflight; create performs the same authoritative duplicate verification. */
+    @PostMapping("/check-duplicates")
+    public PlaceSuggestionDuplicateCheckResponse checkDuplicates(
+            @Valid @RequestBody PlaceSuggestionDuplicateCheckRequest request) {
+        return service.checkDuplicates(request);
     }
 
     @GetMapping("/me")

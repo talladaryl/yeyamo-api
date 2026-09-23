@@ -39,17 +39,12 @@ public class FeedQueryService {
     public FeedPage feed(String user, int page, int size, String correlationId) {
         int p = Math.max(0, page);
         int s = Math.max(1, Math.min(50, size));
-        
-        // Try cache first
-        Optional<FeedPage> cached = cache.get(user, p, s);
-        if (cached.isPresent()) {
-            return cached.get();
-        }
-        
-        // Build organic feed
-        FeedPage organicFeed = buildOrganic(user, p, s);
-        
-        // Inject ads if enabled (does not modify cache)
+
+        // The cache intentionally contains only the organic page. Advertising is
+        // request-dependent and must be evaluated on cache hits as well.
+        FeedPage organicFeed = cache.get(user, p, s)
+                .orElseGet(() -> buildOrganic(user, p, s));
+
         List<FeedItem> itemsWithAds = adInjectionService.injectAds(
             organicFeed.items(),
             user,
@@ -57,8 +52,13 @@ public class FeedQueryService {
             correlationId
         );
         
-        // Return combined feed (organic items were cached, ads are dynamic)
-        return new FeedPage(user, p, s, itemsWithAds, organicFeed.generatedAt());
+        return new FeedPage(
+                user,
+                p,
+                s,
+                organicFeed.hasNext(),
+                List.copyOf(itemsWithAds),
+                organicFeed.generatedAt());
     }
 
     @Transactional(readOnly = true)
@@ -96,9 +96,11 @@ public class FeedQueryService {
     private FeedPage buildOrganic(String user, int page, int size) {
         Instant now = Instant.now();
         Map<String, Double> affinity = projections.authorAffinities(user);
-        int candidateLimit = Math.min(1000, Math.max(200, (page + 1) * size * 10));
+        Set<String> mutedAuthors = projections.mutedAuthors(user);
+        int candidateLimit = candidateLimit(page, size);
         
         List<FeedItem> ranked = projections.candidates(candidateLimit).stream()
+            .filter(candidate -> !mutedAuthors.contains(candidate.post().authorId()))
             .map(c -> organicItem(c, ranking.score(c, affinity, now) * mix.weight(c.post().referenceType())))
             .sorted(Comparator.comparingDouble(FeedItem::rankingScore).reversed()
                 .thenComparing(FeedItem::publishedAt, Comparator.reverseOrder()))
@@ -106,10 +108,23 @@ public class FeedQueryService {
         
         int from = Math.min(page * size, ranked.size());
         int to = Math.min(from + size, ranked.size());
-        
-        FeedPage result = new FeedPage(user, page, size, List.copyOf(ranked.subList(from, to)), now);
+
+        // This is calculated from the ranked organic source before sponsored
+        // content can change the final number of API items.
+        FeedPage result = new FeedPage(
+                user,
+                page,
+                size,
+                to < ranked.size(),
+                List.copyOf(ranked.subList(from, to)),
+                now);
         cache.put(result);
         return result;
+    }
+
+    private int candidateLimit(int page, int size) {
+        long requested = ((long) page + 1L) * size * 10L + 1L;
+        return (int) Math.min(1_000L, Math.max(200L, requested));
     }
  
     private FeedItem organicItem(FeedCandidate c, double score) {

@@ -42,6 +42,12 @@ public class JpaCatalogOutboxAdapter implements OutboxPort, CatalogOutboxPort {
         payload.put("categoryCode", asset.getCategoryCode());
         payload.put("countryCode", asset.getCountryCode());
         payload.put("regionCode", asset.getRegionCode());
+        payload.put("city", asset.getCity());
+        payload.put("address", asset.getAddress());
+        payload.put("mediaIds", asset.getMediaIds());
+        payload.put("price", asset.getPrice());
+        payload.put("currency", asset.getCurrency());
+        payload.put("durationMinutes", asset.getDurationMinutes());
         payload.put("status", asset.getStatus());
         appendEnvelope(eventType, "CatalogAsset", asset.getId().toString(), actorId, correlationId, payload);
     }

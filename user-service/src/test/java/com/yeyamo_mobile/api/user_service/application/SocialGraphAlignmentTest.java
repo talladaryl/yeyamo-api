@@ -17,6 +17,7 @@ import com.yeyamo_mobile.api.user_service.domain.port.UserProfileRepository;
 import com.yeyamo_mobile.api.user_service.infrastructure.persistence.FollowEntity;
 import com.yeyamo_mobile.api.user_service.infrastructure.persistence.SpringDataBlockRepository;
 import com.yeyamo_mobile.api.user_service.infrastructure.persistence.SpringDataFollowRepository;
+import com.yeyamo_mobile.api.user_service.infrastructure.persistence.SpringDataMuteRepository;
 
 class SocialGraphAlignmentTest {
     private UserProfileRepository profiles;
@@ -29,7 +30,7 @@ class SocialGraphAlignmentTest {
         profiles = mock(UserProfileRepository.class);
         follows = mock(SpringDataFollowRepository.class);
         blocks = mock(SpringDataBlockRepository.class);
-        service = new SocialGraphService(profiles, follows, blocks, mock(OutboxPort.class));
+        service = new SocialGraphService(profiles, follows, blocks, mock(SpringDataMuteRepository.class), mock(OutboxPort.class));
     }
 
     @Test

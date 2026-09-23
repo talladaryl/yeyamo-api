@@ -28,7 +28,8 @@ public record EventResponse(
         Integer registeredCount,
         Instant createdAt,
         Instant updatedAt,
-        UUID coverMediaId
+        UUID coverMediaId,
+        SocialDistributionResponse socialDistribution
 ) {
     public static EventResponse from(Event event) {
         return new EventResponse(
@@ -53,7 +54,16 @@ public record EventResponse(
                 event.getRegisteredCount(),
                 event.getCreatedAt(),
                 event.getUpdatedAt(),
-                event.getCoverMediaId()
+                event.getCoverMediaId(),
+                new SocialDistributionResponse(
+                        event.isPublishToFeed(),
+                        event.isPublishToStory(),
+                        event.getFeedDistributionStatus(),
+                        event.getStoryDistributionStatus(),
+                        event.getFeedPostId(),
+                        event.getStoryId(),
+                        event.getFeedDistributionReason(),
+                        event.getStoryDistributionReason())
         );
     }
 }

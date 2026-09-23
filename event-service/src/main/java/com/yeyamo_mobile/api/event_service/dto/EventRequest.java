@@ -36,6 +36,8 @@ public class EventRequest {
     private boolean showParticipants = true;
     private boolean sharingEnabled = true;
 
+    private SocialDistributionRequest socialDistribution;
+
     @NotBlank
     @Size(max = 255)
     private String title;
@@ -94,6 +96,8 @@ public class EventRequest {
     public void setShowParticipants(boolean showParticipants) { this.showParticipants = showParticipants; }
     public boolean isSharingEnabled() { return sharingEnabled; }
     public void setSharingEnabled(boolean sharingEnabled) { this.sharingEnabled = sharingEnabled; }
+    public SocialDistributionRequest getSocialDistribution() { return socialDistribution; }
+    public void setSocialDistribution(SocialDistributionRequest socialDistribution) { this.socialDistribution = socialDistribution; }
 
     public String getTitle() {
         return title;

@@ -2,6 +2,7 @@ package com.yeyamo_mobile.api.event_service.service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -16,9 +17,11 @@ import com.yeyamo_mobile.api.event_service.dto.EventStatusRequest;
 import com.yeyamo_mobile.api.event_service.dto.EventSummaryResponse;
 import com.yeyamo_mobile.api.event_service.dto.EventUpdateRequest;
 import com.yeyamo_mobile.api.event_service.dto.EventInvitationResponse;
+import com.yeyamo_mobile.api.event_service.dto.SocialDistributionRequest;
 import com.yeyamo_mobile.api.event_service.enums.EventStatus;
 import com.yeyamo_mobile.api.event_service.enums.EventVisibility;
 import com.yeyamo_mobile.api.event_service.enums.RegistrationStatus;
+import com.yeyamo_mobile.api.event_service.enums.SocialDistributionStatus;
 import com.yeyamo_mobile.api.event_service.event.EventPublisher;
 import com.yeyamo_mobile.api.event_service.exception.ApiException;
 import com.yeyamo_mobile.api.event_service.models.Event;
@@ -136,6 +139,7 @@ public class EventService {
         event.setCommentsParticipantsOnly(request.isCommentsParticipantsOnly());
         event.setShowParticipants(request.isShowParticipants());
         event.setSharingEnabled(request.isSharingEnabled());
+        applySocialDistributionIntent(event, request.getSocialDistribution());
         event.setCoverMediaId(request.getCoverMediaId());
         event.setStartAt(request.getStartAt());
         event.setEndAt(request.getEndAt());
@@ -165,6 +169,9 @@ public class EventService {
         event.setStartAt(request.getStartAt());
         event.setEndAt(request.getEndAt());
         event.setCapacity(request.getCapacity());
+        if (request.getSocialDistribution() != null) {
+            updateSocialDistributionIntent(event, request.getSocialDistribution());
+        }
 
         Event saved = eventRepository.save(event);
         eventPublisher.publishUpdated(saved, correlationId, actorId);
@@ -176,7 +183,7 @@ public class EventService {
     }
 
     public EventResponse updateStatus(UUID id, EventStatusRequest request, String correlationId, String actorId, boolean privileged) {
-        Event event = findEventOrThrow(id);
+        Event event = findEventForUpdateOrThrow(id);
         requireOwner(event, actorId, privileged);
         EventStatus currentStatus = event.getStatus();
         EventStatus newStatus = request.getStatus();
@@ -191,13 +198,22 @@ public class EventService {
 
         validateStatusTransition(currentStatus, newStatus);
 
+        if (newStatus == EventStatus.PUBLISHED) {
+            markSocialDistributionProcessing(event);
+        }
         event.setStatus(newStatus);
         Event saved = eventRepository.save(event);
 
         switch (newStatus) {
-            case PUBLISHED -> eventPublisher.publishUpdated(saved, correlationId, actorId);
-            case CANCELLED -> eventPublisher.publishCancelled(saved, correlationId, actorId);
-            case COMPLETED -> eventPublisher.publishCompleted(saved, correlationId, actorId);
+            case PUBLISHED -> eventPublisher.publishPublished(saved, correlationId, actorId);
+            case CANCELLED -> {
+                eventPublisher.publishCancelled(saved, correlationId, actorId);
+                publishToParticipants("event.participants.cancelled", saved, correlationId, actorId);
+            }
+            case COMPLETED -> {
+                eventPublisher.publishCompleted(saved, correlationId, actorId);
+                publishToParticipants("event.participants.completed", saved, correlationId, actorId);
+            }
             default -> eventPublisher.publishUpdated(saved, correlationId, actorId);
         }
 
@@ -226,7 +242,10 @@ public class EventService {
         registrationRepository.save(registration);
 
         event.setRegisteredCount(event.getRegisteredCount() + 1);
-        return EventResponse.from(eventRepository.save(event));
+        Event saved = eventRepository.save(event);
+        eventPublisher.publishTargeted("event.registration.created", saved, recipients(saved.getOwnerUserId()), null,
+                userId, Map.of("registrationUserId", userId));
+        return EventResponse.from(saved);
     }
 
     public EventResponse unregister(UUID eventId, String userId) {
@@ -247,7 +266,10 @@ public class EventService {
         registrationRepository.save(registration);
 
         event.setRegisteredCount(Math.max(0, event.getRegisteredCount() - 1));
-        return EventResponse.from(eventRepository.save(event));
+        Event saved = eventRepository.save(event);
+        eventPublisher.publishTargeted("event.registration.cancelled", saved, recipients(saved.getOwnerUserId()), null,
+                userId, Map.of("registrationUserId", userId));
+        return EventResponse.from(saved);
     }
 
     @Transactional(readOnly = true)
@@ -292,6 +314,8 @@ public class EventService {
         if (invitations == null) throw new ApiException("EVENT_INVITATIONS_UNAVAILABLE", "Les invitations ne sont pas disponibles", HttpStatus.SERVICE_UNAVAILABLE);
         EventInvitation invitation = invitations.findByEventIdAndUserId(eventId, inviteeUserId)
                 .orElseGet(() -> invitations.save(EventInvitation.create(eventId, inviteeUserId, actor)));
+        eventPublisher.publishTargeted("event.invitation.created", event, List.of(inviteeUserId), null, actor,
+                Map.of("invitedBy", actor));
         return EventInvitationResponse.from(invitation);
     }
 
@@ -359,6 +383,44 @@ public class EventService {
         }
     }
 
+    private void applySocialDistributionIntent(Event event, SocialDistributionRequest distribution) {
+        boolean publishToFeed = distribution != null && distribution.publishToFeed();
+        boolean publishToStory = distribution != null && distribution.publishToStory();
+        event.setPublishToFeed(publishToFeed);
+        event.setPublishToStory(publishToStory);
+        event.setFeedDistributionStatus(publishToFeed
+                ? SocialDistributionStatus.PENDING_MODERATION
+                : SocialDistributionStatus.NOT_REQUESTED);
+        event.setStoryDistributionStatus(publishToStory
+                ? SocialDistributionStatus.PENDING_MODERATION
+                : SocialDistributionStatus.NOT_REQUESTED);
+        event.setFeedPostId(null);
+        event.setStoryId(null);
+        event.setFeedDistributionReason(null);
+        event.setStoryDistributionReason(null);
+    }
+
+    private void updateSocialDistributionIntent(Event event, SocialDistributionRequest distribution) {
+        if (event.getStatus() != EventStatus.PENDING && event.getStatus() != EventStatus.PENDING_REVIEW) {
+            throw new ApiException(
+                    "EVENT_SOCIAL_DISTRIBUTION_LOCKED",
+                    "La diffusion sociale ne peut plus etre modifiee apres publication",
+                    HttpStatus.CONFLICT);
+        }
+        applySocialDistributionIntent(event, distribution);
+    }
+
+    private void markSocialDistributionProcessing(Event event) {
+        if (event.isPublishToFeed()
+                && event.getFeedDistributionStatus() == SocialDistributionStatus.PENDING_MODERATION) {
+            event.setFeedDistributionStatus(SocialDistributionStatus.PROCESSING);
+        }
+        if (event.isPublishToStory()
+                && event.getStoryDistributionStatus() == SocialDistributionStatus.PENDING_MODERATION) {
+            event.setStoryDistributionStatus(SocialDistributionStatus.PROCESSING);
+        }
+    }
+
     private void requireOwner(Event event, String actor, boolean privileged) {
         if (privileged) return;
         if (actor == null || event.getOwnerUserId() == null || !event.getOwnerUserId().equals(actor)) {
@@ -372,6 +434,16 @@ public class EventService {
         if (actor.equals(event.getOwnerUserId())) return true;
         if (registrationRepository.existsByEventIdAndUserIdAndStatus(event.getId(), actor, RegistrationStatus.CONFIRMED)) return true;
         return invitations != null && invitations.existsByEventIdAndUserId(event.getId(), actor);
+    }
+
+    private void publishToParticipants(String type, Event event, String correlationId, String actor) {
+        List<String> participants = registrationRepository.findUserIdsByEventIdAndStatus(event.getId(), RegistrationStatus.CONFIRMED)
+                .stream().filter(userId -> !userId.equals(event.getOwnerUserId())).toList();
+        eventPublisher.publishTargeted(type, event, participants, correlationId, actor, Map.of());
+    }
+
+    private List<String> recipients(String userId) {
+        return userId == null || userId.isBlank() ? List.of() : List.of(userId);
     }
 
     private void validateStatusTransition(EventStatus current, EventStatus next) {

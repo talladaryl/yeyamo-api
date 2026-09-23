@@ -7,12 +7,14 @@ import static org.mockito.Mockito.*;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -64,7 +66,11 @@ class StoryServiceTest {
 
         assertNotNull(result);
         verify(storyRepository).save(any(StoryEntity.class));
-        verify(outbox).append(eq("content.story.created"), anyString(), anyString(), anyString(), anyMap());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, String>> payload = ArgumentCaptor.forClass(Map.class);
+        verify(outbox).append(eq("content.story.created"), eq(storyId.toString()), eq(authorId), eq("corr-1"), payload.capture());
+        assertEquals(storyId.toString(), payload.getValue().get("storyId"));
+        assertFalse(payload.getValue().containsKey("postId"));
     }
 
     // ─── TESTS LECTURE ──────────────────────────────────────────────────────────

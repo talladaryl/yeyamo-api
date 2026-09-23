@@ -95,11 +95,23 @@ public class CatalogAssetService {
     public CatalogAsset synchronizeLegacyPlace(String externalId,UUID ownerId,String name,String requestedSlug,
             String description,String categoryCode,String regionCode,String city,String district,String address,
             double latitude,double longitude,AssetStatus status,String correlationId){
+        return synchronizeLegacyPlace(externalId, ownerId, name, requestedSlug, description, categoryCode, null,
+                regionCode, city, district, address, latitude, longitude, status, correlationId);
+    }
+    public CatalogAsset synchronizeLegacyPlace(String externalId,UUID ownerId,String name,String requestedSlug,
+            String description,String categoryCode,String countryCode,String regionCode,String city,String district,String address,
+            double latitude,double longitude,AssetStatus status,String correlationId){
         return synchronizeExternalAsset("place-service",externalId,AssetType.PLACE,ownerId,name,requestedSlug,
-                description,categoryCode,regionCode,city,district,address,latitude,longitude,status,correlationId,"place-service");
+                description,categoryCode,countryCode,regionCode,city,district,address,latitude,longitude,status,correlationId,"place-service");
     }
     public CatalogAsset synchronizeExternalAsset(String source,String externalId,AssetType type,UUID ownerId,String name,String requestedSlug,
             String description,String categoryCode,String regionCode,String city,String district,String address,
+            double latitude,double longitude,AssetStatus status,String correlationId,String actorId){
+        return synchronizeExternalAsset(source, externalId, type, ownerId, name, requestedSlug, description, categoryCode,
+                null, regionCode, city, district, address, latitude, longitude, status, correlationId, actorId);
+    }
+    public CatalogAsset synchronizeExternalAsset(String source,String externalId,AssetType type,UUID ownerId,String name,String requestedSlug,
+            String description,String categoryCode,String countryCode,String regionCode,String city,String district,String address,
             double latitude,double longitude,AssetStatus status,String correlationId,String actorId){
         if(source==null||source.isBlank()||externalId==null||externalId.isBlank())throw new CatalogException("INVALID_EXTERNAL_ASSET","source and externalId are required");
         CatalogAsset asset=repository.findBySourceAndExternalId(source,externalId).orElse(null);
@@ -107,9 +119,9 @@ public class CatalogAssetService {
         if(asset==null){
             if(repository.existsBySlugAndIdNot(desiredSlug,new UUID(0,0))) desiredSlug=desiredSlug+"-"+shortSuffix(externalId);
             asset=CatalogAsset.create(type,ownerId,source,externalId,name,desiredSlug,
-                    description,categoryCode,regionCode,city,district,address,new GeoPoint(latitude,longitude));
+                    description,categoryCode,countryCode,regionCode,city,district,address,new GeoPoint(latitude,longitude));
         }else{
-            asset.update(name,desiredSlug,description,categoryCode,regionCode,city,district,address,
+            asset.update(name,desiredSlug,description,categoryCode,countryCode,regionCode,city,district,address,
                     new GeoPoint(latitude,longitude));
         }
         asset.synchronizeStatus(status);

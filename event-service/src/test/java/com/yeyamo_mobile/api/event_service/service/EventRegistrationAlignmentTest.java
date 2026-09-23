@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -19,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 
 import com.yeyamo_mobile.api.event_service.enums.EventStatus;
 import com.yeyamo_mobile.api.event_service.enums.RegistrationStatus;
+import com.yeyamo_mobile.api.event_service.dto.EventStatusRequest;
 import com.yeyamo_mobile.api.event_service.event.EventPublisher;
 import com.yeyamo_mobile.api.event_service.models.Event;
 import com.yeyamo_mobile.api.event_service.models.EventRegistration;
@@ -28,13 +30,15 @@ import com.yeyamo_mobile.api.event_service.repository.EventRepository;
 class EventRegistrationAlignmentTest {
     private EventRepository events;
     private EventRegistrationRepository registrations;
+    private EventPublisher publisher;
     private EventService service;
 
     @BeforeEach
     void setUp() {
         events = mock(EventRepository.class);
         registrations = mock(EventRegistrationRepository.class);
-        service = new EventService(events, registrations, mock(EventPublisher.class));
+        publisher = mock(EventPublisher.class);
+        service = new EventService(events, registrations, publisher);
     }
 
     @Test
@@ -86,6 +90,25 @@ class EventRegistrationAlignmentTest {
         var result = service.findParticipants(event.getId(), 100);
 
         assertEquals(List.of("42"), result.stream().map(participant -> participant.userId()).toList());
+    }
+
+    @Test
+    void cancellationTargetsOnlyConfirmedParticipants() {
+        Event event = publishedEvent();
+        event.setOwnerUserId("owner");
+        EventStatusRequest request = new EventStatusRequest();
+        request.setStatus(EventStatus.CANCELLED);
+        when(events.findByIdForUpdate(event.getId())).thenReturn(Optional.of(event));
+        when(events.save(event)).thenReturn(event);
+        when(registrations.findUserIdsByEventIdAndStatus(event.getId(), RegistrationStatus.CONFIRMED))
+                .thenReturn(List.of("owner", "participant"));
+
+        service.updateStatus(event.getId(), request, "corr-1", "owner", false);
+
+        verify(publisher).publishTargeted(eq("event.participants.cancelled"), eq(event), eq(List.of("participant")),
+                eq("corr-1"), eq("owner"), any());
+        verify(publisher, never()).publishTargeted(eq("event.participants.cancelled"), eq(event),
+                eq(List.of("owner", "participant")), any(), any(), any());
     }
 
     private Event publishedEvent() {

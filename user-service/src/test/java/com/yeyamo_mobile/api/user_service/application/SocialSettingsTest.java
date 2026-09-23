@@ -16,6 +16,7 @@ import com.yeyamo_mobile.api.user_service.domain.model.UserProfile;
 import com.yeyamo_mobile.api.user_service.domain.port.UserProfileRepository;
 import com.yeyamo_mobile.api.user_service.infrastructure.persistence.SpringDataBlockRepository;
 import com.yeyamo_mobile.api.user_service.infrastructure.persistence.SpringDataFollowRepository;
+import com.yeyamo_mobile.api.user_service.infrastructure.persistence.SpringDataMuteRepository;
 
 class SocialSettingsTest {
 
@@ -27,7 +28,7 @@ class SocialSettingsTest {
         when(profiles.save(profile)).thenReturn(profile);
         SocialGraphService service = new SocialGraphService(profiles,
                 mock(SpringDataFollowRepository.class), mock(SpringDataBlockRepository.class),
-                mock(OutboxPort.class));
+                mock(SpringDataMuteRepository.class), mock(OutboxPort.class));
 
         var update = new SocialGraphService.SocialSettingsUpdate(
                 ProfileVisibility.PRIVATE, false, null, null,

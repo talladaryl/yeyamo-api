@@ -25,6 +25,9 @@ public class EventNotificationPolicy {
         if ("messaging.message.sent".equals(eventType)) {
             return messaging(event);
         }
+        if (eventType.startsWith("event.participants.")) {
+            return targetedEvent(event, eventType);
+        }
         String notificationType = notificationType(eventType);
         if (notificationType == null) {
             return List.of();
@@ -40,6 +43,29 @@ public class EventNotificationPolicy {
         }
         return List.of(new NotificationIntent(eventId, notificationType, recipient,
                 text(payload, "email"), variables(eventType, notificationType, payload), serialize(payload)));
+    }
+
+    private List<NotificationIntent> targetedEvent(JsonNode event, String eventType) {
+        if (event.path("eventVersion").asInt(0) != 1) {
+            throw new IllegalArgumentException("Unsupported event version");
+        }
+        JsonNode recipients = event.path("payload").path("recipientIds");
+        if (!recipients.isArray()) {
+            throw new IllegalArgumentException("recipientIds is required");
+        }
+        UUID eventId = UUID.fromString(required(event, "eventId"));
+        String notificationType = "event.participants.cancelled".equals(eventType)
+                ? "EVENT_CANCELLED" : "EVENT_COMPLETED";
+        JsonNode payload = event.path("payload");
+        Map<String, String> variables = variables(eventType, notificationType, payload);
+        List<NotificationIntent> result = new ArrayList<>();
+        for (JsonNode recipient : recipients) {
+            String userId = recipient.asText();
+            if (!userId.isBlank() && result.stream().noneMatch(intent -> userId.equals(intent.recipientId()))) {
+                result.add(new NotificationIntent(eventId, notificationType, userId, null, variables, serialize(payload)));
+            }
+        }
+        return result;
     }
 
     private List<NotificationIntent> messaging(JsonNode event) {
@@ -68,6 +94,8 @@ public class EventNotificationPolicy {
             case "user.created", "user.role_added", "user.password_changed",
                     "partner.submitted", "partner.approved", "partner.rejected", "partner.needs_info",
                     "partner.requires_changes", "moderation.report.approved", "moderation.report.rejected" -> eventType;
+            case "place.suggestion.approved" -> "PLACE_SUGGESTION_APPROVED";
+            case "place.suggestion.rejected" -> "PLACE_SUGGESTION_REJECTED";
             case "CultureContributionApproved", "CultureContentVerified" -> "CULTURE_CONTRIBUTION_APPROVED";
             case "CultureContributionRejected", "CultureContentRejected" -> "CULTURE_CONTRIBUTION_REJECTED";
             case "CultureTranslationVerified", "TranslationVerified" -> "TRANSLATION_VERIFIED";
@@ -78,6 +106,12 @@ public class EventNotificationPolicy {
             case "ArtworkOrderCreated" -> "ARTWORK_ORDER_CREATED";
             case "ArtisanFollowed" -> "ARTISAN_FOLLOWED";
             case "ArtworkAuthenticityVerified", "ArtisanVerified" -> "AUTHENTICITY_VERIFIED";
+            case "booking.confirmed" -> "BOOKING_CONFIRMED";
+            case "booking.cancelled" -> "BOOKING_CANCELLED";
+            case "booking.completed" -> "BOOKING_COMPLETED";
+            case "event.registration.created" -> "EVENT_REGISTRATION_RECEIVED";
+            case "event.registration.cancelled" -> "EVENT_REGISTRATION_CANCELLED";
+            case "event.invitation.created" -> "EVENT_INVITATION";
             default -> eventType.startsWith("ArtworkOrder") ? "ARTWORK_ORDER_UPDATED" : null;
         };
     }
@@ -88,6 +122,7 @@ public class EventNotificationPolicy {
             case "partner.submitted" -> required(payload, "requesterId");
             case "partner.approved", "partner.rejected", "partner.needs_info", "partner.requires_changes" -> required(payload, "ownerUserId");
             case "moderation.report.approved", "moderation.report.rejected" -> required(payload, "reporterId");
+            case "place.suggestion.approved", "place.suggestion.rejected" -> required(payload, "userId");
             case "CultureContributionApproved", "CultureContributionRejected", "CultureContentVerified", "CultureContentRejected" -> requiredAny(payload, "contributorId", "authorId", "createdBy");
             case "CultureTranslationVerified", "TranslationVerified" -> requiredAny(payload, "translatorId", "proposerId", "authorId");
             case "CultureChallengeJoined", "CultureChallengeStarted", "CultureChallengeSubmitted", "CultureChallengeCompleted", "CultureChallengeResult", "CultureChallenge.result" -> required(payload, "userId");
@@ -95,6 +130,9 @@ public class EventNotificationPolicy {
             case "ArtworkSold", "ArtworkOrderCreated" -> requiredAny(payload, "artisanUserId", "artisanId", "artisanPartnerId", "ownerUserId");
             case "ArtworkAuthenticityVerified", "ArtisanVerified" -> requiredAny(payload, "artisanUserId", "artisanId", "artisanPartnerId", "partnerId", "claimantId");
             case "ArtisanFollowed" -> requiredAny(payload, "artisanUserId", "artisanId", "artisanPartnerId", "targetId");
+            case "booking.confirmed", "booking.cancelled", "booking.completed" -> required(payload, "userId");
+            case "event.registration.created", "event.registration.cancelled" -> required(payload, "organizerUserId");
+            case "event.invitation.created" -> requiredAny(payload, "recipientId", "inviteeUserId", "recipientIds");
             default -> requiredAny(payload, "buyerUserId", "buyerId", "artisanUserId", "artisanId", "artisanPartnerId");
         };
     }

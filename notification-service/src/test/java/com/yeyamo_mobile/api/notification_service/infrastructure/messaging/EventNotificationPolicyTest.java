@@ -66,4 +66,34 @@ class EventNotificationPolicyTest {
         assertEquals("ARTWORK_ORDER_CREATED", order.getFirst().eventType());
         assertEquals("ARTISAN_FOLLOWED", follow.getFirst().eventType());
     }
+
+    @Test
+    void mapsPlaceSuggestionDecisionToSubmittingUser() throws Exception {
+        var result = policy.map(mapper.readTree("{\"eventId\":\"" + UUID.randomUUID()
+                + "\",\"eventType\":\"place.suggestion.approved\",\"eventVersion\":1,\"payload\":{\"userId\":\"creator-1\",\"name\":\"Musée\"}}"));
+
+        assertEquals(1, result.size());
+        assertEquals("PLACE_SUGGESTION_APPROVED", result.getFirst().eventType());
+        assertEquals("creator-1", result.getFirst().recipientId());
+    }
+
+    @Test
+    void mapsBookingConfirmationToTheBookingOwner() throws Exception {
+        var result = policy.map(mapper.readTree("{\"eventId\":\"" + UUID.randomUUID()
+                + "\",\"eventType\":\"booking.confirmed\",\"eventVersion\":1,\"payload\":{\"userId\":\"traveller-1\",\"bookingId\":\"b-1\"}}"));
+
+        assertEquals(1, result.size());
+        assertEquals("BOOKING_CONFIRMED", result.getFirst().eventType());
+        assertEquals("traveller-1", result.getFirst().recipientId());
+    }
+
+    @Test
+    void mapsTargetedEventCancellationWithoutBroadcasting() throws Exception {
+        var result = policy.map(mapper.readTree("{\"eventId\":\"" + UUID.randomUUID()
+                + "\",\"eventType\":\"event.participants.cancelled\",\"eventVersion\":1,\"payload\":{\"recipientIds\":[\"one\",\"two\",\"one\"],\"title\":\"Sortie\"}}"));
+
+        assertEquals(2, result.size());
+        assertEquals("one", result.get(0).recipientId());
+        assertEquals("two", result.get(1).recipientId());
+    }
 }

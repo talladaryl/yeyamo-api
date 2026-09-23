@@ -13,10 +13,11 @@ public class JpaRecommendationProjectionAdapter implements RecommendationProject
     private final PreferenceRepository preferences;
     private final SignalRepository signals;
     private final PendingPopularityRepository pending;
+    private final RecommendationFeedbackRepository feedback;
 
     public JpaRecommendationProjectionAdapter(CandidateRepository c, PreferenceRepository p,
-            SignalRepository s, PendingPopularityRepository x) {
-        candidates = c; preferences = p; signals = s; pending = x;
+            SignalRepository s, PendingPopularityRepository x, RecommendationFeedbackRepository feedback) {
+        candidates = c; preferences = p; signals = s; pending = x; this.feedback = feedback;
     }
 
     public void upsertCandidate(Candidate c) {
@@ -29,6 +30,8 @@ public class JpaRecommendationProjectionAdapter implements RecommendationProject
         e.countryCode = c.countryCode(); e.languageCode = c.languageCode();
         e.latitude = c.latitude(); e.longitude = c.longitude(); e.popularity = Math.max(0, popularity);
         e.active = c.active(); e.publishedAt = c.publishedAt(); e.updatedAt = c.updatedAt();
+        e.price = c.price(); e.currencyCode = c.currencyCode(); e.imageMediaId = c.imageMediaId();
+        e.locationLabel = c.locationLabel(); e.startsAt = c.startsAt(); e.endsAt = c.endsAt();
         candidates.save(e);
     }
 
@@ -66,6 +69,34 @@ public class JpaRecommendationProjectionAdapter implements RecommendationProject
         preferences.save(e);
     }
 
+    public void upsertFeedback(String user, String targetType, String targetId, String feedbackType) {
+        RecommendationFeedbackEntity entity = feedback.findByUserIdAndTargetTypeAndTargetId(user, targetType, targetId)
+                .orElseGet(() -> new RecommendationFeedbackEntity(user, targetType, targetId, feedbackType));
+        entity.feedbackType = feedbackType;
+        entity.updatedAt = Instant.now();
+        feedback.save(entity);
+    }
+
+    public void removeFeedback(String user, String targetType, String targetId) {
+        feedback.findByUserIdAndTargetTypeAndTargetId(user, targetType, targetId).ifPresent(feedback::delete);
+    }
+
+    public Map<FeedbackTarget, String> feedbackFor(String user, Collection<FeedbackTarget> targets) {
+        if (targets == null || targets.isEmpty()) return Map.of();
+        Set<String> ids = targets.stream().map(FeedbackTarget::targetId).collect(java.util.stream.Collectors.toSet());
+        Set<FeedbackTarget> requested = Set.copyOf(targets);
+        Map<FeedbackTarget, String> result = new HashMap<>();
+        feedback.findByUserIdAndTargetIdIn(user, ids).forEach(entity -> {
+            FeedbackTarget target = new FeedbackTarget(entity.targetType, entity.targetId);
+            if (requested.contains(target)) result.put(target, entity.feedbackType);
+        });
+        return Map.copyOf(result);
+    }
+
+    public List<Candidate> candidatesForTargetId(String targetId) {
+        return candidates.findByTargetId(targetId).stream().map(this::domain).toList();
+    }
+
     public List<Candidate> activeCandidates(int limit) {
         return candidates.findByActiveTrueOrderByPopularityDescPublishedAtDesc(PageRequest.of(0, limit))
                 .stream().map(this::domain).toList();
@@ -87,7 +118,8 @@ public class JpaRecommendationProjectionAdapter implements RecommendationProject
     private Candidate domain(CandidateEntity e) {
         return new Candidate(e.sourceId, e.targetId, e.kind, e.title, e.categoryCode, e.regionCode,
                 e.countryCode, e.languageCode, e.latitude, e.longitude, e.popularity, e.active,
-                e.publishedAt, e.updatedAt);
+                e.publishedAt, e.updatedAt, e.price, e.currencyCode, e.imageMediaId,
+                e.locationLabel, e.startsAt, e.endsAt);
     }
 
     private Set<String> normalize(Set<String> values, boolean uppercase) {

@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.Valid;
 
 public class EventUpdateRequest {
 
@@ -31,6 +32,9 @@ public class EventUpdateRequest {
     @NotNull
     @Min(1)
     private Integer capacity;
+
+    @Valid
+    private SocialDistributionRequest socialDistribution;
 
     public String getTitle() {
         return title;
@@ -79,4 +83,7 @@ public class EventUpdateRequest {
     public void setCapacity(Integer capacity) {
         this.capacity = capacity;
     }
+
+    public SocialDistributionRequest getSocialDistribution() { return socialDistribution; }
+    public void setSocialDistribution(SocialDistributionRequest socialDistribution) { this.socialDistribution = socialDistribution; }
 }
