@@ -34,6 +34,9 @@ import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 @Component
 public class CountryConfigClient {
 
+    /** Docker Compose exposes country-config-service on its application port. */
+    static final String DEFAULT_SERVICE_URL = "http://country-config-service:8117";
+
     private final RestClient restClient;
     private final String serviceUrl;
     private final CircuitBreaker circuitBreaker;
@@ -44,7 +47,7 @@ public class CountryConfigClient {
 
     public CountryConfigClient(
             RestClient.Builder restClientBuilder,
-            @Value("${yeyamo.services.country-config.url:http://country-config-service}") String countryConfigServiceUrl) {
+            @Value("${yeyamo.services.country-config.url:" + DEFAULT_SERVICE_URL + "}") String countryConfigServiceUrl) {
         this.serviceUrl = countryConfigServiceUrl.replaceAll("/$", "");
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(REQUEST_TIMEOUT);
