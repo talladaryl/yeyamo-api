@@ -8,14 +8,13 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
-import java.security.MessageDigest;
-import java.util.HexFormat;
 import java.util.UUID;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.AfterAll;
@@ -32,7 +31,6 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
-import com.yeyamo_mobile.api.media_service.application.thumbnail.ImageThumbnailStrategy;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -47,8 +45,12 @@ class R2StorageIntegrationTest {
  @DynamicPropertySource static void properties(DynamicPropertyRegistry registry){registry.add("r2.endpoint-override",r2::baseUrl);}
  @BeforeEach void reset() throws Exception {
   r2.resetAll();
-  r2.stubFor(put(urlPathMatching("/yeyamo-test-public/thumbnails/.*")).atPriority(1).willReturn(aResponse().withStatus(200).withHeader("ETag","\""+md5(thumbnail())+"\"")));
-  r2.stubFor(put(urlPathMatching("/yeyamo-test-public/.*")).atPriority(2).willReturn(aResponse().withStatus(200).withHeader("ETag","\""+md5(png())+"\"")));
+  // The S3 SDK validates a returned ETag against the uploaded bytes.  The
+  // generated key is intentionally random, so this WireMock contract leaves
+  // the ETag out rather than returning the PNG checksum for every MIME type.
+  // Real R2 returns the checksum for the actual object.
+  r2.stubFor(put(urlPathMatching("/yeyamo-test-public/thumbnails/.*")).atPriority(1).willReturn(aResponse().withStatus(200)));
+  r2.stubFor(put(urlPathMatching("/yeyamo-test-public/.*")).atPriority(2).willReturn(aResponse().withStatus(200)));
  }
 
  @Test void shouldUploadMediaToR2AndReturnId() throws Exception {
@@ -57,6 +59,18 @@ class R2StorageIntegrationTest {
   UUID id=UUID.fromString(objectMapper.readTree(body).path("id").asText());
   r2.verify(putRequestedFor(urlPathMatching("/yeyamo-test-public/.*")));
   org.junit.jupiter.api.Assertions.assertNotNull(id);
+ }
+
+ @Test void shouldAcceptJpegPngAndMp4MultipartContracts() throws Exception {
+  assertCreated(upload("multipart-jpeg-user","cover.jpg","image/jpeg",jpeg()));
+  assertCreated(upload("multipart-png-user","cover.png","image/png",png()));
+  assertCreated(upload("multipart-mp4-user","clip.mp4","video/mp4",mp4()));
+ }
+
+ @Test void shouldRejectJsonBeforeTheMultipartControllerMethodIsSelected() throws Exception {
+  mockMvc.perform(post("/api/v1/media").with(user("wrong-content-type-user"))
+    .contentType(MediaType.APPLICATION_JSON).content("{}"))
+   .andExpect(status().isUnsupportedMediaType());
  }
 
  @Test void shouldServeMediaContentFromR2() throws Exception {
@@ -79,7 +93,13 @@ class R2StorageIntegrationTest {
  private static org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder upload(String owner) throws Exception {
   return multipart("/api/v1/media").file(new MockMultipartFile("file","cover.png","image/png",png())).with(user(owner));
  }
+ private static org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder upload(String owner,String filename,String type,byte[] bytes) {
+  return multipart("/api/v1/media").file(new MockMultipartFile("file",filename,type,bytes)).with(user(owner));
+ }
+ private void assertCreated(org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder request) throws Exception {
+  mockMvc.perform(request).andExpect(status().isCreated()).andExpect(jsonPath("$.id").isNotEmpty());
+ }
  private static byte[] png() throws Exception {BufferedImage image=new BufferedImage(2,2,BufferedImage.TYPE_INT_RGB);ByteArrayOutputStream output=new ByteArrayOutputStream();ImageIO.write(image,"png",output);return output.toByteArray();}
- private static byte[] thumbnail() throws Exception{return new ImageThumbnailStrategy(480,480).generate(png(),"image/png").bytes();}
- private static String md5(byte[] bytes) throws Exception{return HexFormat.of().formatHex(MessageDigest.getInstance("MD5").digest(bytes));}
+ private static byte[] jpeg() throws Exception {BufferedImage image=new BufferedImage(2,2,BufferedImage.TYPE_INT_RGB);ByteArrayOutputStream output=new ByteArrayOutputStream();ImageIO.write(image,"jpeg",output);return output.toByteArray();}
+ private static byte[] mp4(){return new byte[]{0,0,0,20,'f','t','y','p','i','s','o','m',0};}
 }

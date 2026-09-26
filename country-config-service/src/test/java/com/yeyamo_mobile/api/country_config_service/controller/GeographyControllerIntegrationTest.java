@@ -169,6 +169,27 @@ class GeographyControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("Centre -> Mfoundi -> Yaoundé -> localities follows the public mobile contract")
+    void shouldExposeCentreMfoundiYaoundeHierarchy() throws Exception {
+        AdministrativeArea centre = adminAreaRepository.save(
+                new AdministrativeArea("CM", null, 1, "Centre", "centre"));
+        AdministrativeArea mfoundi = adminAreaRepository.save(
+                new AdministrativeArea("CM", centre.getId(), 2, "Mfoundi", "mfoundi"));
+        City yaounde = cityRepository.save(new City("CM", mfoundi.getId(), "Yaoundé", "yaounde"));
+        localityRepository.save(new Locality("CM", yaounde.getId(), null, "quartier", "Bastos", "bastos"));
+
+        mockMvc.perform(get("/api/v1/countries/CM/administrative-areas"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.name == 'Mfoundi')].parentId", contains(centre.getId().toString())));
+        mockMvc.perform(get("/api/v1/countries/CM/cities"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.name == 'Yaoundé')].administrativeAreaId", contains(mfoundi.getId().toString())));
+        mockMvc.perform(get("/api/v1/cities/" + yaounde.getId() + "/localities"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].name", hasItem("Bastos")));
+    }
+
+    @Test
     @DisplayName("GET /api/v1/countries/XX/administrative-areas - Should return 404")
     void shouldReturn404ForUnknownCountry() throws Exception {
         mockMvc.perform(get("/api/v1/countries/XX/administrative-areas")

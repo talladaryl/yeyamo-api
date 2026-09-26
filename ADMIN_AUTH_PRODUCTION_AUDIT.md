@@ -1,6 +1,6 @@
 # YeYamo — audit d'authentification administrateur de production
 
-Date de l'audit : 2026-09-23
+Date de l'audit : 2026-09-26
 Périmètre : `yeyamo-api`, `yeyamo-admin`, `https://api.yeyamo.com`
 
 ## 1. Executive summary
@@ -371,9 +371,23 @@ Aucune modification métier ou de sécurité n'a été appliquée :
 4. Les tests avec un vrai Bearer token ne peuvent pas être faits avant le
    bootstrap. Après bootstrap, ils doivent inclure `GET /api/v1/auth/me` et
    `GET /api/v1/admin/platform-users`.
-5. Le lancement des tests Maven ciblés a été tenté mais a dépassé le délai
-   pendant la résolution/téléchargement de dépendances Spring dans le cache local;
-   aucune assertion applicative n'a été exécutée ni échoué.
+5. Le déploiement de `admin.yeyamo.com` et le provisionnement restent nécessaires
+   pour exécuter les tests avec un vrai Bearer token de production.
+
+### Validation locale complémentaire
+
+Le 2026-09-26, les tests ciblés suivants ont été exécutés avec succès :
+
+```text
+mvn -pl auth-service \
+  -Dtest=RoleAuthoritiesTests,AdminPlatformUserServiceTests,JwtServiceCountryClaimTest test
+```
+
+Résultat : `9 tests`, `0 failures`, `0 errors`, `BUILD SUCCESS`.
+Ils valident notamment la génération du claim JWT `country`, les scopes et
+permissions de rôles, ainsi que les protections de l'API de gestion des comptes
+plateforme. Ils ne remplacent pas un test de connexion contre le runtime de
+production.
 
 ## 17. Final verdict
 
