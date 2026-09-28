@@ -49,21 +49,11 @@ public class UserProfileService {
     @Transactional
     public UserProfile createFromIdentityWithLocation(String authUserId, String displayName, 
             String countryCode, UUID cityId, String preferredLanguageCode, String timezone, String correlationId) {
-        return repository.findByAuthUserId(authUserId).orElseGet(() -> {
+        return repository.findByAuthUserId(authUserId).map(existing ->
+                completeInitialLocation(existing, countryCode, cityId, preferredLanguageCode, timezone, correlationId))
+                .orElseGet(() -> {
             UserProfile profile = UserProfile.create(authUserId, displayName);
-            // Set geographic data from auth-service
-            if (countryCode != null && !countryCode.isBlank()) {
-                profile.setCountryCode(countryCode);
-            }
-            if (cityId != null) {
-                profile.setCityId(cityId);
-            }
-            if (preferredLanguageCode != null && !preferredLanguageCode.isBlank()) {
-                profile.setPreferredLanguageCode(preferredLanguageCode);
-            }
-            if (timezone != null && !timezone.isBlank()) {
-                profile.setTimezone(timezone);
-            }
+            applyInitialLocation(profile, countryCode, cityId, preferredLanguageCode, timezone);
             UserProfile saved = repository.save(profile);
             append("profile.created", saved, authUserId, correlationId);
             return saved;
@@ -77,6 +67,20 @@ public class UserProfileService {
     public UserProfile getOrCreate(String authUserId, String displayName, String correlationId) {
         return repository.findByAuthUserId(authUserId)
                 .orElseGet(() -> createFromIdentity(authUserId, displayName, correlationId));
+    }
+
+    /**
+     * Materialises the registration country from the signed access token when a
+     * client reaches {@code /users/me} before the asynchronous user.created
+     * event.  This makes the profile usable immediately after registration
+     * while the Kafka event remains the durable identity synchronisation path.
+     */
+    @Transactional
+    public UserProfile getOrCreateWithInitialLocation(String authUserId, String displayName,
+            String countryCode, UUID cityId, String preferredLanguageCode, String timezone,
+            String correlationId) {
+        return createFromIdentityWithLocation(authUserId, displayName, countryCode, cityId,
+                preferredLanguageCode, timezone, correlationId);
     }
 
     @Transactional(readOnly = true)
@@ -195,6 +199,48 @@ public class UserProfileService {
         if (timezone == null || timezone.isBlank()) return;
         try { ZoneId.of(timezone); }
         catch (RuntimeException exception) { throw new UserProfileException("TIMEZONE_INVALID", "Fuseau horaire IANA invalide", HttpStatus.BAD_REQUEST); }
+    }
+
+    /**
+     * The identity event is authoritative only for fields supplied at account
+     * creation.  It may arrive after an empty profile was lazily created by
+     * {@code GET /users/me}; complete only missing initial values and never
+     * overwrite a later user preference.
+     */
+    private UserProfile completeInitialLocation(UserProfile profile, String countryCode, UUID cityId,
+            String preferredLanguageCode, String timezone, String correlationId) {
+        if (!applyInitialLocation(profile, countryCode, cityId, preferredLanguageCode, timezone)) {
+            return profile;
+        }
+        UserProfile saved = repository.save(profile);
+        appendLocationEvent("profile.location_updated", saved, saved.getAuthUserId(), correlationId);
+        return saved;
+    }
+
+    private boolean applyInitialLocation(UserProfile profile, String countryCode, UUID cityId,
+            String preferredLanguageCode, String timezone) {
+        boolean changed = false;
+        if (!hasText(profile.getCountryCode()) && hasText(countryCode)) {
+            profile.setCountryCode(countryCode);
+            changed = true;
+        }
+        if (profile.getCityId() == null && cityId != null) {
+            profile.setCityId(cityId);
+            changed = true;
+        }
+        if (!hasText(profile.getPreferredLanguageCode()) && hasText(preferredLanguageCode)) {
+            profile.setPreferredLanguageCode(preferredLanguageCode);
+            changed = true;
+        }
+        if (!hasText(profile.getTimezone()) && hasText(timezone)) {
+            profile.setTimezone(timezone);
+            changed = true;
+        }
+        return changed;
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private void append(String type, UserProfile p, String actor, String correlationId) {

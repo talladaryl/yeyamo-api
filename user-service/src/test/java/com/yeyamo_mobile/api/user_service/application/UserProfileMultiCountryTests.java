@@ -50,6 +50,52 @@ class UserProfileMultiCountryTests {
     }
 
     @Test
+    void initialEvent_completesBlankProfileCreatedBeforeKafkaDelivery() {
+        String authUserId = "user-123";
+        UUID cityId = UUID.randomUUID();
+        UserProfile blankProfile = UserProfile.create(authUserId, "John Doe");
+        when(repository.findByAuthUserId(authUserId)).thenReturn(Optional.of(blankProfile));
+        when(repository.save(any(UserProfile.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserProfile completed = service.createFromIdentityWithLocation(
+                authUserId, "John Doe", "CM", cityId, "fr", "Africa/Douala", "corr-1");
+
+        assertEquals("CM", completed.getCountryCode());
+        assertEquals(cityId, completed.getCityId());
+        assertEquals("fr", completed.getPreferredLanguageCode());
+        assertEquals("Africa/Douala", completed.getTimezone());
+        verify(repository).save(blankProfile);
+        verify(outbox).append(eq("profile.location_updated"), any(), eq(authUserId), eq("corr-1"), any());
+    }
+
+    @Test
+    void initialEvent_neverOverridesAnExistingCountryChoice() {
+        String authUserId = "user-123";
+        UserProfile profile = UserProfile.create(authUserId, "John Doe");
+        profile.setCountryCode("SN");
+        when(repository.findByAuthUserId(authUserId)).thenReturn(Optional.of(profile));
+
+        UserProfile unchanged = service.createFromIdentityWithLocation(
+                authUserId, "John Doe", "CM", null, null, null, null);
+
+        assertEquals("SN", unchanged.getCountryCode());
+        verify(repository, never()).save(any(UserProfile.class));
+    }
+
+    @Test
+    void profileRead_canMaterialiseCountryFromTheSignedAuthContext() {
+        String authUserId = "user-123";
+        when(repository.findByAuthUserId(authUserId)).thenReturn(Optional.empty());
+        when(repository.save(any(UserProfile.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserProfile profile = service.getOrCreateWithInitialLocation(
+                authUserId, "John Doe", "CM", null, null, null, "corr-2");
+
+        assertEquals("CM", profile.getCountryCode());
+        verify(outbox).append(eq("profile.created"), any(), eq(authUserId), eq("corr-2"), any());
+    }
+
+    @Test
     void updateLocation_updatesGeographicFields() {
         String authUserId = "user-123";
         UUID cityId = UUID.randomUUID();

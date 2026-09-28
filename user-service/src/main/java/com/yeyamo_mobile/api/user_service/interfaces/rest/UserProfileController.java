@@ -40,7 +40,13 @@ public class UserProfileController {
     public MyProfileResponse me(JwtAuthenticationToken authentication,
             @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
         String displayName = authentication.getToken().getClaimAsString("email");
-        return MyProfileResponse.from(service.getOrCreate(authentication.getName(), displayName, correlationId));
+        // Auth-service signs the country chosen during registration into the
+        // access token.  Materialise it here so the first authenticated call
+        // cannot race the asynchronous user.created Kafka consumer and leave
+        // Create without a country.
+        String countryCode = authentication.getToken().getClaimAsString("country");
+        return MyProfileResponse.from(service.getOrCreateWithInitialLocation(
+                authentication.getName(), displayName, countryCode, null, null, null, correlationId));
     }
 
     @PutMapping("/me")
