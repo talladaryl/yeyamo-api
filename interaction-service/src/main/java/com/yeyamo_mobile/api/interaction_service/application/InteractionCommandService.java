@@ -1,8 +1,9 @@
 package com.yeyamo_mobile.api.interaction_service.application;
-import java.util.*;import org.springframework.stereotype.Service;import org.springframework.transaction.annotation.Transactional;
+import java.util.*;import org.slf4j.Logger;import org.slf4j.LoggerFactory;import org.springframework.stereotype.Service;import org.springframework.transaction.annotation.Transactional;
 import com.yeyamo_mobile.api.interaction_service.application.port.*;import com.yeyamo_mobile.api.interaction_service.domain.model.*;import com.yeyamo_mobile.api.interaction_service.domain.port.*;
 @Service
 public class InteractionCommandService{
+ private static final Logger log=LoggerFactory.getLogger(InteractionCommandService.class);
  private final RelationRepository relations;private final CommentRepository comments;private final ShareRepository shares;private final CheckInRepository checkIns;
  private final com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.SpringReviewRepository reviews;
  private final CommandReceiptPort receipts;private final InteractionOutboxPort outbox;private final InteractionCachePort cache;
@@ -12,17 +13,17 @@ public class InteractionCommandService{
   relations=r;comments=c;shares=s;checkIns=i;reviews=rev;receipts=p;outbox=o;this.cache=cache;}
  @Transactional public CommandResult addRelation(UUID postId,String actor,RelationType type,String key,String correlation){String op=type+"_ADD:"+postId;Optional<CommandReceipt> replay=receipts.find(key,actor,op);
   if(replay.isPresent())return result(replay.get(),true);Optional<PostRelation> existing=relations.find(postId,actor,type);PostRelation relation=existing.orElseGet(()->relations.save(PostRelation.create(postId,actor,type)));
-  boolean changed=existing.isEmpty();if(changed){outbox.append(event(type,true),"post",postId.toString(),actor,correlation,Map.of("postId",postId,"userId",actor));cache.evict(postId);}
+  boolean changed=existing.isEmpty();if(changed){outbox.append(event(type,true),"post",postId.toString(),actor,correlation,Map.of("postId",postId,"userId",actor));cache.evict(postId);log.info("event={}_PERSISTED postId={} actorId={} correlationId={}",type,postId,actor,correlation);}
   CommandReceipt receipt=receipts.save(CommandReceipt.create(key,actor,op,relation.id(),changed));return result(receipt,false);}
  @Transactional public CommandResult removeRelation(UUID postId,String actor,RelationType type,String key,String correlation){String op=type+"_REMOVE:"+postId;Optional<CommandReceipt> replay=receipts.find(key,actor,op);
   if(replay.isPresent())return result(replay.get(),true);Optional<PostRelation> existing=relations.find(postId,actor,type);existing.ifPresent(relations::delete);boolean changed=existing.isPresent();
-  if(changed){outbox.append(event(type,false),"post",postId.toString(),actor,correlation,Map.of("postId",postId,"userId",actor));cache.evict(postId);}
+  if(changed){outbox.append(event(type,false),"post",postId.toString(),actor,correlation,Map.of("postId",postId,"userId",actor));cache.evict(postId);log.info("event={}_REMOVED postId={} actorId={} correlationId={}",type,postId,actor,correlation);}
   CommandReceipt receipt=receipts.save(CommandReceipt.create(key,actor,op,existing.map(PostRelation::id).orElse(postId),changed));return result(receipt,false);}
  @Transactional public Comment addComment(UUID postId,UUID parentId,String actor,String body,String key,String correlation){String op="COMMENT_ADD:"+postId;Optional<CommandReceipt> replay=receipts.find(key,actor,op);
   if(replay.isPresent())return comments.findById(replay.get().resultId()).orElseThrow();if(parentId!=null){Comment parent=comments.findById(parentId).filter(c->c.getStatus()==CommentStatus.ACTIVE)
    .orElseThrow(()->new InteractionException("PARENT_COMMENT_NOT_FOUND","Parent comment not found"));if(!parent.getPostId().equals(postId))throw new InteractionException("COMMENT_POST_MISMATCH","Parent comment belongs to another post");}
   Comment comment=comments.save(Comment.create(postId,parentId,actor,body));receipts.save(CommandReceipt.create(key,actor,op,comment.getId(),true));
-  outbox.append("interaction.comment.created","comment",comment.getId().toString(),actor,correlation,Map.of("commentId",comment.getId(),"postId",postId,"authorId",actor));cache.evict(postId);return comment;}
+  outbox.append("interaction.comment.created","comment",comment.getId().toString(),actor,correlation,Map.of("commentId",comment.getId(),"postId",postId,"authorId",actor));cache.evict(postId);log.info("event=COMMENT_PERSISTED commentId={} postId={} actorId={} correlationId={}",comment.getId(),postId,actor,correlation);return comment;}
  @Transactional public Comment updateComment(UUID id,String actor,boolean admin,String body,String key,String correlation){String op="COMMENT_UPDATE:"+id;Optional<CommandReceipt> replay=receipts.find(key,actor,op);
   if(replay.isPresent())return requiredComment(id);Comment c=ownedComment(id,actor,admin);c.update(body);c=comments.save(c);receipts.save(CommandReceipt.create(key,actor,op,id,true));
   outbox.append("interaction.comment.updated","comment",id.toString(),actor,correlation,Map.of("commentId",id,"postId",c.getPostId()));return c;}

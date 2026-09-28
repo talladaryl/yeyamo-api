@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 
 import com.yeyamo_mobile.api.content_service.application.StoryService;
@@ -37,8 +38,9 @@ public class StoryController {
     )
     public List<StoryResponse> getActiveStories(Authentication auth) {
         String userId = auth.getName();
+        String bearerToken = auth instanceof JwtAuthenticationToken jwt ? jwt.getToken().getTokenValue() : null;
         
-        return service.getActiveStoriesForUser(userId).stream()
+        return service.getActiveStoriesForUser(userId, bearerToken).stream()
                 .map(StoryResponse::from)
                 .toList();
     }

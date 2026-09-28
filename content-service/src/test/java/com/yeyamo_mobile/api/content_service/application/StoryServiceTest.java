@@ -79,7 +79,7 @@ class StoryServiceTest {
     void shouldGetActiveStoriesForUser() {
         List<String> followingIds = List.of("user1", "user2");
         when(userServiceClient.getFollowingIds(viewerId)).thenReturn(followingIds);
-        when(storyRepository.findActiveStoriesByAuthors(eq(followingIds), any(Instant.class)))
+        when(storyRepository.findActiveStoriesByAuthors(argThat(ids -> ids.containsAll(List.of(viewerId, "user1", "user2"))), any(Instant.class)))
                 .thenReturn(List.of(story));
         when(viewRepository.countByStoryId(storyId)).thenReturn(5L);
         when(viewRepository.existsByStoryIdAndViewerId(storyId, viewerId)).thenReturn(false);
@@ -98,7 +98,22 @@ class StoryServiceTest {
         List<StoryService.StoryWithViews> result = service.getActiveStoriesForUser(viewerId);
 
         assertTrue(result.isEmpty());
-        verify(storyRepository, never()).findActiveStoriesByAuthors(anyList(), any());
+        verify(storyRepository).findActiveStoriesByAuthors(eq(List.of(viewerId)), any());
+    }
+
+    @Test
+    void includesTheViewerOwnStoryAndForwardsTheBearerTokenToResolveFollowing() {
+        when(userServiceClient.getFollowingIds(viewerId, "token-value")).thenReturn(List.of(authorId));
+        when(storyRepository.findActiveStoriesByAuthors(
+                argThat(ids -> ids.containsAll(List.of(viewerId, authorId))), any(Instant.class)))
+                .thenReturn(List.of(story));
+        when(viewRepository.countByStoryId(storyId)).thenReturn(0L);
+        when(viewRepository.existsByStoryIdAndViewerId(storyId, viewerId)).thenReturn(false);
+
+        List<StoryService.StoryWithViews> result = service.getActiveStoriesForUser(viewerId, "token-value");
+
+        assertEquals(1, result.size());
+        verify(userServiceClient).getFollowingIds(viewerId, "token-value");
     }
 
     @Test

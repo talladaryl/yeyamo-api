@@ -32,6 +32,9 @@ public class JpaUserProfileRepositoryAdapter implements UserProfileRepository {
     @Override public List<UserProfile> findByIdIn(List<UUID> ids) {
         return repository.findAllById(ids).stream().map(this::toDomain).toList();
     }
+    @Override public List<UserProfile> findByAuthUserIdIn(List<String> authUserIds) {
+        return repository.findByAuthUserIdIn(authUserIds).stream().map(this::toDomain).toList();
+    }
 
     private UserProfileEntity toEntity(UserProfile p) {
         UserProfileEntity e = new UserProfileEntity();

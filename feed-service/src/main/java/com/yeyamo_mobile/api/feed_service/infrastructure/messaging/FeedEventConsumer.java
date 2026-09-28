@@ -85,6 +85,7 @@ public class FeedEventConsumer {
                 instant(event, "occurredAt"));
 
         commands.content(eventType, post, text(event, "correlationId", eventId.toString()));
+        log.info("event=FEED_POST_PROJECTED postId={} authorId={} eventType={} correlationId={}", postId, post.authorId(), eventType, text(event, "correlationId", eventId.toString()));
         receipt(eventId, eventType);
     }
 
@@ -138,6 +139,7 @@ public class FeedEventConsumer {
         }
         String user = text(payload, "userId", text(payload, "authorId", text(event, "actorId", null)));
         commands.interaction(eventType, postId, user, text(event, "correlationId", eventId.toString()));
+        log.info("event=FEED_INTERACTION_PROJECTED postId={} eventType={} actorId={} correlationId={}", postId, eventType, user, text(event, "correlationId", eventId.toString()));
         receipt(eventId, eventType);
     }
 

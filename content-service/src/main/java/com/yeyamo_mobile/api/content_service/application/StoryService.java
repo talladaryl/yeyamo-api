@@ -9,6 +9,8 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.yeyamo_mobile.api.content_service.infrastructure.client.UserServiceClient;
 import com.yeyamo_mobile.api.content_service.infrastructure.outbox.ContentOutboxPort;
@@ -20,6 +22,7 @@ import com.yeyamo_mobile.shared.geography.GeographicFields;
 
 @Service
 public class StoryService {
+    private static final Logger log = LoggerFactory.getLogger(StoryService.class);
     
     private final SpringDataStoryRepository storyRepository;
     private final SpringDataStoryViewRepository viewRepository;
@@ -92,6 +95,7 @@ public class StoryService {
         eventPayload.put("referenceType", story.getReferenceType().name());
         eventPayload.put("referenceId", story.getReferenceId());
         outbox.append("content.story.created", saved.getId().toString(), authorId, correlationId, eventPayload);
+        log.info("event=STORY_CREATED storyId={} authorId={} mediaId={} correlationId={}", saved.getId(), authorId, mediaId, correlationId);
 
         return saved;
     }
@@ -100,16 +104,21 @@ public class StoryService {
 
     @Transactional(readOnly = true)
     public List<StoryWithViews> getActiveStoriesForUser(String userId) {
+        return getActiveStoriesForUser(userId, null);
+    }
+
+    public List<StoryWithViews> getActiveStoriesForUser(String userId, String bearerToken) {
         // 1. Récupérer la liste des comptes suivis depuis user-service
-        List<String> followingIds = userServiceClient.getFollowingIds(userId);
-        
-        if (followingIds.isEmpty()) {
-            return List.of(); // Pas de comptes suivis = pas de stories
-        }
+        java.util.LinkedHashSet<String> authorIds = new java.util.LinkedHashSet<>();
+        authorIds.add(userId);
+        authorIds.addAll(bearerToken == null
+                ? userServiceClient.getFollowingIds(userId)
+                : userServiceClient.getFollowingIds(userId, bearerToken));
 
         // 2. Récupérer les stories actives de ces auteurs
         Instant now = Instant.now();
-        List<StoryEntity> stories = storyRepository.findActiveStoriesByAuthors(followingIds, now);
+        List<StoryEntity> stories = storyRepository.findActiveStoriesByAuthors(List.copyOf(authorIds), now);
+        log.info("event=STORY_ACTIVE_RESOLVED viewerId={} authorCount={} storyCount={}", userId, authorIds.size(), stories.size());
 
         // 3. Pour chaque story, récupérer le nombre de vues
         return stories.stream()

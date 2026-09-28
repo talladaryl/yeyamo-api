@@ -1,13 +1,14 @@
 package com.yeyamo_mobile.api.content_service.infrastructure.client;
 
 import java.util.List;
-import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -38,27 +39,27 @@ public class UserServiceClient {
      * @param userId ID de l'utilisateur
      * @return Liste des IDs des comptes suivis (vide si erreur)
      */
-    public List<String> getFollowingIds(String userId) {
+    public List<String> getFollowingIds(String userId, String bearerToken) {
+        if (bearerToken == null || bearerToken.isBlank()) {
+            log.warn("Cannot resolve followed story authors without the viewer bearer token");
+            return List.of();
+        }
         try {
-            String url = userServiceBaseUrl + "/api/v1/users/social/following?page=0&size=1000";
+            String url = userServiceBaseUrl + "/api/v1/users/social/following/content-author-ids";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(bearerToken);
             
             // Note: En production, il faudrait propager le JWT Bearer token
             // Pour l'instant, on suppose que user-service accepte les appels internes
             
-            ResponseEntity<PageResponse<UserProfileSummary>> response = restTemplate.exchange(
+            ResponseEntity<List<String>> response = restTemplate.exchange(
                 url,
                 HttpMethod.GET,
-                null,
-                new ParameterizedTypeReference<PageResponse<UserProfileSummary>>() {}
+                new HttpEntity<>(headers),
+                new ParameterizedTypeReference<List<String>>() {}
             );
             
-            if (response.getBody() != null && response.getBody().content != null) {
-                return response.getBody().content.stream()
-                        .map(profile -> profile.id.toString())
-                        .toList();
-            }
-            
-            return List.of();
+            return response.getBody() == null ? List.of() : response.getBody();
             
         } catch (Exception e) {
             log.warn("Failed to fetch following from user-service for user {}: {}", userId, e.getMessage());
@@ -67,14 +68,7 @@ public class UserServiceClient {
         }
     }
 
-    // DTOs internes pour le mapping de la réponse
-    private static class PageResponse<T> {
-        public List<T> content;
-        public int totalElements;
-    }
+    public List<String> getFollowingIds(String userId) { return List.of(); }
 
-    private static class UserProfileSummary {
-        public UUID id;
-        public String displayName;
-    }
+    // DTOs internes pour le mapping de la réponse
 }

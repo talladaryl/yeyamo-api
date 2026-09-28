@@ -1,6 +1,7 @@
 package com.yeyamo_mobile.api.user_service.infrastructure.persistence;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -15,6 +16,7 @@ import com.yeyamo_mobile.api.user_service.domain.model.ProfileVisibility;
 public interface SpringDataUserProfileRepository extends JpaRepository<UserProfileEntity, UUID> {
     Optional<UserProfileEntity> findByAuthUserId(String authUserId);
     boolean existsByAuthUserId(String authUserId);
+    List<UserProfileEntity> findByAuthUserIdIn(List<String> authUserIds);
 
     @Query("""
             select p from UserProfileEntity p

@@ -10,6 +10,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.yeyamo_mobile.api.user_service.application.exception.UserProfileException;
 import com.yeyamo_mobile.api.user_service.application.port.OutboxPort;
@@ -25,9 +27,11 @@ import com.yeyamo_mobile.api.user_service.infrastructure.persistence.SpringDataB
 import com.yeyamo_mobile.api.user_service.infrastructure.persistence.SpringDataFollowRepository;
 import com.yeyamo_mobile.api.user_service.infrastructure.persistence.MuteEntity;
 import com.yeyamo_mobile.api.user_service.infrastructure.persistence.SpringDataMuteRepository;
+import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.FeedAuthorIdentityResponse;
 
 @Service
 public class SocialGraphService {
+    private static final Logger log = LoggerFactory.getLogger(SocialGraphService.class);
     
     private final UserProfileRepository profileRepository;
     private final SpringDataFollowRepository followRepository;
@@ -70,6 +74,7 @@ public class SocialGraphService {
 
         Follow follow = Follow.create(followerId, followeeId);
         followRepository.save(FollowEntity.from(follow));
+        log.info("event=FOLLOW_PERSISTED followerProfileId={} followeeProfileId={} correlationId={}", followerId, followeeId, correlationId);
 
         // Event pour notification
         outbox.append("social.followed", followeeId, followerAuthId, correlationId,
@@ -84,6 +89,7 @@ public class SocialGraphService {
         FollowEntity.FollowId id = new FollowEntity.FollowId(followerId, followeeId);
         if (followRepository.existsById(id)) {
             followRepository.deleteById(id);
+            log.info("event=FOLLOW_REMOVED followerProfileId={} followeeProfileId={} correlationId={}", followerId, followeeId, correlationId);
             
             outbox.append("social.unfollowed", followeeId, followerAuthId, correlationId,
                     java.util.Map.of("followerId", followerId.toString(), "followeeId", followeeId.toString()));
@@ -105,6 +111,14 @@ public class SocialGraphService {
     @Transactional(readOnly = true)
     public Page<UserProfile> getFollowing(String authUserId, Pageable pageable) {
         return getFollowing(getProfileId(authUserId), pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getFollowingAuthUserIds(String authUserId) {
+        return getFollowing(authUserId, PageRequest.of(0, 1_000))
+                .getContent().stream()
+                .map(UserProfile::getAuthUserId)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -260,6 +274,29 @@ public class SocialGraphService {
     @Transactional(readOnly = true)
     public List<UserProfile> getMutedUsers(String authUserId) {
         return profileRepository.findByIdIn(muteRepository.findMutedIds(getProfileId(authUserId)));
+    }
+
+    /**
+     * Resolves content-authors in one query for a logged-in viewer.  It is the
+     * canonical bridge between content.authorId (auth subject) and the social
+     * profile UUID expected by follow/profile navigation.
+     */
+    @Transactional(readOnly = true)
+    public List<FeedAuthorIdentityResponse> resolveContentAuthorIdentities(
+            String viewerAuthUserId, List<String> authUserIds) {
+        if (authUserIds == null || authUserIds.isEmpty()) return List.of();
+        UUID viewerProfileId = getProfileId(viewerAuthUserId);
+        return profileRepository.findByAuthUserIdIn(authUserIds.stream()
+                        .filter(id -> id != null && !id.isBlank())
+                        .distinct()
+                        .limit(50)
+                        .toList())
+                .stream()
+                .filter(profile -> profile.getStatus() == ProfileStatus.ACTIVE
+                        && profile.getVisibility() == ProfileVisibility.PUBLIC)
+                .map(profile -> FeedAuthorIdentityResponse.from(profile,
+                        followRepository.existsByIdFollowerIdAndIdFolloweeId(viewerProfileId, profile.getId())))
+                .toList();
     }
 
     @Transactional(readOnly = true)

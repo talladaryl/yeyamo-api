@@ -29,6 +29,7 @@ import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.SocialStatsRespons
 import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.SocialSettingsRequest;
 import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.SocialSettingsResponse;
 import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.UserProfileSummaryResponse;
+import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.FeedAuthorIdentityResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -45,6 +46,16 @@ public class SocialGraphController {
 
     public SocialGraphController(SocialGraphService socialGraphService) {
         this.socialGraphService = socialGraphService;
+    }
+
+    /** Batch resolver used by Feed/Story mobile clients. Never returns a
+     * private profile or any account credential. */
+    @GetMapping("/identities")
+    @Operation(summary = "Resolve public content-author identities for the current viewer")
+    public List<FeedAuthorIdentityResponse> resolveContentAuthorIdentities(
+            @RequestParam List<String> authUserIds,
+            Authentication authentication) {
+        return socialGraphService.resolveContentAuthorIdentities(authentication.getName(), authUserIds);
     }
 
     // ─── FOLLOW OPERATIONS ──────────────────────────────────────────────────────
@@ -85,6 +96,12 @@ public class SocialGraphController {
             
             return UserProfileSummaryResponse.from(profile, isFollowing, followersCount, followingCount);
         });
+    }
+
+    @GetMapping("/following/content-author-ids")
+    @Operation(summary = "Get followed content author auth subjects")
+    public List<String> getFollowingContentAuthorIds(Authentication authentication) {
+        return socialGraphService.getFollowingAuthUserIds(authentication.getName());
     }
 
     @GetMapping("/followers")

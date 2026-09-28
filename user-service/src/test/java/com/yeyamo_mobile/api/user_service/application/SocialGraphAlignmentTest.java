@@ -1,11 +1,14 @@
 package com.yeyamo_mobile.api.user_service.application;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -59,5 +62,22 @@ class SocialGraphAlignmentTest {
         service.removeFollower("42", follower.getId(), "correlation");
 
         verify(follows).deleteById(relation);
+    }
+
+    @Test
+    void resolvesContentAuthorsToTheirPublicProfileIdentityAndFollowState() {
+        UserProfile viewer = UserProfile.create("42", "Viewer");
+        UserProfile author = UserProfile.create("99", "Auteur réel");
+        author.setAvatarUrl("https://cdn.example/avatar.jpg");
+        when(profiles.findByAuthUserId("42")).thenReturn(Optional.of(viewer));
+        when(profiles.findByAuthUserIdIn(List.of("99"))).thenReturn(List.of(author));
+        when(follows.existsByIdFollowerIdAndIdFolloweeId(viewer.getId(), author.getId())).thenReturn(true);
+
+        var identities = service.resolveContentAuthorIdentities("42", List.of("99"));
+
+        assertEquals(1, identities.size());
+        assertEquals(author.getId(), identities.getFirst().profileId());
+        assertEquals("Auteur réel", identities.getFirst().displayName());
+        assertTrue(identities.getFirst().isFollowing());
     }
 }

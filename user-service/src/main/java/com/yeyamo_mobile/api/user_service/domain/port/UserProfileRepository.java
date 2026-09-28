@@ -16,4 +16,5 @@ public interface UserProfileRepository {
     boolean existsByAuthUserId(String authUserId);
     Page<UserProfile> searchPublic(String query, Pageable pageable);
     List<UserProfile> findByIdIn(List<UUID> ids);
+    List<UserProfile> findByAuthUserIdIn(List<String> authUserIds);
 }
