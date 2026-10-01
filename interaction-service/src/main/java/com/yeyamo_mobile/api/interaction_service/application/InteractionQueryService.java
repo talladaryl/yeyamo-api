@@ -14,8 +14,10 @@ public class InteractionQueryService{
  @Transactional(readOnly=true)public InteractionSummary summary(UUID postId,String viewer){InteractionSummary.Counts counts=cache.getCounts(postId).orElseGet(()->{var c=new InteractionSummary.Counts(relations.count(postId,RelationType.LIKE),comments.countActiveByPost(postId),shares.countByPost(postId));cache.putCounts(postId,c);return c;});
   boolean liked=viewer!=null&&relations.find(postId,viewer,RelationType.LIKE).isPresent();boolean favorite=viewer!=null&&relations.find(postId,viewer,RelationType.FAVORITE).isPresent();
   return new InteractionSummary(postId,counts.likes(),counts.comments(),counts.shares(),liked,favorite);}
+ @Transactional(readOnly=true)public List<InteractionSummary> summaries(List<UUID> postIds,String viewer){if(postIds==null||postIds.isEmpty())return List.of();return postIds.stream().filter(Objects::nonNull).distinct().limit(50).map(id->summary(id,viewer)).toList();}
  @Transactional(readOnly=true)public List<Comment> comments(UUID postId,int limit){return comments.findActiveByPost(postId,cap(limit));}
  @Transactional(readOnly=true)public List<PostRelation> favorites(String user,int limit){return relations.findFavorites(user,cap(limit));}
+ @Transactional(readOnly=true)public List<PostRelation> likes(String user,int limit){return relations.findLikes(user,cap(limit));}
  @Transactional(readOnly=true)public List<CheckIn> checkIns(String user,int limit){return checks.findByUser(user,cap(limit));}
  
  // ─── REVIEWS ─────────────────────────────────────────────────────────────────

@@ -21,6 +21,8 @@ public class PostController{
  @Operation(summary="Soft-delete a post",security=@SecurityRequirement(name="bearerAuth"))@DeleteMapping("/{id}")@ResponseStatus(HttpStatus.NO_CONTENT)
  public void delete(@PathVariable UUID id,@RequestHeader(value="X-Correlation-Id",required=false)String correlation,Authentication auth){service.delete(id,auth.getName(),admin(auth),correlation);}
  @Operation(summary="Get a public post")@GetMapping("/{id}")public PostResponse publicPost(@PathVariable UUID id){return PostResponse.from(service.publicPost(id));}
+ @Operation(summary="Get public posts by ids")@GetMapping("/batch")public List<PostResponse> batch(@RequestParam List<UUID> ids){return service.publicPostsByIds(ids).stream().map(PostResponse::from).toList();}
+ @Operation(summary="List public posts by content author")@GetMapping("/authors/{authorId}")public List<PostResponse> publicByAuthor(@PathVariable String authorId,@RequestParam(defaultValue="50")@Min(1)@Max(100)int limit){return service.publicPostsByAuthor(authorId,limit).stream().map(PostResponse::from).toList();}
  @Operation(summary="List my posts",security=@SecurityRequirement(name="bearerAuth"))@GetMapping("/me")
  public List<PostResponse> mine(@RequestParam(defaultValue="50")@Min(1)@Max(100)int limit,Authentication auth){return service.myPosts(auth.getName(),limit).stream().map(PostResponse::from).toList();}
  @Operation(summary="Get one of my posts",security=@SecurityRequirement(name="bearerAuth"))@GetMapping("/me/{id}")

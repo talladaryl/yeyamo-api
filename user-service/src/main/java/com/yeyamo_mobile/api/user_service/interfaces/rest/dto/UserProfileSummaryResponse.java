@@ -6,6 +6,7 @@ import com.yeyamo_mobile.api.user_service.domain.model.UserProfile;
 
 public record UserProfileSummaryResponse(
         UUID id,
+        String authUserId,
         String displayName,
         String avatarUrl,
         String bio,
@@ -16,6 +17,7 @@ public record UserProfileSummaryResponse(
     public static UserProfileSummaryResponse from(UserProfile p, boolean isFollowing, long followersCount, long followingCount) {
         return new UserProfileSummaryResponse(
                 p.getId(),
+                p.getAuthUserId(),
                 p.getDisplayName(),
                 p.getAvatarUrl(),
                 p.getBio(),
@@ -27,6 +29,7 @@ public record UserProfileSummaryResponse(
     public static UserProfileSummaryResponse fromBasic(UserProfile p) {
         return new UserProfileSummaryResponse(
                 p.getId(),
+                p.getAuthUserId(),
                 p.getDisplayName(),
                 p.getAvatarUrl(),
                 p.getBio(),

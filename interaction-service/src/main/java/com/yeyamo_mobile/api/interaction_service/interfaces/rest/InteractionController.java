@@ -26,8 +26,12 @@ public class InteractionController{
   return ShareResponse.from(commands.share(postId,auth.getName(),request.channel(),key,correlation));}
  @GetMapping("/posts/{postId}/summary")@Operation(summary="Read post interaction counters")
  public InteractionSummary summary(@PathVariable UUID postId,Authentication auth){return queries.summary(postId,auth==null?null:auth.getName());}
+ @PostMapping("/posts/summaries")@Operation(summary="Read viewer-aware post interaction counters in batch",security=@SecurityRequirement(name="bearerAuth"))
+ public List<InteractionSummary> summaries(@Valid@RequestBody PostSummariesRequest request,Authentication auth){return queries.summaries(request.postIds(),auth.getName());}
+ @GetMapping("/me/likes")@Operation(summary="List posts liked by the authenticated user",security=@SecurityRequirement(name="bearerAuth"))
+ public List<LikedPostResponse> likes(@RequestParam(defaultValue="50")@Min(1)@Max(100)int limit,Authentication auth){return queries.likes(auth.getName(),limit).stream().map(LikedPostResponse::from).toList();}
  @GetMapping("/posts/{postId}/comments")@Operation(summary="Read active comments")
- public List<CommentResponse> comments(@PathVariable UUID postId,@RequestParam(defaultValue="50")@Min(1)@Max(100)int limit){return queries.comments(postId,limit).stream().map(CommentResponse::from).toList();}
+ public List<CommentResponse> comments(@PathVariable UUID postId,@RequestParam(defaultValue="50")@Min(1)@Max(100)int limit,Authentication auth){return queries.comments(postId,limit).stream().map(comment->CommentResponse.from(comment,commentLikes.status(comment.getId(),auth==null?null:auth.getName()))).toList();}
  @PutMapping("/comments/{id}/like")@Operation(summary="Like a comment",security=@SecurityRequirement(name="bearerAuth"))
  public CommentLikeResponse likeComment(@PathVariable UUID id,Authentication auth){return CommentLikeResponse.from(commentLikes.like(id,auth.getName()));}
  @DeleteMapping("/comments/{id}/like")@Operation(summary="Remove a comment like",security=@SecurityRequirement(name="bearerAuth"))

@@ -30,6 +30,7 @@ class StoryServiceTest {
     @Mock private SpringDataStoryViewRepository viewRepository;
     @Mock private UserServiceClient userServiceClient;
     @Mock private ContentOutboxPort outbox;
+    @Mock private StoryCreateIdempotencyRepository idempotencyRecords;
 
     @InjectMocks private StoryService service;
 
@@ -99,6 +100,19 @@ class StoryServiceTest {
 
         assertTrue(result.isEmpty());
         verify(storyRepository).findActiveStoriesByAuthors(eq(List.of(viewerId)), any());
+    }
+
+    @Test
+    void replaysTheSameAuthorScopedCreateKeyWithoutCreatingAnotherStory() {
+        when(idempotencyRecords.findByAuthorIdAndIdempotencyKey(authorId, "story-create-1"))
+                .thenReturn(Optional.of(StoryCreateIdempotencyEntity.of(authorId, "story-create-1", storyId)));
+        when(storyRepository.findById(storyId)).thenReturn(Optional.of(story));
+
+        StoryEntity result = service.create(authorId, mediaId, "Test", 15, null, "corr-1", "story-create-1");
+
+        assertEquals(storyId, result.getId());
+        verify(storyRepository, never()).save(any(StoryEntity.class));
+        verify(outbox, never()).append(anyString(), anyString(), anyString(), anyString(), anyMap());
     }
 
     @Test

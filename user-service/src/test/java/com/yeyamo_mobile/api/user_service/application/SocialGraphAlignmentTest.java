@@ -3,6 +3,7 @@ package com.yeyamo_mobile.api.user_service.application;
 import static org.mockito.ArgumentMatchers.any;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.yeyamo_mobile.api.user_service.application.port.OutboxPort;
+import com.yeyamo_mobile.api.user_service.application.exception.UserProfileException;
 import com.yeyamo_mobile.api.user_service.domain.model.UserProfile;
 import com.yeyamo_mobile.api.user_service.domain.port.UserProfileRepository;
 import com.yeyamo_mobile.api.user_service.infrastructure.persistence.FollowEntity;
@@ -79,5 +81,30 @@ class SocialGraphAlignmentTest {
         assertEquals(author.getId(), identities.getFirst().profileId());
         assertEquals("Auteur réel", identities.getFirst().displayName());
         assertTrue(identities.getFirst().isFollowing());
+    }
+
+    @Test
+    void resolvesTheViewersOwnPrivateProfileForSafeFeedOwnershipChecks() {
+        UserProfile viewer = UserProfile.create("42", "Viewer");
+        viewer.update("Viewer", null, null, null, com.yeyamo_mobile.api.user_service.domain.model.ProfileVisibility.PRIVATE);
+        when(profiles.findByAuthUserId("42")).thenReturn(Optional.of(viewer));
+        when(profiles.findByAuthUserIdIn(List.of("42"))).thenReturn(List.of(viewer));
+
+        var identities = service.resolveContentAuthorIdentities("42", List.of("42"));
+
+        assertEquals(1, identities.size());
+        assertEquals(viewer.getId(), identities.getFirst().profileId());
+    }
+
+    @Test
+    void preventsSelfFollowAtTheDomainBoundary() {
+        UserProfile viewer = UserProfile.create("42", "Viewer");
+        when(profiles.findByAuthUserId("42")).thenReturn(Optional.of(viewer));
+        when(profiles.findById(viewer.getId())).thenReturn(Optional.of(viewer));
+
+        var error = assertThrows(UserProfileException.class,
+                () -> service.follow("42", viewer.getId(), "correlation"));
+
+        assertEquals("CANNOT_FOLLOW_YOURSELF", error.getCode());
     }
 }

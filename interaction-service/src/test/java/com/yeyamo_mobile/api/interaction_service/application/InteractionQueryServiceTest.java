@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -58,5 +59,26 @@ class InteractionQueryServiceTest {
         verify(relations, never()).count(any(), any());
         verify(comments, never()).countActiveByPost(any());
         verify(shares, never()).countByPost(any());
+    }
+
+    @Test
+    void batchSummariesDeduplicatesPostIdsAndKeepsViewerState() {
+        UUID postId = UUID.randomUUID();
+        RelationRepository relations = mock(RelationRepository.class);
+        CommentRepository comments = mock(CommentRepository.class);
+        ShareRepository shares = mock(ShareRepository.class);
+        CheckInRepository checkIns = mock(CheckInRepository.class);
+        InteractionCachePort cache = mock(InteractionCachePort.class);
+        when(cache.getCounts(postId)).thenReturn(Optional.of(new InteractionSummary.Counts(2, 1, 0)));
+        when(relations.find(postId, "viewer", RelationType.LIKE)).thenReturn(Optional.empty());
+        when(relations.find(postId, "viewer", RelationType.FAVORITE)).thenReturn(Optional.empty());
+
+        var result = new InteractionQueryService(relations, comments, shares, checkIns,
+                mock(SpringReviewRepository.class), cache)
+                .summaries(List.of(postId, postId), "viewer");
+
+        assertEquals(1, result.size());
+        assertEquals(postId, result.getFirst().postId());
+        verify(cache, times(1)).getCounts(postId);
     }
 }

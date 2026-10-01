@@ -27,9 +27,11 @@ import com.yeyamo_mobile.api.event_service.exception.ApiException;
 import com.yeyamo_mobile.api.event_service.models.Event;
 import com.yeyamo_mobile.api.event_service.models.EventRegistration;
 import com.yeyamo_mobile.api.event_service.models.EventInvitation;
+import com.yeyamo_mobile.api.event_service.models.EventCreateIdempotency;
 import com.yeyamo_mobile.api.event_service.repository.EventRegistrationRepository;
 import com.yeyamo_mobile.api.event_service.repository.EventRepository;
 import com.yeyamo_mobile.api.event_service.repository.EventInvitationRepository;
+import com.yeyamo_mobile.api.event_service.repository.EventCreateIdempotencyRepository;
 import com.yeyamo_mobile.api.event_service.repository.PlaceReadModelRepository;
 import com.yeyamo_mobile.api.event_service.models.PlaceReadModel;
 import com.yeyamo_mobile.shared.country.CountryConfigClient;
@@ -46,13 +48,14 @@ public class EventService {
     private final CountryConfigClient countries;
     private final PlaceReadModelRepository places;
     private final EventInvitationRepository invitations;
+    private final EventCreateIdempotencyRepository idempotencyRecords;
 
     public EventService(
             EventRepository eventRepository,
             EventRegistrationRepository registrationRepository,
             EventPublisher eventPublisher
     ) {
-        this(eventRepository, registrationRepository, eventPublisher, null, null, null);
+        this(eventRepository, registrationRepository, eventPublisher, null, null, null, null);
     }
 
     public EventService(
@@ -62,7 +65,7 @@ public class EventService {
             CountryConfigClient countries,
             PlaceReadModelRepository places
     ) {
-        this(eventRepository, registrationRepository, eventPublisher, countries, places, null);
+        this(eventRepository, registrationRepository, eventPublisher, countries, places, null, null);
     }
 
     @Autowired
@@ -72,7 +75,8 @@ public class EventService {
             EventPublisher eventPublisher,
             CountryConfigClient countries,
             PlaceReadModelRepository places,
-            @Autowired(required = false) EventInvitationRepository invitations
+            @Autowired(required = false) EventInvitationRepository invitations,
+            @Autowired(required = false) EventCreateIdempotencyRepository idempotencyRecords
     ) {
         this.eventRepository = eventRepository;
         this.registrationRepository = registrationRepository;
@@ -80,6 +84,7 @@ public class EventService {
         this.countries = countries;
         this.places = places;
         this.invitations = invitations;
+        this.idempotencyRecords = idempotencyRecords;
     }
 
     @Transactional(readOnly = true)
@@ -115,6 +120,21 @@ public class EventService {
     }
 
     public EventResponse create(EventRequest request, String correlationId, String actorId) {
+        return create(request, correlationId, actorId, null);
+    }
+
+    public EventResponse create(EventRequest request, String correlationId, String actorId, String idempotencyKey) {
+        String normalizedKey = idempotencyKey == null ? null : idempotencyKey.trim();
+        if (idempotencyRecords != null && normalizedKey != null && !normalizedKey.isEmpty()) {
+            Event existing = idempotencyRecords.findByOwnerUserIdAndIdempotencyKey(actorId, normalizedKey)
+                    .flatMap(eventKey -> eventRepository.findById(eventKey.getEventId()))
+                    .orElse(null);
+            if (existing != null) {
+                org.slf4j.LoggerFactory.getLogger(EventService.class).info(
+                        "event=OUTING_CREATE_IDEMPOTENT_REPLAY outingId={} ownerId={} correlationId={}", existing.getId(), actorId, correlationId);
+                return EventResponse.from(existing);
+            }
+        }
         validateDates(request.getStartAt(), request.getEndAt());
         validateCapacity(request.getCapacity(), 0);
         GeographicFields geography = geography(request);
@@ -144,14 +164,33 @@ public class EventService {
         event.setStartAt(request.getStartAt());
         event.setEndAt(request.getEndAt());
         event.setCapacity(request.getCapacity());
-        event.setStatus(EventStatus.PENDING);
+        // The public user-facing endpoint creates a grand-public outing. It is
+        // published immediately; the separate admin flow keeps its own
+        // moderation semantics. Public outings always enter the canonical
+        // Feed/Story distribution pipeline rather than relying on a mobile
+        // optimistic card.
+        boolean immediatePublicOuting = event.getVisibility() == EventVisibility.PUBLIC;
+        if (immediatePublicOuting) {
+            applySocialDistributionIntent(event, new SocialDistributionRequest(true, true));
+            markSocialDistributionProcessing(event);
+        }
+        event.setStatus(immediatePublicOuting ? EventStatus.PUBLISHED : EventStatus.PENDING);
         event.setRegisteredCount(0);
         event.setVirtual(request.isVirtual());
         event.setAccessibleCountries(request.getAccessibleCountries() == null ? new java.util.HashSet<>() : new java.util.HashSet<>(request.getAccessibleCountries()));
         event.setGeography(geography);
 
         Event saved = eventRepository.save(event);
+        if (idempotencyRecords != null && normalizedKey != null && !normalizedKey.isEmpty()) {
+            idempotencyRecords.save(EventCreateIdempotency.create(actorId, normalizedKey, saved.getId()));
+        }
         eventPublisher.publishCreated(saved, correlationId, actorId);
+        if (immediatePublicOuting) {
+            eventPublisher.publishPublished(saved, correlationId, actorId);
+        }
+        org.slf4j.LoggerFactory.getLogger(EventService.class).info(
+                "event=OUTING_CREATED outingId={} ownerId={} status={} feedDistribution={} storyDistribution={} correlationId={}",
+                saved.getId(), actorId, saved.getStatus(), saved.getFeedDistributionStatus(), saved.getStoryDistributionStatus(), correlationId);
         return EventResponse.from(saved);
     }
 

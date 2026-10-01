@@ -66,6 +66,12 @@ public class MediaController{
 
  // ---- Metadata ----------------------------------------------------------------
  @Operation(summary="Get public media metadata")
+ @GetMapping("/batch")
+ public List<MediaResponse> batchMetadata(@RequestParam List<UUID> ids){
+  if(ids.size()>50)throw new com.yeyamo_mobile.api.media_service.application.MediaException("MEDIA_BATCH_LIMIT","A maximum of 50 media identifiers is allowed");
+  return ids.stream().filter(Objects::nonNull).distinct().map(id->MediaResponse.from(service.metadata(id))).toList();}
+
+ @Operation(summary="Get public media metadata")
  @GetMapping("/{id}")
  public MediaResponse metadata(@PathVariable UUID id){
   return MediaResponse.from(service.metadata(id));}

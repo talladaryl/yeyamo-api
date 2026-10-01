@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.yeyamo_mobile.api.feed_service.application.port.*;
 import com.yeyamo_mobile.api.feed_service.application.ranking.RankingStrategy;
 import com.yeyamo_mobile.api.feed_service.domain.model.CultureContentLink;
@@ -17,17 +18,29 @@ public class FeedQueryService {
     private final RankingStrategy ranking;
     private final AdInjectionService adInjectionService;
     private final FeedMixProperties mix;
+    private final FollowingAuthorResolver followingAuthors;
     
     public FeedQueryService(
             FeedProjectionPort p,
             FeedCachePort c,
             RankingStrategy r,
             AdInjectionService adInjectionService, FeedMixProperties mix) {
+        this(p, c, r, adInjectionService, mix, (viewer, bearer, correlation) -> List.of());
+    }
+
+    @Autowired
+    public FeedQueryService(
+            FeedProjectionPort p,
+            FeedCachePort c,
+            RankingStrategy r,
+            AdInjectionService adInjectionService, FeedMixProperties mix,
+            FollowingAuthorResolver followingAuthors) {
         this.projections = p;
         this.cache = c;
         this.ranking = r;
         this.adInjectionService = adInjectionService;
         this.mix = mix;
+        this.followingAuthors = followingAuthors;
     }
  
     @Transactional(readOnly = true)
@@ -37,6 +50,20 @@ public class FeedQueryService {
     
     @Transactional(readOnly = true)
     public FeedPage feed(String user, int page, int size, String correlationId) {
+        return feed(user, page, size, FeedAudience.FOR_YOU, null, correlationId);
+    }
+
+    /**
+     * FOR_YOU keeps its ranked/cached discovery behavior. FOLLOWING is a
+     * separate server-side audience sourced from user-service and intentionally
+     * excludes the viewer's own posts: it contains accounts the viewer follows.
+     */
+    @Transactional(readOnly = true)
+    public FeedPage feed(String user, int page, int size, FeedAudience audience,
+            String bearerToken, String correlationId) {
+        if (audience == FeedAudience.FOLLOWING) {
+            return followingFeed(user, page, size, bearerToken, correlationId);
+        }
         int p = Math.max(0, page);
         int s = Math.max(1, Math.min(50, size));
 
@@ -59,6 +86,32 @@ public class FeedQueryService {
                 organicFeed.hasNext(),
                 List.copyOf(itemsWithAds),
                 organicFeed.generatedAt());
+    }
+
+    private FeedPage followingFeed(String user, int page, int size, String bearerToken, String correlationId) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, Math.min(50, size));
+        Set<String> followedAuthors = new LinkedHashSet<>(followingAuthors
+                .followedAuthorIds(user, bearerToken, correlationId));
+        if (followedAuthors.isEmpty()) {
+            return new FeedPage(user, safePage, safeSize, false, List.of(), Instant.now());
+        }
+        List<FeedItem> ranked = projections.candidatesByAuthors(followedAuthors,
+                        candidateLimit(safePage, safeSize))
+                .stream()
+                .filter(candidate -> "PUBLIC".equals(candidate.post().visibility()))
+                .filter(candidate -> "PUBLISHED".equals(candidate.post().status()))
+                .sorted(Comparator.comparing((FeedCandidate candidate) -> candidate.post().publishedAt(),
+                        Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(candidate -> candidate.post().postId()))
+                .map(candidate -> organicItem(candidate, 0d))
+                .toList();
+        int from = Math.min(safePage * safeSize, ranked.size());
+        int to = Math.min(from + safeSize, ranked.size());
+        // No advertising is injected into Following: it is the explicit social
+        // relationship feed, not discovery inventory.
+        return new FeedPage(user, safePage, safeSize, to < ranked.size(),
+                List.copyOf(ranked.subList(from, to)), Instant.now());
     }
 
     @Transactional(readOnly = true)

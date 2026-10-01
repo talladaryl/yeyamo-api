@@ -25,13 +25,15 @@ import com.yeyamo_mobile.api.event_service.enums.SocialDistributionStatus;
 import com.yeyamo_mobile.api.event_service.event.EventPublisher;
 import com.yeyamo_mobile.api.event_service.exception.ApiException;
 import com.yeyamo_mobile.api.event_service.models.Event;
+import com.yeyamo_mobile.api.event_service.models.EventCreateIdempotency;
+import com.yeyamo_mobile.api.event_service.repository.EventCreateIdempotencyRepository;
 import com.yeyamo_mobile.api.event_service.repository.EventRegistrationRepository;
 import com.yeyamo_mobile.api.event_service.repository.EventRepository;
 
 class EventSocialDistributionTest {
 
     @Test
-    void pendingCreationPersistsRequestedTargetsWithoutPublishingSocialContent() {
+    void publicOutingCreationPublishesAndStartsBothCanonicalDistributions() {
         EventRepository events = mock(EventRepository.class);
         EventPublisher publisher = mock(EventPublisher.class);
         when(events.save(any(Event.class))).thenAnswer(invocation -> {
@@ -46,25 +48,44 @@ class EventSocialDistributionTest {
 
         var response = service.create(request, "corr-1", "organizer-1");
 
-        assertEquals(EventStatus.PENDING, response.status());
-        assertEquals(SocialDistributionStatus.PENDING_MODERATION, response.socialDistribution().feedStatus());
-        assertEquals(SocialDistributionStatus.PENDING_MODERATION, response.socialDistribution().storyStatus());
+        assertEquals(EventStatus.PUBLISHED, response.status());
+        assertEquals(SocialDistributionStatus.PROCESSING, response.socialDistribution().feedStatus());
+        assertEquals(SocialDistributionStatus.PROCESSING, response.socialDistribution().storyStatus());
         verify(publisher).publishCreated(any(Event.class), org.mockito.ArgumentMatchers.eq("corr-1"), org.mockito.ArgumentMatchers.eq("organizer-1"));
-        verify(publisher, never()).publishPublished(any(), any(), any());
+        verify(publisher).publishPublished(any(), org.mockito.ArgumentMatchers.eq("corr-1"), org.mockito.ArgumentMatchers.eq("organizer-1"));
     }
 
     @Test
-    void legacyCreateDefaultsToNoSocialDistribution() {
+    void publicOutingDefaultsToCanonicalFeedAndStoryDistribution() {
         EventRepository events = mock(EventRepository.class);
         when(events.save(any(Event.class))).thenAnswer(invocation -> invocation.getArgument(0));
         EventService service = new EventService(events, mock(EventRegistrationRepository.class), mock(EventPublisher.class));
 
         var response = service.create(request(), "corr", "organizer-1");
 
-        assertFalse(response.socialDistribution().publishToFeed());
-        assertFalse(response.socialDistribution().publishToStory());
-        assertEquals(SocialDistributionStatus.NOT_REQUESTED, response.socialDistribution().feedStatus());
-        assertEquals(SocialDistributionStatus.NOT_REQUESTED, response.socialDistribution().storyStatus());
+        assertEquals(EventStatus.PUBLISHED, response.status());
+        assertEquals(true, response.socialDistribution().publishToFeed());
+        assertEquals(true, response.socialDistribution().publishToStory());
+        assertEquals(SocialDistributionStatus.PROCESSING, response.socialDistribution().feedStatus());
+        assertEquals(SocialDistributionStatus.PROCESSING, response.socialDistribution().storyStatus());
+    }
+
+    @Test
+    void replaysTheSameOutingCreateKeyWithoutPersistingAnotherEvent() {
+        Event event = pendingEvent();
+        EventRepository events = mock(EventRepository.class);
+        EventCreateIdempotencyRepository keys = mock(EventCreateIdempotencyRepository.class);
+        when(keys.findByOwnerUserIdAndIdempotencyKey("organizer-1", "outing-create-1"))
+                .thenReturn(Optional.of(EventCreateIdempotency.create("organizer-1", "outing-create-1", event.getId())));
+        when(events.findById(event.getId())).thenReturn(Optional.of(event));
+        EventPublisher publisher = mock(EventPublisher.class);
+        EventService service = new EventService(events, mock(EventRegistrationRepository.class), publisher, null, null, null, keys);
+
+        var replay = service.create(request(), "corr", "organizer-1", "outing-create-1");
+
+        assertEquals(event.getId(), replay.id());
+        verify(events, never()).save(any(Event.class));
+        verify(publisher, never()).publishCreated(any(), any(), any());
     }
 
     @Test

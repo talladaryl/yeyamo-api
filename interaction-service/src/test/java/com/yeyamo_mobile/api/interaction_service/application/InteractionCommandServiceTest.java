@@ -103,6 +103,7 @@ class InteractionCommandServiceTest {
         public void delete(PostRelation value) { values.remove(value); }
         public long count(UUID post, RelationType type) { return values.stream().filter(v -> v.postId().equals(post) && v.type() == type).count(); }
         public List<PostRelation> findFavorites(String user, int limit) { return values.stream().filter(v -> v.userId().equals(user) && v.type() == RelationType.FAVORITE).limit(limit).toList(); }
+        public List<PostRelation> findLikes(String user, int limit) { return values.stream().filter(v -> v.userId().equals(user) && v.type() == RelationType.LIKE).limit(limit).toList(); }
     }
 
     private static final class MemoryComments implements CommentRepository {

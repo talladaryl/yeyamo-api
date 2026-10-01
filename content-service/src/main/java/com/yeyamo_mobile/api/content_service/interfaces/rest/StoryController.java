@@ -92,6 +92,7 @@ public class StoryController {
     public StoryResponse create(
             @Valid @RequestBody StoryRequest request,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             Authentication auth) {
         
         String authorId = auth.getName();
@@ -103,7 +104,8 @@ public class StoryController {
                 request.caption(),
                 duration,
                 geography(request),
-                correlationId
+                correlationId,
+                idempotencyKey
         );
         
         return StoryResponse.from(story);

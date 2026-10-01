@@ -18,7 +18,11 @@ public final class MessagingDtos {
         }
     }
 
-    public record ConversationSummary(UUID id, ConversationType type, String title, MemberRole role, Instant updatedAt, String lastMessagePreview, Instant lastMessageAt) {}
+    /** Persistence projection for the current viewer; member details are batch-enriched by the service. */
+    public record InboxConversationRow(UUID id, ConversationType type, String title, MemberRole role, Instant updatedAt, String lastMessagePreview, Instant lastMessageAt) {}
+
+    /** Inbox contract deliberately carries auth-subject member ids for one mobile identity-batch resolution. */
+    public record ConversationSummary(UUID id, ConversationType type, String title, MemberRole role, Instant updatedAt, String lastMessagePreview, Instant lastMessageAt, List<String> memberIds, long unreadCount) {}
 
     public record MemberView(String userId, MemberRole role, MemberStatus status, Instant joinedAt, Instant leftAt, UUID lastReadMessageId, Instant lastReadAt) {
         public static MemberView from(ConversationMemberEntity m) {
@@ -26,11 +30,21 @@ public final class MessagingDtos {
         }
     }
 
-    public record MessageView(UUID id, UUID conversationId, String senderId, String clientMessageId, MessageType type, String body, List<UUID> attachmentIds, UUID replyToMessageId, Instant sentAt, Instant editedAt, Instant deletedAt) {
-        public static MessageView from(MessageEntity m) {
-            return new MessageView(m.getId(), m.getConversationId(), m.getSenderId(), m.getClientMessageId(), m.getMessageType(), m.getBody(), m.getAttachmentIds(), m.getReplyToMessageId(), m.getSentAt(), m.getEditedAt(), m.getDeletedAt());
+    public record ReplyPreview(UUID id, String senderId, String body, MessageType type, Instant sentAt, boolean deleted) {
+        public static ReplyPreview from(MessageEntity message) {
+            if (message == null) return null;
+            return new ReplyPreview(message.getId(), message.getSenderId(), message.getDeletedAt() == null ? message.getBody() : null, message.getMessageType(), message.getSentAt(), message.getDeletedAt() != null);
         }
     }
 
-    public record MessageSlice(List<MessageView> items, Instant nextBefore, boolean hasNext) {}
+    public record MessageView(UUID id, UUID conversationId, String senderId, String clientMessageId, MessageType type, String body, List<UUID> attachmentIds, UUID replyToMessageId, ReplyPreview replyTo, Instant sentAt, Instant editedAt, Instant deletedAt) {
+        public static MessageView from(MessageEntity m) {
+            return from(m, null);
+        }
+        public static MessageView from(MessageEntity m, ReplyPreview replyTo) {
+            return new MessageView(m.getId(), m.getConversationId(), m.getSenderId(), m.getClientMessageId(), m.getMessageType(), m.getBody(), m.getAttachmentIds(), m.getReplyToMessageId(), replyTo, m.getSentAt(), m.getEditedAt(), m.getDeletedAt());
+        }
+    }
+
+    public record MessageSlice(List<MessageView> items, Instant nextBefore, UUID nextBeforeId, boolean hasNext) {}
 }

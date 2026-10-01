@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -87,6 +88,20 @@ class FeedQueryServiceTests {
         assertEquals(1, shortPage.items().size());
     }
 
+    @Test
+    void followingFeedUsesOnlyServerResolvedFollowedAuthorsAndDoesNotInjectAds() {
+        AdInjectionService ads = mock(AdInjectionService.class);
+        FeedQueryService service = new FeedQueryService(
+                new StubProjection(candidates(3)), new MemoryCache(), new PersonalizedRankingStrategy(), ads,
+                new FeedMixProperties(), (viewer, bearer, correlation) -> List.of("author-1"));
+
+        FeedPage page = service.feed("viewer", 0, 20, FeedAudience.FOLLOWING, "token", "corr");
+
+        assertEquals(1, page.items().size());
+        assertEquals("author-1", page.items().getFirst().authorId());
+        verify(ads, times(0)).injectAds(anyList(), anyString(), anyInt(), anyString());
+    }
+
     private FeedQueryService service(List<FeedCandidate> candidates, MemoryCache cache, AdInjectionService ads) {
         return new FeedQueryService(
                 new StubProjection(candidates),
@@ -123,6 +138,9 @@ class FeedQueryServiceTests {
         public void saveMetric(FeedMetric metric) { }
         public void adjustSignal(String user, UUID post, double weight) { }
         public List<FeedCandidate> candidates(int limit) { return values; }
+        public List<FeedCandidate> candidatesByAuthors(Set<String> authorIds, int limit) {
+            return values.stream().filter(candidate -> authorIds.contains(candidate.post().authorId())).toList();
+        }
         public Map<String, Double> authorAffinities(String user) { return Map.of(); }
     }
 

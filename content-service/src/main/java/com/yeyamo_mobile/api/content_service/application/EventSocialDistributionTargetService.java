@@ -84,6 +84,7 @@ public class EventSocialDistributionTargetService {
         touch(distribution);
         distributions.save(distribution);
         publishResult(command, "FEED", PUBLISHED, published.getId(), null);
+        log.info("event=OUTING_FEED_PROJECTED outingId={} postId={} correlationId={}", command.eventId(), published.getId(), command.correlationId());
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -128,6 +129,7 @@ public class EventSocialDistributionTargetService {
         touch(distribution);
         distributions.save(distribution);
         publishResult(command, "STORY", PUBLISHED, story.getId(), null);
+        log.info("event=OUTING_STORY_CREATED outingId={} storyId={} correlationId={}", command.eventId(), story.getId(), command.correlationId());
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -140,6 +142,7 @@ public class EventSocialDistributionTargetService {
             touch(distribution);
             distributions.save(distribution);
             publishResult(command, target, FAILED, null, reason);
+            log.warn("event=OUTING_{}_DISTRIBUTION_FAILED outingId={} reason={} correlationId={}", target, command.eventId(), reason, command.correlationId());
         }
         if ("STORY".equals(target) && !terminal(distribution.getStoryStatus())) {
             distribution.setStoryStatus(FAILED);
@@ -147,6 +150,7 @@ public class EventSocialDistributionTargetService {
             touch(distribution);
             distributions.save(distribution);
             publishResult(command, target, FAILED, null, reason);
+            log.warn("event=OUTING_{}_DISTRIBUTION_FAILED outingId={} reason={} correlationId={}", target, command.eventId(), reason, command.correlationId());
         }
     }
 

@@ -131,6 +131,12 @@ class MessagingIntegrationTest {
         var reply = service.send("bob", conv.id(), new SendMessage("client-reply", MessageType.TEXT, "Superbes photos !", null, parent.id()), "corr-12");
         assertEquals(parent.id(), reply.replyToMessageId());
 
+        var history = service.messages("alice", conv.id(), null, 10);
+        var replyFromHistory = history.items().stream().filter(message -> message.id().equals(reply.id())).findFirst().orElseThrow();
+        assertNotNull(replyFromHistory.replyTo());
+        assertEquals(parent.id(), replyFromHistory.replyTo().id());
+        assertEquals("alice", replyFromHistory.replyTo().senderId());
+
         // Vérification en base
         var storedParent = messageRepository.findById(parent.id()).orElseThrow();
         assertEquals(2, storedParent.getAttachmentIds().size());
@@ -214,6 +220,8 @@ class MessagingIntegrationTest {
         List<ConversationSummary> listCarol = service.list("carol");
         assertEquals(1, listCarol.size());
         assertEquals("Projet YeYamo", listCarol.get(0).title());
+        assertEquals(Set.of("alice", "bob", "carol"), Set.copyOf(listCarol.get(0).memberIds()));
+        assertEquals(0, listCarol.get(0).unreadCount());
     }
 
     @Test
@@ -228,5 +236,12 @@ class MessagingIntegrationTest {
         var conv = service.create("alice", new CreateConversation(ConversationType.DIRECT, null, Set.of("bob")), "corr-28");
         MessagingException ex = assertThrows(MessagingException.class, () -> service.send("intruder", conv.id(), new SendMessage("client-hack", MessageType.TEXT, "Hacked", null, null), "corr-29"));
         assertEquals("FORBIDDEN", ex.getCode());
+    }
+
+    @Test
+    void test12_SelfDirectConversationIsRejected() {
+        MessagingException ex = assertThrows(MessagingException.class,
+                () -> service.create("alice", new CreateConversation(ConversationType.DIRECT, null, Set.of("alice")), "corr-30"));
+        assertEquals("SELF_CONVERSATION_FORBIDDEN", ex.getCode());
     }
 }

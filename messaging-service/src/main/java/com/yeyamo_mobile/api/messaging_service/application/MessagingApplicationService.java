@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.yeyamo_mobile.api.messaging_service.application.port.MessagingEventPort;
 import com.yeyamo_mobile.api.messaging_service.domain.*;
 import com.yeyamo_mobile.api.messaging_service.infrastructure.persistence.*;
@@ -15,6 +17,7 @@ import com.yeyamo_mobile.api.messaging_service.infrastructure.persistence.*;
 @Service
 @Transactional
 public class MessagingApplicationService {
+    private static final Logger log = LoggerFactory.getLogger(MessagingApplicationService.class);
     private final ConversationRepository conversations;
     private final ConversationMemberRepository members;
     private final DirectConversationRepository direct;
@@ -89,6 +92,9 @@ public class MessagingApplicationService {
     public ConversationView create(String actor, CreateConversation command, String correlation) {
         ConversationType type = Objects.requireNonNull(command.type(), "type");
         Set<String> participants = new LinkedHashSet<>(command.participantIds() == null ? Set.of() : command.participantIds());
+        if (type == ConversationType.DIRECT && participants.contains(actor)) {
+            throw error("SELF_CONVERSATION_FORBIDDEN", "You cannot create a direct conversation with yourself");
+        }
         participants.remove(actor);
         if (type == ConversationType.DIRECT) {
             if (participants.size() != 1) {
@@ -97,6 +103,7 @@ public class MessagingApplicationService {
             String pair = pair(actor, participants.iterator().next());
             var existing = direct.findById(pair);
             if (existing.isPresent()) {
+                log.info("event=DIRECT_CONVERSATION_RESOLVED actorId={} conversationId={}", actor, existing.get().getConversationId());
                 return get(actor, existing.get().getConversationId());
             }
         } else {
@@ -115,6 +122,7 @@ public class MessagingApplicationService {
         }
         if (type == ConversationType.DIRECT) {
             direct.save(new DirectConversationEntity(pair(actor, participants.iterator().next()), conversation.getId()));
+            log.info("event=DIRECT_CONVERSATION_CREATED actorId={} conversationId={}", actor, conversation.getId());
         }
         events.publish("messaging.conversation.created", conversation.getId().toString(), actor, correlation, participants, Map.of("conversationId", conversation.getId(), "conversationType", type.name(), "actorId", actor), ConversationView.from(conversation, saved));
         return ConversationView.from(conversation, saved);
@@ -129,12 +137,13 @@ public class MessagingApplicationService {
 
     @Transactional(readOnly = true)
     public List<ConversationSummary> list(String actor) {
-        return members.findUserConversationSummaries(actor, MemberStatus.ACTIVE);
+        return enrichInbox(actor, members.findUserConversationSummaries(actor, MemberStatus.ACTIVE));
     }
     @Transactional(readOnly = true)
     public org.springframework.data.domain.Page<ConversationSummary> page(String actor, org.springframework.data.domain.Pageable pageable) {
         var safe = org.springframework.data.domain.PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), 100), org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "updatedAt"));
-        return members.findUserConversationSummaries(actor, MemberStatus.ACTIVE, safe);
+        var rows = members.findUserConversationSummaries(actor, MemberStatus.ACTIVE, safe);
+        return new org.springframework.data.domain.PageImpl<>(enrichInbox(actor, rows.getContent()), safe, rows.getTotalElements());
     }
 
     public ConversationView addMember(String actor, UUID id, String user, String correlation) {
@@ -196,37 +205,49 @@ public class MessagingApplicationService {
         var replay = idempotency.findBySenderIdAndClientMessageId(actor, client);
         if (replay.isPresent()) {
             MessageEntity existing = messages.findById(replay.get().getMessageId()).orElseThrow(() -> error("MESSAGE_NOT_FOUND", "Message replay target not found"));
-            MessageView view = MessageView.from(existing);
+            MessageView view = view(existing);
             events.publish("messaging.message.sent", id.toString(), actor, correlation, recipientIds(id, actor), messagePayload(view), view);
             return view;
         }
         validate(command);
+        MessageEntity replyTarget = null;
         if (command.replyToMessageId() != null) {
             MessageEntity parent = message(command.replyToMessageId());
             if (!parent.getConversationId().equals(id)) {
                 throw error("INVALID_REPLY", "Reply target belongs to another conversation");
             }
+            replyTarget = parent;
         }
         MessageEntity saved = messages.save(MessageEntity.create(id, actor, client, command.type(), normalizeBody(command.body()), command.attachmentIds(), command.replyToMessageId()));
         idempotency.save(new MessageIdempotencyEntity(actor, client, saved.getId(), id));
         ConversationEntity conversation = conversation(id);
         conversation.message(saved.getId(), preview(saved), saved.getSentAt());
         conversations.save(conversation);
-        MessageView view = MessageView.from(saved);
+        MessageView view = MessageView.from(saved, ReplyPreview.from(replyTarget));
+        log.info("event={} actorId={} conversationId={} messageId={} messageLength={} hasReply={}", replyTarget == null ? "MESSAGE_PERSISTED" : "MESSAGE_REPLY_PERSISTED", actor, id, saved.getId(), saved.getBody() == null ? 0 : saved.getBody().length(), replyTarget != null);
         events.publish("messaging.message.sent", id.toString(), actor, correlation, recipientIds(id, actor), messagePayload(view), view);
+        log.info("event=MESSAGE_EVENT_PUBLISHED actorId={} conversationId={} messageId={} correlationId={}", actor, id, saved.getId(), correlation);
         return view;
     }
 
     @Transactional(readOnly = true)
     public MessageSlice messages(String actor, UUID id, Instant before, int limit) {
+        return messages(actor, id, before, null, limit);
+    }
+
+    @Transactional(readOnly = true)
+    public MessageSlice messages(String actor, UUID id, Instant before, UUID beforeId, int limit) {
         activeMember(id, actor);
         int size = Math.max(1, Math.min(limit, 100));
-        var slice = before == null 
-                ? messages.findByConversationIdOrderBySentAtDesc(id, PageRequest.of(0, size)) 
-                : messages.findByConversationIdAndSentAtLessThanOrderBySentAtDesc(id, before, PageRequest.of(0, size));
-        List<MessageView> items = slice.getContent().stream().map(MessageView::from).toList();
+        var slice = before == null
+                ? messages.findByConversationIdOrderBySentAtDescIdDesc(id, PageRequest.of(0, size))
+                : messages.findByConversationIdBeforeCursor(id, before, beforeId, PageRequest.of(0, size));
+        Map<UUID, MessageEntity> replyTargets = messages.findAllById(slice.getContent().stream().map(MessageEntity::getReplyToMessageId).filter(Objects::nonNull).distinct().toList()).stream().collect(java.util.stream.Collectors.toMap(MessageEntity::getId, java.util.function.Function.identity()));
+        List<MessageView> items = slice.getContent().stream().map(message -> MessageView.from(message, ReplyPreview.from(replyTargets.get(message.getReplyToMessageId())))).toList();
         Instant next = items.isEmpty() ? null : items.get(items.size() - 1).sentAt();
-        return new MessageSlice(items, next, slice.hasNext());
+        UUID nextId = items.isEmpty() ? null : items.get(items.size() - 1).id();
+        log.info("event=MESSAGE_HISTORY_RESOLVED actorId={} conversationId={} count={} hasNext={}", actor, id, items.size(), slice.hasNext());
+        return new MessageSlice(items, next, nextId, slice.hasNext());
     }
 
     public MessageView edit(String actor, UUID messageId, String body, String correlation) {
@@ -274,6 +295,7 @@ public class MessagingApplicationService {
         }
         member.read(messageId, Instant.now());
         members.save(member);
+        log.info("event=CONVERSATION_MARKED_READ actorId={} conversationId={} messageId={}", actor, id, messageId);
         events.publish("messaging.message.read", id.toString(), actor, correlation, recipientIds(id, actor), Map.of("conversationId", id, "messageId", messageId, "readerId", actor), Map.of("conversationId", id, "messageId", messageId, "readerId", actor));
     }
 
@@ -302,6 +324,23 @@ public class MessagingApplicationService {
 
     private List<String> recipientIds(UUID id, String excluded) {
         return members.findByConversationId(id).stream().filter(m -> m.getStatus() == MemberStatus.ACTIVE && !m.getUserId().equals(excluded)).map(ConversationMemberEntity::getUserId).toList();
+    }
+
+    private List<ConversationSummary> enrichInbox(String actor, List<InboxConversationRow> rows) {
+        if (rows.isEmpty()) return List.of();
+        List<UUID> ids = rows.stream().map(InboxConversationRow::id).toList();
+        Map<UUID, List<String>> memberIds = members.findByConversationIdIn(ids).stream()
+                .filter(member -> member.getStatus() == MemberStatus.ACTIVE)
+                .collect(java.util.stream.Collectors.groupingBy(ConversationMemberEntity::getConversationId, java.util.stream.Collectors.mapping(ConversationMemberEntity::getUserId, java.util.stream.Collectors.toList())));
+        Map<UUID, Long> unread = messages.countUnreadForViewer(actor, MemberStatus.ACTIVE, ids).stream()
+                .collect(java.util.stream.Collectors.toMap(row -> (UUID) row[0], row -> ((Number) row[1]).longValue()));
+        log.info("event=CONVERSATION_PARTICIPANTS_RESOLVED actorId={} conversationCount={} participantCount={}", actor, rows.size(), memberIds.values().stream().mapToInt(List::size).sum());
+        return rows.stream().map(row -> new ConversationSummary(row.id(), row.type(), row.title(), row.role(), row.updatedAt(), row.lastMessagePreview(), row.lastMessageAt(), memberIds.getOrDefault(row.id(), List.of()), unread.getOrDefault(row.id(), 0L))).toList();
+    }
+
+    private MessageView view(MessageEntity message) {
+        MessageEntity replyTarget = message.getReplyToMessageId() == null ? null : messages.findById(message.getReplyToMessageId()).orElse(null);
+        return MessageView.from(message, ReplyPreview.from(replyTarget));
     }
 
     private void validate(SendMessage c) {

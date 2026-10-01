@@ -29,13 +29,14 @@ public class StoryService {
     private final UserServiceClient userServiceClient;
     private final ContentOutboxPort outbox;
     private final CountryConfigClient countries;
+    private final StoryCreateIdempotencyRepository idempotencyRecords;
 
     public StoryService(
             SpringDataStoryRepository storyRepository,
             SpringDataStoryViewRepository viewRepository,
             UserServiceClient userServiceClient,
             ContentOutboxPort outbox) {
-        this(storyRepository, viewRepository, userServiceClient, outbox, null);
+        this(storyRepository, viewRepository, userServiceClient, outbox, null, null);
     }
 
     @Autowired
@@ -44,31 +45,57 @@ public class StoryService {
             SpringDataStoryViewRepository viewRepository,
             UserServiceClient userServiceClient,
             ContentOutboxPort outbox,
-            CountryConfigClient countries) {
+            CountryConfigClient countries,
+            @Autowired(required = false) StoryCreateIdempotencyRepository idempotencyRecords) {
         this.storyRepository = storyRepository;
         this.viewRepository = viewRepository;
         this.userServiceClient = userServiceClient;
         this.outbox = outbox;
         this.countries = countries;
+        this.idempotencyRecords = idempotencyRecords;
     }
 
     // ─── CRÉATION ───────────────────────────────────────────────────────────────
 
     @Transactional
     public StoryEntity create(String authorId, UUID mediaId, String caption, int durationSeconds, String correlationId) {
-        return create(authorId, mediaId, caption, durationSeconds, null, correlationId);
+        return create(authorId, mediaId, caption, durationSeconds, null, correlationId, null);
     }
 
     @Transactional
     public StoryEntity create(String authorId, UUID mediaId, String caption, int durationSeconds,
             GeographicFields geography, String correlationId) {
-        return create(authorId, mediaId, caption, durationSeconds, geography, PostReferenceType.NONE, null, correlationId);
+        return create(authorId, mediaId, caption, durationSeconds, geography, PostReferenceType.NONE, null, correlationId, null);
+    }
+
+    @Transactional
+    public StoryEntity create(String authorId, UUID mediaId, String caption, int durationSeconds,
+            GeographicFields geography, String correlationId, String idempotencyKey) {
+        return create(authorId, mediaId, caption, durationSeconds, geography, PostReferenceType.NONE, null, correlationId, idempotencyKey);
     }
 
     /** Creates a Story with a generic Content reference when one is available. */
     @Transactional
     public StoryEntity create(String authorId, UUID mediaId, String caption, int durationSeconds,
             GeographicFields geography, PostReferenceType referenceType, String referenceId, String correlationId) {
+        return create(authorId, mediaId, caption, durationSeconds, geography, referenceType, referenceId, correlationId, null);
+    }
+
+    /** Retry protection is scoped to (author, key), never to the media id. */
+    @Transactional
+    public StoryEntity create(String authorId, UUID mediaId, String caption, int durationSeconds,
+            GeographicFields geography, PostReferenceType referenceType, String referenceId, String correlationId,
+            String idempotencyKey) {
+        String normalizedKey = idempotencyKey == null ? null : idempotencyKey.trim();
+        if (idempotencyRecords != null && normalizedKey != null && !normalizedKey.isEmpty()) {
+            StoryEntity existing = idempotencyRecords.findByAuthorIdAndIdempotencyKey(authorId, normalizedKey)
+                    .flatMap(record -> storyRepository.findById(record.getStoryId()))
+                    .orElse(null);
+            if (existing != null) {
+                log.info("event=STORY_CREATE_IDEMPOTENT_REPLAY storyId={} authorId={} correlationId={}", existing.getId(), authorId, correlationId);
+                return existing;
+            }
+        }
         validateGeography(geography);
         Instant now = Instant.now();
         Instant expiresAt = now.plus(24, ChronoUnit.HOURS); // Stories expirent après 24h
@@ -86,6 +113,9 @@ public class StoryService {
         story.setReferenceId(referenceId);
 
         StoryEntity saved = storyRepository.save(story);
+        if (idempotencyRecords != null && normalizedKey != null && !normalizedKey.isEmpty()) {
+            idempotencyRecords.save(StoryCreateIdempotencyEntity.of(authorId, normalizedKey, saved.getId()));
+        }
 
         // Événement Kafka
         java.util.Map<String, String> eventPayload = new java.util.LinkedHashMap<>();

@@ -49,9 +49,10 @@ public class EventController {
     public EventResponse create(
             @Valid @RequestBody EventRequest request,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             Authentication authentication
     ) {
-        return eventService.create(request, correlationId, authentication.getName());
+        return eventService.create(request, correlationId, authentication.getName(), idempotencyKey);
     }
 
     @GetMapping("/upcoming")

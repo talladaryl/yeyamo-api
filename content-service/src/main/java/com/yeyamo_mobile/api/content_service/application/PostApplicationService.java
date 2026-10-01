@@ -22,6 +22,8 @@ public class PostApplicationService{
  @Transactional(readOnly=true)public Post publicPost(UUID id){Post p=required(id);if(!p.publiclyVisible())throw new ContentException("POST_NOT_FOUND","Post not found");return p;}
  @Transactional(readOnly=true)public Post myPost(UUID id,String actorId,boolean admin){return owned(id,actorId,admin);}
  @Transactional(readOnly=true)public List<Post> myPosts(String authorId,int limit){return repository.findByAuthor(authorId,cap(limit));}
+ @Transactional(readOnly=true)public List<Post> publicPostsByIds(List<UUID> ids){if(ids==null||ids.isEmpty())return List.of();var ordered=ids.stream().filter(Objects::nonNull).distinct().limit(50).toList();var byId=repository.findPublishedByIds(ordered).stream().collect(java.util.stream.Collectors.toMap(Post::getId,java.util.function.Function.identity()));return ordered.stream().map(byId::get).filter(Objects::nonNull).toList();}
+ @Transactional(readOnly=true)public List<Post> publicPostsByAuthor(String authorId,int limit){return repository.findPublishedByAuthor(authorId,cap(limit));}
  @Transactional(readOnly=true)public List<Post> byHashtag(String hashtag,int limit){return repository.findPublishedByHashtag(normalizeTag(hashtag),cap(limit));}
  @Transactional(readOnly=true)public List<Post> byCatalogAsset(UUID assetId,int limit){return repository.findPublishedByCatalogAsset(assetId,cap(limit));}
  private Post owned(UUID id,String actor,boolean admin){Post p=required(id);if(!admin&&!p.getAuthorId().equals(actor))throw new ContentException("POST_FORBIDDEN","Only the author can modify this post");return p;}

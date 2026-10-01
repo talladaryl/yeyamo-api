@@ -286,14 +286,26 @@ public class SocialGraphService {
             String viewerAuthUserId, List<String> authUserIds) {
         if (authUserIds == null || authUserIds.isEmpty()) return List.of();
         UUID viewerProfileId = getProfileId(viewerAuthUserId);
-        return profileRepository.findByAuthUserIdIn(authUserIds.stream()
+        List<String> requestedAuthUserIds = authUserIds.stream()
                         .filter(id -> id != null && !id.isBlank())
                         .distinct()
                         .limit(50)
-                        .toList())
-                .stream()
-                .filter(profile -> profile.getStatus() == ProfileStatus.ACTIVE
-                        && profile.getVisibility() == ProfileVisibility.PUBLIC)
+                        .toList();
+        List<UserProfile> foundProfiles = profileRepository.findByAuthUserIdIn(requestedAuthUserIds);
+        List<UserProfile> visibleProfiles = foundProfiles.stream()
+                // A private profile is visible to its owner. Without this
+                // condition the Feed loses the canonical identity of the
+                // current viewer and can offer a self-follow action.
+                .filter(profile -> profile.isVisibleTo(viewerAuthUserId))
+                .toList();
+        var foundAuthUserIds = foundProfiles.stream().map(UserProfile::getAuthUserId).collect(Collectors.toSet());
+        var visibleAuthUserIds = visibleProfiles.stream().map(UserProfile::getAuthUserId).collect(Collectors.toSet());
+        var missingAuthUserIds = requestedAuthUserIds.stream().filter(id -> !foundAuthUserIds.contains(id)).toList();
+        var notVisibleAuthUserIds = requestedAuthUserIds.stream().filter(id -> foundAuthUserIds.contains(id) && !visibleAuthUserIds.contains(id)).toList();
+        log.info("event=CONTENT_AUTHOR_IDENTITIES_RESOLVED viewerAuthUserId={} requested={} found={} resolved={} missingAuthUserIds={} notVisibleAuthUserIds={}",
+                viewerAuthUserId, requestedAuthUserIds.size(), foundProfiles.size(), visibleProfiles.size(),
+                missingAuthUserIds, notVisibleAuthUserIds);
+        return visibleProfiles.stream()
                 .map(profile -> FeedAuthorIdentityResponse.from(profile,
                         followRepository.existsByIdFollowerIdAndIdFolloweeId(viewerProfileId, profile.getId())))
                 .toList();
