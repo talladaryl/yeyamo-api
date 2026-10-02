@@ -1,0 +1,12 @@
+package com.yeyamo_mobile.api.notification_service.application;
+
+import static org.mockito.Mockito.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yeyamo_mobile.api.notification_service.infrastructure.messaging.UserActivityClient;
+import com.yeyamo_mobile.api.notification_service.infrastructure.persistence.*;
+import java.time.Instant;import java.util.*;import org.junit.jupiter.api.Test;
+
+class ReengagementDigestServiceTest {
+ @Test void sendsOneAggregatedDigestAndHonorsCooldownAndOptOut(){var activity=mock(UserActivityClient.class);var notifications=mock(SpringNotificationRepository.class);var preferences=mock(SpringPreferenceRepository.class);var states=mock(ReengagementStateRepository.class);var app=mock(NotificationApplicationService.class);var service=new ReengagementDigestService(activity,notifications,preferences,states,app,new ObjectMapper(),true,7,7);var pref=mock(PreferenceEntity.class);when(pref.isEmailEnabled()).thenReturn(true);when(pref.getEmailAddress()).thenReturn("u@test.io");when(preferences.findById("u")).thenReturn(Optional.of(pref));when(notifications.countMeaningfulUnread(eq("u"),any())).thenReturn(List.<Object[]>of(new Object[]{"interaction.like.added",3L},new Object[]{"messaging.message.sent",2L}));Instant now=Instant.parse("2026-10-02T10:00:00Z");service.process("u",now);verify(app).create(argThat(i->i.variables().get("summary").contains("3 mentions")&&i.variables().get("summary").contains("2 nouveaux messages")));verify(states).save(any());reset(app);when(states.findById("u")).thenReturn(Optional.of(new ReengagementStateEntity("u",now.minusSeconds(60))));service.process("u",now);verifyNoInteractions(app);when(pref.isEmailEnabled()).thenReturn(false);when(states.findById("u")).thenReturn(Optional.empty());service.process("u",now);verifyNoInteractions(app);}
+ @Test void emptyActivitySendsNothing(){var notifications=mock(SpringNotificationRepository.class);var preferences=mock(SpringPreferenceRepository.class);var pref=mock(PreferenceEntity.class);when(pref.isEmailEnabled()).thenReturn(true);when(pref.getEmailAddress()).thenReturn("u@test.io");when(preferences.findById("u")).thenReturn(Optional.of(pref));when(notifications.countMeaningfulUnread(eq("u"),any())).thenReturn(List.of());var app=mock(NotificationApplicationService.class);new ReengagementDigestService(mock(UserActivityClient.class),notifications,preferences,mock(ReengagementStateRepository.class),app,new ObjectMapper(),true,7,7).process("u",Instant.now());verifyNoInteractions(app);}
+}

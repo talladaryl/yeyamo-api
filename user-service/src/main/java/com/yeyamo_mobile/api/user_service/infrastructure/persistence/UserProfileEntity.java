@@ -67,6 +67,13 @@ public class UserProfileEntity {
     
     @Column(name = "local_radius_km") private Integer localRadiusKm;
     @Column(name = "discover_african_content", nullable = false) private boolean discoverAfricanContent;
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_interest_categories", joinColumns = @JoinColumn(name = "profile_id"))
+    @Column(name = "category_code", length = 100)
+    private Set<String> interestCodes = new HashSet<>();
+    @Column(name = "interests_onboarding_completed", nullable = false) private boolean interestsOnboardingCompleted;
+    @Column(name = "last_login_at") private Instant lastLoginAt;
+    @Column(name = "last_active_at") private Instant lastActiveAt;
     
     @Column(name = "created_at", nullable = false) private Instant createdAt;
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
@@ -149,6 +156,14 @@ public class UserProfileEntity {
     public void setDiscoverAfricanContent(boolean discoverAfricanContent) { 
         this.discoverAfricanContent = discoverAfricanContent; 
     }
+    public Set<String> getInterestCodes() { return interestCodes; }
+    public void setInterestCodes(Set<String> value) { this.interestCodes = value; }
+    public boolean isInterestsOnboardingCompleted() { return interestsOnboardingCompleted; }
+    public void setInterestsOnboardingCompleted(boolean value) { this.interestsOnboardingCompleted = value; }
+    public Instant getLastLoginAt() { return lastLoginAt; }
+    public void setLastLoginAt(Instant value) { this.lastLoginAt = value; }
+    public Instant getLastActiveAt() { return lastActiveAt; }
+    public void setLastActiveAt(Instant value) { this.lastActiveAt = value; }
     
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant value) { this.createdAt = value; }

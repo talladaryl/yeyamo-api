@@ -35,6 +35,9 @@ public class JpaUserProfileRepositoryAdapter implements UserProfileRepository {
     @Override public List<UserProfile> findByAuthUserIdIn(List<String> authUserIds) {
         return repository.findByAuthUserIdIn(authUserIds).stream().map(this::toDomain).toList();
     }
+    @Override public List<String> findInactiveAuthUserIds(java.time.Instant before, int limit) {
+        return repository.findInactiveAuthUserIds(before, org.springframework.data.domain.PageRequest.of(0, Math.max(1, Math.min(limit, 1000))));
+    }
 
     private UserProfileEntity toEntity(UserProfile p) {
         UserProfileEntity e = new UserProfileEntity();
@@ -53,6 +56,9 @@ public class JpaUserProfileRepositoryAdapter implements UserProfileRepository {
         e.setTimezone(p.getTimezone()); e.setPreferredCurrencyCode(p.getPreferredCurrencyCode());
         e.setContentCountries(new java.util.HashSet<>(p.getContentCountries())); e.setContentLanguages(new java.util.HashSet<>(p.getContentLanguages()));
         e.setLocalRadiusKm(p.getLocalRadiusKm()); e.setDiscoverAfricanContent(p.isDiscoverAfricanContent());
+        e.setInterestCodes(new java.util.HashSet<>(p.getInterestCodes()));
+        e.setInterestsOnboardingCompleted(p.isInterestsOnboardingCompleted());
+        e.setLastLoginAt(p.getLastLoginAt()); e.setLastActiveAt(p.getLastActiveAt());
         e.setCreatedAt(p.getCreatedAt()); e.setUpdatedAt(p.getUpdatedAt()); e.setDeletedAt(p.getDeletedAt());
         e.setVersion(p.getVersion()); return e;
     }
@@ -75,6 +81,9 @@ public class JpaUserProfileRepositoryAdapter implements UserProfileRepository {
         p.setContentCountries(e.getContentCountries() == null ? new java.util.HashSet<>() : new java.util.HashSet<>(e.getContentCountries()));
         p.setContentLanguages(e.getContentLanguages() == null ? new java.util.HashSet<>() : new java.util.HashSet<>(e.getContentLanguages()));
         p.setLocalRadiusKm(e.getLocalRadiusKm()); p.setDiscoverAfricanContent(e.isDiscoverAfricanContent());
+        p.setInterestCodes(e.getInterestCodes() == null ? new java.util.HashSet<>() : new java.util.HashSet<>(e.getInterestCodes()));
+        p.setInterestsOnboardingCompleted(e.isInterestsOnboardingCompleted());
+        p.setLastLoginAt(e.getLastLoginAt()); p.setLastActiveAt(e.getLastActiveAt());
         p.setCreatedAt(e.getCreatedAt()); p.setUpdatedAt(e.getUpdatedAt()); p.setDeletedAt(e.getDeletedAt());
         p.setVersion(e.getVersion()); return p;
     }

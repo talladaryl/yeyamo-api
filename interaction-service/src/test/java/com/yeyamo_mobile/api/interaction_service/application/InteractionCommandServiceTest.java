@@ -11,7 +11,8 @@ import com.yeyamo_mobile.api.interaction_service.application.port.*;
 import com.yeyamo_mobile.api.interaction_service.domain.model.*;
 import com.yeyamo_mobile.api.interaction_service.domain.port.*;
 import com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.SpringReviewRepository;
-import static org.mockito.Mockito.mock;
+import com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.SpringPostViewRepository;
+import static org.mockito.Mockito.*;
 
 class InteractionCommandServiceTest {
     private final MemoryRelations relations = new MemoryRelations();
@@ -21,13 +22,26 @@ class InteractionCommandServiceTest {
     private final MemoryReceipts receipts = new MemoryReceipts();
     private final RecordingOutbox outbox = new RecordingOutbox();
     private final RecordingCache cache = new RecordingCache();
+    private final SpringPostViewRepository postViews = mock(SpringPostViewRepository.class);
     private InteractionCommandService service;
 
     @BeforeEach
     void setUp() {
         service = new InteractionCommandService(
-                relations, comments, shares, checkIns, mock(SpringReviewRepository.class),
+                relations, comments, shares, checkIns, mock(SpringReviewRepository.class), postViews,
                 receipts, outbox, cache);
+    }
+
+    @Test
+    void postViewIsPersistedOncePerViewer() {
+        UUID postId = UUID.randomUUID();
+        when(postViews.existsById(any())).thenReturn(false, true);
+
+        service.recordPostView(postId, "viewer-1", "corr-1");
+        service.recordPostView(postId, "viewer-1", "corr-2");
+
+        verify(postViews, times(1)).save(any());
+        assertEquals(List.of("interaction.post.viewed"), outbox.events);
     }
 
     @Test

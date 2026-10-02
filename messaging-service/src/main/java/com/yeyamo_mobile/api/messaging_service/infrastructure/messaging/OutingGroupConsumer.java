@@ -41,7 +41,17 @@ public class OutingGroupConsumer {
     @Transactional
     public void consume(String raw) throws Exception {
         JsonNode event = mapper.readTree(raw);
-        if (!"event-service".equals(text(event, "producer")) || !"event.published".equals(text(event, "eventType"))) return;
+        if (!"event-service".equals(text(event, "producer"))) return;
+        String eventType = text(event, "eventType");
+        if ("event.registration.created".equals(eventType)) {
+            addRegisteredParticipant(event);
+            return;
+        }
+        if ("event.registration.cancelled".equals(eventType)) {
+            removeCancelledParticipant(event);
+            return;
+        }
+        if (!"event.published".equals(eventType)) return;
         JsonNode payload = event.path("payload");
         if (!"PUBLIC".equals(text(payload, "visibility"))) return;
 
@@ -62,6 +72,40 @@ public class OutingGroupConsumer {
         events.publish("messaging.outing.group.created", outingId.toString(), ownerId, correlationId, Set.of(ownerId),
                 Map.of("outingId", outingId.toString(), "groupId", group.id().toString()), group);
         log.info("event=OUTING_GROUP_CREATED outingId={} groupId={} correlationId={}", outingId, group.id(), correlationId);
+    }
+
+    /** Event-service is the source of truth for registrations. Replaying the
+     * event is safe because addMember returns the existing active membership. */
+    private void addRegisteredParticipant(JsonNode event) {
+        JsonNode payload = event.path("payload");
+        UUID outingId = UUID.fromString(required(payload, "eventId"));
+        String participantId = required(payload, "registrationUserId");
+        String correlationId = text(event, "correlationId");
+        OutingGroupLinkEntity link = links.findById(outingId).orElse(null);
+        if (link == null) {
+            log.info("event=OUTING_GROUP_PARTICIPANT_DEFERRED outingId={} participantId={} correlationId={}", outingId, participantId, correlationId);
+            return;
+        }
+        if (participantId.equals(link.getOwnerUserId())) return;
+        conversations.addMember(link.getOwnerUserId(), link.getConversationId(), participantId, correlationId);
+        log.info("event=OUTING_GROUP_PARTICIPANT_ADDED outingId={} groupId={} participantId={} correlationId={}", outingId, link.getConversationId(), participantId, correlationId);
+    }
+
+    /** A cancelled registration must not retain an active group membership.
+     * The active-membership check makes cancellation event replay harmless. */
+    private void removeCancelledParticipant(JsonNode event) {
+        JsonNode payload = event.path("payload");
+        UUID outingId = UUID.fromString(required(payload, "eventId"));
+        String participantId = required(payload, "registrationUserId");
+        String correlationId = text(event, "correlationId");
+        OutingGroupLinkEntity link = links.findById(outingId).orElse(null);
+        if (link == null) return;
+        if (participantId.equals(link.getOwnerUserId())) return;
+        boolean active = conversations.get(link.getOwnerUserId(), link.getConversationId()).members().stream()
+                .anyMatch(member -> participantId.equals(member.userId()) && member.status() == com.yeyamo_mobile.api.messaging_service.domain.MemberStatus.ACTIVE);
+        if (!active) return;
+        conversations.removeMember(link.getOwnerUserId(), link.getConversationId(), participantId, correlationId);
+        log.info("event=OUTING_GROUP_PARTICIPANT_REMOVED outingId={} groupId={} participantId={} correlationId={}", outingId, link.getConversationId(), participantId, correlationId);
     }
 
     private static String required(JsonNode node, String field) {

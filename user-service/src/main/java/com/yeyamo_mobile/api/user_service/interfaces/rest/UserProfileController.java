@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,6 +27,7 @@ import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.UpdateLanguageRequ
 import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.UpdateLocationRequest;
 import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.UpdatePreferencesRequest;
 import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.UpdateProfileRequest;
+import com.yeyamo_mobile.api.user_service.interfaces.rest.dto.UpdateInterestsRequest;
 
 import jakarta.validation.Valid;
 
@@ -62,6 +64,18 @@ public class UserProfileController {
         return MyProfileResponse.from(service.updatePreferences(authentication.getName(),
                 request.notificationsEnabled(), request.locationSharingEnabled(), request.preferredRegionId(),
                 correlationId));
+    }
+
+    @PutMapping("/me/interests")
+    public MyProfileResponse interests(@Valid @RequestBody UpdateInterestsRequest request, Authentication authentication,
+            @RequestHeader(value = "X-Correlation-ID", required = false) String correlationId) {
+        return MyProfileResponse.from(service.updateInterests(authentication.getName(), request.categoryCodes(),
+                request.completeOnboarding(), correlationId));
+    }
+
+    @PostMapping("/me/activity")
+    public MyProfileResponse activity(@RequestParam(defaultValue = "false") boolean login, Authentication authentication) {
+        return MyProfileResponse.from(service.recordActivity(authentication.getName(), login));
     }
 
     /**

@@ -58,6 +58,19 @@ public class SocialGraphController {
         return socialGraphService.resolveContentAuthorIdentities(authentication.getName(), authUserIds);
     }
 
+    /**
+     * Resolves the minimal identity shown inside an already-authorized messaging UI.
+     * Unlike the content resolver, this contract must not hide private profiles: the
+     * messaging service remains responsible for conversation membership authorization.
+     */
+    @GetMapping("/messaging-identities")
+    @Operation(summary = "Resolve minimal messaging identities")
+    public List<FeedAuthorIdentityResponse> resolveMessagingIdentities(
+            @RequestParam List<String> authUserIds,
+            Authentication authentication) {
+        return socialGraphService.resolveMessagingIdentities(authentication.getName(), authUserIds);
+    }
+
     // ─── FOLLOW OPERATIONS ──────────────────────────────────────────────────────
 
     @PostMapping("/{userId}/follow")

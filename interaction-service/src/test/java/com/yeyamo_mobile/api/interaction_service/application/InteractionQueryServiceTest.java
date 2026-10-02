@@ -13,6 +13,7 @@ import com.yeyamo_mobile.api.interaction_service.application.port.InteractionCac
 import com.yeyamo_mobile.api.interaction_service.domain.model.RelationType;
 import com.yeyamo_mobile.api.interaction_service.domain.port.*;
 import com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.SpringReviewRepository;
+import com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.SpringPostViewRepository;
 
 class InteractionQueryServiceTest {
 
@@ -28,16 +29,19 @@ class InteractionQueryServiceTest {
         when(relations.count(postId, RelationType.LIKE)).thenReturn(12L);
         when(comments.countActiveByPost(postId)).thenReturn(3L);
         when(shares.countByPost(postId)).thenReturn(2L);
+        SpringPostViewRepository postViews = mock(SpringPostViewRepository.class);
+        when(postViews.countByIdPostId(postId)).thenReturn(27L);
         when(relations.find(postId, "viewer", RelationType.LIKE)).thenReturn(Optional.empty());
         when(relations.find(postId, "viewer", RelationType.FAVORITE)).thenReturn(Optional.empty());
 
         InteractionSummary result = new InteractionQueryService(
-                relations, comments, shares, checkIns, mock(SpringReviewRepository.class), cache)
+                relations, comments, shares, checkIns, mock(SpringReviewRepository.class), postViews, cache)
                 .summary(postId, "viewer");
 
         assertEquals(12, result.likes());
         assertEquals(3, result.comments());
         assertEquals(2, result.shares());
+        assertEquals(27, result.views());
         verify(cache).putCounts(postId, new InteractionSummary.Counts(12, 3, 2));
     }
 
@@ -52,7 +56,7 @@ class InteractionQueryServiceTest {
         when(cache.getCounts(postId)).thenReturn(Optional.of(new InteractionSummary.Counts(5, 4, 3)));
 
         InteractionSummary result = new InteractionQueryService(
-                relations, comments, shares, checkIns, mock(SpringReviewRepository.class), cache)
+                relations, comments, shares, checkIns, mock(SpringReviewRepository.class), mock(SpringPostViewRepository.class), cache)
                 .summary(postId, null);
 
         assertEquals(5, result.likes());
@@ -69,16 +73,20 @@ class InteractionQueryServiceTest {
         ShareRepository shares = mock(ShareRepository.class);
         CheckInRepository checkIns = mock(CheckInRepository.class);
         InteractionCachePort cache = mock(InteractionCachePort.class);
+        SpringPostViewRepository postViews = mock(SpringPostViewRepository.class);
         when(cache.getCounts(postId)).thenReturn(Optional.of(new InteractionSummary.Counts(2, 1, 0)));
+        when(postViews.countByPostIds(List.of(postId))).thenReturn(List.<Object[]>of(new Object[] { postId, 9L }));
         when(relations.find(postId, "viewer", RelationType.LIKE)).thenReturn(Optional.empty());
         when(relations.find(postId, "viewer", RelationType.FAVORITE)).thenReturn(Optional.empty());
 
         var result = new InteractionQueryService(relations, comments, shares, checkIns,
-                mock(SpringReviewRepository.class), cache)
+                mock(SpringReviewRepository.class), postViews, cache)
                 .summaries(List.of(postId, postId), "viewer");
 
         assertEquals(1, result.size());
         assertEquals(postId, result.getFirst().postId());
+        assertEquals(9, result.getFirst().views());
         verify(cache, times(1)).getCounts(postId);
+        verify(postViews, times(1)).countByPostIds(List.of(postId));
     }
 }

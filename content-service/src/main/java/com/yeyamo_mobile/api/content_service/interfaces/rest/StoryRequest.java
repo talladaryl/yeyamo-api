@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.Valid;
 
 public record StoryRequest(
     @NotNull(message = "L'ID du média est obligatoire")
@@ -15,6 +16,7 @@ public record StoryRequest(
     
     @Size(max = 500, message = "La légende ne peut pas dépasser 500 caractères")
     String caption,
+    @Valid StoryCaptionStyleRequest captionStyle,
     
     @Min(value = 5, message = "La durée minimale est de 5 secondes")
     @Max(value = 60, message = "La durée maximale est de 60 secondes")

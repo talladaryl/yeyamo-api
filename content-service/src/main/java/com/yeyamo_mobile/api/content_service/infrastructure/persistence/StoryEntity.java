@@ -13,6 +13,12 @@ public class StoryEntity {
     @Column(name = "author_id", nullable = false, length = 100) private String authorId;
     @Column(name = "media_id", nullable = false) private UUID mediaId;
     @Column(columnDefinition = "TEXT") private String caption;
+    @Column(name = "caption_font_family", nullable = false, length = 24)
+    private String captionFontFamily = "SYSTEM";
+    @Column(name = "caption_bold", nullable = false) private boolean captionBold;
+    @Column(name = "caption_italic", nullable = false) private boolean captionItalic;
+    @Column(name = "caption_underline", nullable = false) private boolean captionUnderline;
+    @Column(name = "caption_strikethrough", nullable = false) private boolean captionStrikethrough;
     @Column(name = "duration_seconds", nullable = false) private int durationSeconds;
     @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
     @Column(name = "expires_at", nullable = false) private Instant expiresAt;
@@ -32,6 +38,16 @@ public class StoryEntity {
     public void setMediaId(UUID mediaId) { this.mediaId = mediaId; }
     public String getCaption() { return caption; }
     public void setCaption(String caption) { this.caption = caption; }
+    public String getCaptionFontFamily() { return captionFontFamily; }
+    public void setCaptionFontFamily(String captionFontFamily) { this.captionFontFamily = captionFontFamily == null ? "SYSTEM" : captionFontFamily; }
+    public boolean isCaptionBold() { return captionBold; }
+    public void setCaptionBold(boolean captionBold) { this.captionBold = captionBold; }
+    public boolean isCaptionItalic() { return captionItalic; }
+    public void setCaptionItalic(boolean captionItalic) { this.captionItalic = captionItalic; }
+    public boolean isCaptionUnderline() { return captionUnderline; }
+    public void setCaptionUnderline(boolean captionUnderline) { this.captionUnderline = captionUnderline; }
+    public boolean isCaptionStrikethrough() { return captionStrikethrough; }
+    public void setCaptionStrikethrough(boolean captionStrikethrough) { this.captionStrikethrough = captionStrikethrough; }
     public int getDurationSeconds() { return durationSeconds; }
     public void setDurationSeconds(int durationSeconds) { this.durationSeconds = durationSeconds; }
     public Instant getCreatedAt() { return createdAt; }

@@ -16,6 +16,7 @@ import com.yeyamo_mobile.api.content_service.infrastructure.client.UserServiceCl
 import com.yeyamo_mobile.api.content_service.infrastructure.outbox.ContentOutboxPort;
 import com.yeyamo_mobile.api.content_service.infrastructure.persistence.*;
 import com.yeyamo_mobile.api.content_service.domain.model.PostReferenceType;
+import com.yeyamo_mobile.api.content_service.interfaces.rest.StoryCaptionStyleRequest;
 import com.yeyamo_mobile.shared.country.CountryConfigClient;
 import com.yeyamo_mobile.shared.country.CountryConfigClient.CountryFeature;
 import com.yeyamo_mobile.shared.geography.GeographicFields;
@@ -71,14 +72,19 @@ public class StoryService {
     @Transactional
     public StoryEntity create(String authorId, UUID mediaId, String caption, int durationSeconds,
             GeographicFields geography, String correlationId, String idempotencyKey) {
-        return create(authorId, mediaId, caption, durationSeconds, geography, PostReferenceType.NONE, null, correlationId, idempotencyKey);
+        return create(authorId, mediaId, caption, durationSeconds, geography, PostReferenceType.NONE, null, correlationId, idempotencyKey, null);
+    }
+
+    public StoryEntity create(String authorId, UUID mediaId, String caption, int durationSeconds,
+            GeographicFields geography, String correlationId, String idempotencyKey, StoryCaptionStyleRequest captionStyle) {
+        return create(authorId, mediaId, caption, durationSeconds, geography, PostReferenceType.NONE, null, correlationId, idempotencyKey, captionStyle);
     }
 
     /** Creates a Story with a generic Content reference when one is available. */
     @Transactional
     public StoryEntity create(String authorId, UUID mediaId, String caption, int durationSeconds,
             GeographicFields geography, PostReferenceType referenceType, String referenceId, String correlationId) {
-        return create(authorId, mediaId, caption, durationSeconds, geography, referenceType, referenceId, correlationId, null);
+        return create(authorId, mediaId, caption, durationSeconds, geography, referenceType, referenceId, correlationId, null, null);
     }
 
     /** Retry protection is scoped to (author, key), never to the media id. */
@@ -86,6 +92,12 @@ public class StoryService {
     public StoryEntity create(String authorId, UUID mediaId, String caption, int durationSeconds,
             GeographicFields geography, PostReferenceType referenceType, String referenceId, String correlationId,
             String idempotencyKey) {
+        return create(authorId, mediaId, caption, durationSeconds, geography, referenceType, referenceId, correlationId, idempotencyKey, null);
+    }
+
+    public StoryEntity create(String authorId, UUID mediaId, String caption, int durationSeconds,
+            GeographicFields geography, PostReferenceType referenceType, String referenceId, String correlationId,
+            String idempotencyKey, StoryCaptionStyleRequest captionStyle) {
         String normalizedKey = idempotencyKey == null ? null : idempotencyKey.trim();
         if (idempotencyRecords != null && normalizedKey != null && !normalizedKey.isEmpty()) {
             StoryEntity existing = idempotencyRecords.findByAuthorIdAndIdempotencyKey(authorId, normalizedKey)
@@ -105,6 +117,7 @@ public class StoryService {
         story.setAuthorId(authorId);
         story.setMediaId(mediaId);
         story.setCaption(caption);
+        applyCaptionStyle(story, captionStyle);
         story.setDurationSeconds(durationSeconds > 0 ? durationSeconds : 15);
         story.setCreatedAt(now);
         story.setExpiresAt(expiresAt);
@@ -248,6 +261,17 @@ public class StoryService {
         } catch (CountryConfigClient.CountryConfigException exception) {
             throw new ContentException("COUNTRY_CONFIGURATION_REJECTED", exception.getMessage());
         }
+    }
+
+    private void applyCaptionStyle(StoryEntity story, StoryCaptionStyleRequest captionStyle) {
+        StoryCaptionStyleRequest style = captionStyle == null
+                ? new StoryCaptionStyleRequest(StoryCaptionStyleRequest.DEFAULT_FONT, false, false, false, false)
+                : captionStyle;
+        story.setCaptionFontFamily(style.normalizedFontFamily());
+        story.setCaptionBold(style.isBold());
+        story.setCaptionItalic(style.isItalic());
+        story.setCaptionUnderline(style.isUnderline());
+        story.setCaptionStrikethrough(style.isStrikethrough());
     }
 
     // ─── NESTED CLASSES ─────────────────────────────────────────────────────────

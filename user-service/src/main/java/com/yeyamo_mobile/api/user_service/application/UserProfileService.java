@@ -4,12 +4,15 @@ import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.UUID;
 import java.time.ZoneId;
+import java.time.Instant;
+import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.yeyamo_mobile.api.user_service.application.exception.UserProfileException;
@@ -25,16 +28,22 @@ public class UserProfileService {
     private final UserProfileRepository repository;
     private final OutboxPort outbox;
     private final CountryConfigClient countries;
+    private final com.yeyamo_mobile.api.user_service.infrastructure.client.CategoryValidationClient categories;
+    private final long activityThrottleSeconds;
 
     public UserProfileService(UserProfileRepository repository, OutboxPort outbox) {
-        this(repository, outbox, null);
+        this(repository, outbox, null, null, 300);
     }
 
     @Autowired
-    public UserProfileService(UserProfileRepository repository, OutboxPort outbox, CountryConfigClient countries) {
+    public UserProfileService(UserProfileRepository repository, OutboxPort outbox, CountryConfigClient countries,
+            com.yeyamo_mobile.api.user_service.infrastructure.client.CategoryValidationClient categories,
+            @Value("${yeyamo.user.activity-throttle-seconds:300}") long activityThrottleSeconds) {
         this.repository = repository;
         this.outbox = outbox;
         this.countries = countries;
+        this.categories = categories;
+        this.activityThrottleSeconds = Math.max(60, activityThrottleSeconds);
     }
 
     @Transactional
@@ -199,6 +208,38 @@ public class UserProfileService {
         if (timezone == null || timezone.isBlank()) return;
         try { ZoneId.of(timezone); }
         catch (RuntimeException exception) { throw new UserProfileException("TIMEZONE_INVALID", "Fuseau horaire IANA invalide", HttpStatus.BAD_REQUEST); }
+    }
+
+    @Transactional
+    public UserProfile updateInterests(String authUserId, java.util.Set<String> categoryCodes,
+            boolean completeOnboarding, String correlationId) {
+        java.util.Set<String> normalized = categoryCodes == null ? java.util.Set.of() : categoryCodes.stream()
+                .filter(java.util.Objects::nonNull).map(String::trim).filter(value -> !value.isEmpty())
+                .map(value -> value.toLowerCase(java.util.Locale.ROOT))
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+        if (categories != null) categories.validate(normalized);
+        UserProfile profile = byAuthUserId(authUserId);
+        profile.updateInterests(normalized, completeOnboarding);
+        UserProfile saved = repository.save(profile);
+        Map<String,Object> payload = new LinkedHashMap<>();
+        payload.put("profileId", saved.getId().toString());
+        payload.put("authUserId", saved.getAuthUserId());
+        payload.put("interestCodes", saved.getInterestCodes());
+        payload.put("interestsOnboardingCompleted", saved.isInterestsOnboardingCompleted());
+        outbox.append("profile.interests_updated", saved.getId(), authUserId, correlationId, payload);
+        return saved;
+    }
+
+    @Transactional
+    public UserProfile recordActivity(String authUserId, boolean login) {
+        UserProfile profile = byAuthUserId(authUserId);
+        if (profile.recordActivity(login, Instant.now(), activityThrottleSeconds)) return repository.save(profile);
+        return profile;
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> inactiveBefore(Instant before, int limit) {
+        return repository.findInactiveAuthUserIds(before, limit);
     }
 
     /**

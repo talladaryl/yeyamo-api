@@ -32,6 +32,10 @@ public record MyProfileResponse(
         Set<String> contentLanguages,
         Integer localRadiusKm,
         boolean discoverAfricanContent,
+        Set<String> interestCodes,
+        boolean interestsOnboardingCompleted,
+        Instant lastLoginAt,
+        Instant lastActiveAt,
         Instant createdAt,
         Instant updatedAt) {
     public static MyProfileResponse from(UserProfile p) {
@@ -40,6 +44,7 @@ public record MyProfileResponse(
                 p.getPreferredRegionId(), p.getCountryCode(), p.getAdminLevel1Id(), p.getAdminLevel2Id(),
                 p.getCityId(), p.getLocalityId(), p.getPreferredLanguageCode(), p.getTimezone(),
                 p.getPreferredCurrencyCode(), Set.copyOf(p.getContentCountries()), Set.copyOf(p.getContentLanguages()),
-                p.getLocalRadiusKm(), p.isDiscoverAfricanContent(), p.getCreatedAt(), p.getUpdatedAt());
+                p.getLocalRadiusKm(), p.isDiscoverAfricanContent(), Set.copyOf(p.getInterestCodes()),
+                p.isInterestsOnboardingCompleted(), p.getLastLoginAt(), p.getLastActiveAt(), p.getCreatedAt(), p.getUpdatedAt());
     }
 }

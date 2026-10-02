@@ -57,7 +57,7 @@ public class SocialGraphService {
     @Transactional
     public void follow(String followerAuthId, UUID followeeId, String correlationId) {
         UUID followerId = getProfileId(followerAuthId);
-        requireProfile(followeeId);
+        UserProfile followee = requireProfile(followeeId);
         if (followerId.equals(followeeId)) {
             throw new UserProfileException("CANNOT_FOLLOW_YOURSELF", "Vous ne pouvez pas vous suivre vous-même", HttpStatus.BAD_REQUEST);
         }
@@ -78,7 +78,8 @@ public class SocialGraphService {
 
         // Event pour notification
         outbox.append("social.followed", followeeId, followerAuthId, correlationId,
-                java.util.Map.of("followerId", followerId.toString(), "followeeId", followeeId.toString()));
+                java.util.Map.of("followerId", followerId.toString(), "profileId", followerId.toString(), "followerAuthUserId", followerAuthId,
+                        "followeeId", followeeId.toString(), "followeeAuthUserId", followee.getAuthUserId()));
     }
 
     @Transactional
@@ -308,6 +309,26 @@ public class SocialGraphService {
         return visibleProfiles.stream()
                 .map(profile -> FeedAuthorIdentityResponse.from(profile,
                         followRepository.existsByIdFollowerIdAndIdFolloweeId(viewerProfileId, profile.getId())))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<FeedAuthorIdentityResponse> resolveMessagingIdentities(
+            String viewerAuthUserId, List<String> authUserIds) {
+        // Requiring the viewer profile prevents anonymous enumeration. Only the
+        // minimal presentation fields from FeedAuthorIdentityResponse are exposed.
+        getProfileId(viewerAuthUserId);
+        if (authUserIds == null || authUserIds.isEmpty()) return List.of();
+        List<String> requested = authUserIds.stream()
+                .filter(id -> id != null && !id.isBlank())
+                .distinct()
+                .limit(50)
+                .toList();
+        List<UserProfile> profiles = profileRepository.findByAuthUserIdIn(requested);
+        log.info("event=MESSAGING_IDENTITIES_RESOLVED viewerAuthUserId={} requested={} resolved={}",
+                viewerAuthUserId, requested.size(), profiles.size());
+        return profiles.stream()
+                .map(profile -> FeedAuthorIdentityResponse.from(profile, false))
                 .toList();
     }
 

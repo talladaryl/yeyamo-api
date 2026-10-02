@@ -173,6 +173,8 @@ public class RecommendationEventConsumer {
             service.countryPreferences(user, null, null, strings(payload, "contentLanguages"));
         } else if (eventType.equals("profile.discovery_preferences_updated") || eventType.equals("UserDiscoveryPreferencesUpdated")) {
             service.countryPreferences(user, text(payload, "countryCode", null), strings(payload, "contentCountries"), null);
+        } else if (eventType.equals("profile.interests_updated")) {
+            service.interests(user, strings(payload, "interestCodes"));
         } else {
             service.preference(user, text(payload, "preferredRegionId", null),
                     text(payload, "language", text(payload, "preferredLanguageCode", null)),

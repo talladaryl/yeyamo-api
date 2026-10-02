@@ -69,6 +69,15 @@ public class JpaRecommendationProjectionAdapter implements RecommendationProject
         preferences.save(e);
     }
 
+    public void updateInterests(String user, Set<String> interestCodes) {
+        PreferenceEntity e = preferences.findById(user).orElseGet(PreferenceEntity::new);
+        e.userId = user;
+        e.interestCodes = normalize(interestCodes == null ? Set.of() : interestCodes, false).stream()
+                .map(value -> value.toLowerCase(Locale.ROOT)).collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        e.updatedAt = Instant.now();
+        preferences.save(e);
+    }
+
     public void upsertFeedback(String user, String targetType, String targetId, String feedbackType) {
         RecommendationFeedbackEntity entity = feedback.findByUserIdAndTargetTypeAndTargetId(user, targetType, targetId)
                 .orElseGet(() -> new RecommendationFeedbackEntity(user, targetType, targetId, feedbackType));
@@ -112,6 +121,7 @@ public class JpaRecommendationProjectionAdapter implements RecommendationProject
                 p == null ? null : p.countryCode,
                 p == null ? Set.of() : p.contentCountries,
                 p == null ? Set.of() : p.contentLanguages,
+                p == null ? Set.of() : p.interestCodes,
                 p != null && p.locationSharingEnabled, affinities, seen);
     }
 

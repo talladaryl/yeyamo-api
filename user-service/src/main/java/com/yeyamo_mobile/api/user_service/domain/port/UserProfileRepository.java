@@ -3,6 +3,7 @@ package com.yeyamo_mobile.api.user_service.domain.port;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.Instant;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,4 +18,5 @@ public interface UserProfileRepository {
     Page<UserProfile> searchPublic(String query, Pageable pageable);
     List<UserProfile> findByIdIn(List<UUID> ids);
     List<UserProfile> findByAuthUserIdIn(List<String> authUserIds);
+    List<String> findInactiveAuthUserIds(Instant before, int limit);
 }

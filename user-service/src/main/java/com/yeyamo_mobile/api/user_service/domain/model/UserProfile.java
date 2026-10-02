@@ -40,6 +40,10 @@ public class UserProfile {
     private Set<String> contentLanguages = new HashSet<>();
     private Integer localRadiusKm;
     private boolean discoverAfricanContent;
+    private Set<String> interestCodes = new HashSet<>();
+    private boolean interestsOnboardingCompleted;
+    private Instant lastLoginAt;
+    private Instant lastActiveAt;
     
     private Instant createdAt;
     private Instant updatedAt;
@@ -66,6 +70,8 @@ public class UserProfile {
         profile.allowSuggestions = true;
         profile.allowMessagesFromStrangers = true;
         profile.discoverAfricanContent = true;
+        profile.lastLoginAt = now;
+        profile.lastActiveAt = now;
         profile.createdAt = now;
         profile.updatedAt = now;
         return profile;
@@ -112,6 +118,20 @@ public class UserProfile {
         this.discoverAfricanContent = discoverAfricanContent;
         if (preferredCurrencyCode != null) this.preferredCurrencyCode = preferredCurrencyCode;
         this.updatedAt = Instant.now();
+    }
+
+    public void updateInterests(Set<String> interests, boolean completeOnboarding) {
+        this.interestCodes = interests == null ? new HashSet<>() : new HashSet<>(interests);
+        if (completeOnboarding) this.interestsOnboardingCompleted = true;
+        this.updatedAt = Instant.now();
+    }
+
+    public boolean recordActivity(boolean login, Instant now, long throttleSeconds) {
+        if (login) this.lastLoginAt = now;
+        if (!login && lastActiveAt != null && lastActiveAt.plusSeconds(throttleSeconds).isAfter(now)) return false;
+        this.lastActiveAt = now;
+        this.updatedAt = now;
+        return true;
     }
 
     public void updateSocialSettings(
@@ -253,6 +273,14 @@ public class UserProfile {
     public void setDiscoverAfricanContent(boolean discoverAfricanContent) { 
         this.discoverAfricanContent = discoverAfricanContent; 
     }
+    public Set<String> getInterestCodes() { return interestCodes; }
+    public void setInterestCodes(Set<String> value) { this.interestCodes = value == null ? new HashSet<>() : value; }
+    public boolean isInterestsOnboardingCompleted() { return interestsOnboardingCompleted; }
+    public void setInterestsOnboardingCompleted(boolean value) { this.interestsOnboardingCompleted = value; }
+    public Instant getLastLoginAt() { return lastLoginAt; }
+    public void setLastLoginAt(Instant value) { this.lastLoginAt = value; }
+    public Instant getLastActiveAt() { return lastActiveAt; }
+    public void setLastActiveAt(Instant value) { this.lastActiveAt = value; }
     
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

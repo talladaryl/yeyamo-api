@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.PageRequest;
 
 import com.yeyamo_mobile.api.user_service.domain.model.ProfileStatus;
 import com.yeyamo_mobile.api.user_service.domain.model.ProfileVisibility;
@@ -27,4 +28,7 @@ public interface SpringDataUserProfileRepository extends JpaRepository<UserProfi
             @Param("status") ProfileStatus status,
             @Param("visibility") ProfileVisibility visibility,
             Pageable pageable);
+
+    @Query("select p.authUserId from UserProfileEntity p where p.status = 'ACTIVE' and (p.lastActiveAt is null or p.lastActiveAt < :before) order by p.lastActiveAt asc nulls first")
+    List<String> findInactiveAuthUserIds(@Param("before") java.time.Instant before, Pageable pageable);
 }

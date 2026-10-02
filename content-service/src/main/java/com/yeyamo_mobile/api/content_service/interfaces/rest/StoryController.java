@@ -105,7 +105,8 @@ public class StoryController {
                 duration,
                 geography(request),
                 correlationId,
-                idempotencyKey
+                idempotencyKey,
+                request.captionStyle()
         );
         
         return StoryResponse.from(story);

@@ -18,6 +18,7 @@ public class RecommendationProjectionService {
     @Transactional public void signal(String user, String source, double delta) { if (user != null && !user.isBlank()) port.adjustSignal(user, source, delta); cache.invalidate(); }
     @Transactional public void preference(String user, String region, String language, boolean location) { port.updatePreference(user, region, language, location); cache.invalidate(); }
     @Transactional public void countryPreferences(String user, String country, java.util.Set<String> countries, java.util.Set<String> languages) { port.updateCountryPreferences(user, country, countries, languages); cache.invalidate(); }
+    @Transactional public void interests(String user, java.util.Set<String> interests) { port.updateInterests(user, interests); cache.invalidate(); }
 
     @Transactional
     public void feedback(String user, String targetType, String targetId, String feedbackType, String previous) {

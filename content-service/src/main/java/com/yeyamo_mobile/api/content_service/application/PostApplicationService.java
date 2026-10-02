@@ -20,6 +20,7 @@ public class PostApplicationService{
  @Transactional public Post archive(UUID id,String actorId,boolean admin,String correlationId){Post p=owned(id,actorId,admin);p.archive();p=repository.save(p);outbox.append("content.post.archived",p,correlationId,actorId);return p;}
  @Transactional public void delete(UUID id,String actorId,boolean admin,String correlationId){Post p=owned(id,actorId,admin);p.delete();p=repository.save(p);outbox.append("content.post.deleted",p,correlationId,actorId);}
  @Transactional(readOnly=true)public Post publicPost(UUID id){Post p=required(id);if(!p.publiclyVisible())throw new ContentException("POST_NOT_FOUND","Post not found");return p;}
+ @Transactional(readOnly=true)public Post internalPost(UUID id){return required(id);}
  @Transactional(readOnly=true)public Post myPost(UUID id,String actorId,boolean admin){return owned(id,actorId,admin);}
  @Transactional(readOnly=true)public List<Post> myPosts(String authorId,int limit){return repository.findByAuthor(authorId,cap(limit));}
  @Transactional(readOnly=true)public List<Post> publicPostsByIds(List<UUID> ids){if(ids==null||ids.isEmpty())return List.of();var ordered=ids.stream().filter(Objects::nonNull).distinct().limit(50).toList();var byId=repository.findPublishedByIds(ordered).stream().collect(java.util.stream.Collectors.toMap(Post::getId,java.util.function.Function.identity()));return ordered.stream().map(byId::get).filter(Objects::nonNull).toList();}

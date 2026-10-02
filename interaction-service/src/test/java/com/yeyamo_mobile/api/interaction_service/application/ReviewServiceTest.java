@@ -31,6 +31,7 @@ class ReviewServiceTest {
     @Mock private ShareRepository shares;
     @Mock private CheckInRepository checkIns;
     @Mock private SpringReviewRepository reviews;
+    @Mock private SpringPostViewRepository postViews;
     @Mock private CommandReceiptPort receipts;
     @Mock private InteractionOutboxPort outbox;
     @Mock private InteractionCachePort cache;
@@ -46,10 +47,10 @@ class ReviewServiceTest {
     @BeforeEach
     void setUp() {
         commandService = new InteractionCommandService(
-            relations, comments, shares, checkIns, reviews, receipts, outbox, cache
+            relations, comments, shares, checkIns, reviews, postViews, receipts, outbox, cache
         );
         queryService = new InteractionQueryService(
-            relations, comments, shares, checkIns, reviews, cache
+            relations, comments, shares, checkIns, reviews, postViews, cache
         );
 
         placeId = UUID.randomUUID();

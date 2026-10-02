@@ -6,11 +6,20 @@ public class InteractionCommandService{
  private static final Logger log=LoggerFactory.getLogger(InteractionCommandService.class);
  private final RelationRepository relations;private final CommentRepository comments;private final ShareRepository shares;private final CheckInRepository checkIns;
  private final com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.SpringReviewRepository reviews;
+ private final com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.SpringPostViewRepository postViews;
  private final CommandReceiptPort receipts;private final InteractionOutboxPort outbox;private final InteractionCachePort cache;
  public InteractionCommandService(RelationRepository r,CommentRepository c,ShareRepository s,CheckInRepository i,
   com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.SpringReviewRepository rev,
+  com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.SpringPostViewRepository postViews,
   CommandReceiptPort p,InteractionOutboxPort o,InteractionCachePort cache){
-  relations=r;comments=c;shares=s;checkIns=i;reviews=rev;receipts=p;outbox=o;this.cache=cache;}
+  relations=r;comments=c;shares=s;checkIns=i;reviews=rev;this.postViews=postViews;receipts=p;outbox=o;this.cache=cache;}
+ @Transactional public void recordPostView(UUID postId,String actor,String correlation){
+  var id=new com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.PostViewEntity.PostViewId(postId,actor);
+  if(postViews.existsById(id))return;
+  var view=new com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.PostViewEntity();
+  view.setId(id);view.setViewedAt(java.time.Instant.now());postViews.save(view);
+  outbox.append("interaction.post.viewed","post",postId.toString(),actor,correlation,Map.of("postId",postId,"userId",actor));
+ }
  @Transactional public CommandResult addRelation(UUID postId,String actor,RelationType type,String key,String correlation){String op=type+"_ADD:"+postId;Optional<CommandReceipt> replay=receipts.find(key,actor,op);
   if(replay.isPresent())return result(replay.get(),true);Optional<PostRelation> existing=relations.find(postId,actor,type);PostRelation relation=existing.orElseGet(()->relations.save(PostRelation.create(postId,actor,type)));
   boolean changed=existing.isEmpty();if(changed){outbox.append(event(type,true),"post",postId.toString(),actor,correlation,Map.of("postId",postId,"userId",actor));cache.evict(postId);log.info("event={}_PERSISTED postId={} actorId={} correlationId={}",type,postId,actor,correlation);}
@@ -20,10 +29,11 @@ public class InteractionCommandService{
   if(changed){outbox.append(event(type,false),"post",postId.toString(),actor,correlation,Map.of("postId",postId,"userId",actor));cache.evict(postId);log.info("event={}_REMOVED postId={} actorId={} correlationId={}",type,postId,actor,correlation);}
   CommandReceipt receipt=receipts.save(CommandReceipt.create(key,actor,op,existing.map(PostRelation::id).orElse(postId),changed));return result(receipt,false);}
  @Transactional public Comment addComment(UUID postId,UUID parentId,String actor,String body,String key,String correlation){String op="COMMENT_ADD:"+postId;Optional<CommandReceipt> replay=receipts.find(key,actor,op);
-  if(replay.isPresent())return comments.findById(replay.get().resultId()).orElseThrow();if(parentId!=null){Comment parent=comments.findById(parentId).filter(c->c.getStatus()==CommentStatus.ACTIVE)
+  Comment parent=null;if(replay.isPresent())return comments.findById(replay.get().resultId()).orElseThrow();if(parentId!=null){parent=comments.findById(parentId).filter(c->c.getStatus()==CommentStatus.ACTIVE)
    .orElseThrow(()->new InteractionException("PARENT_COMMENT_NOT_FOUND","Parent comment not found"));if(!parent.getPostId().equals(postId))throw new InteractionException("COMMENT_POST_MISMATCH","Parent comment belongs to another post");}
   Comment comment=comments.save(Comment.create(postId,parentId,actor,body));receipts.save(CommandReceipt.create(key,actor,op,comment.getId(),true));
-  outbox.append("interaction.comment.created","comment",comment.getId().toString(),actor,correlation,Map.of("commentId",comment.getId(),"postId",postId,"authorId",actor));cache.evict(postId);log.info("event=COMMENT_PERSISTED commentId={} postId={} actorId={} correlationId={}",comment.getId(),postId,actor,correlation);return comment;}
+  Map<String,Object> payload=new LinkedHashMap<>();payload.put("commentId",comment.getId());payload.put("postId",postId);payload.put("authorId",actor);if(parent!=null){payload.put("parentCommentId",parent.getId());payload.put("parentAuthorId",parent.getAuthorId());}
+  outbox.append("interaction.comment.created","comment",comment.getId().toString(),actor,correlation,payload);cache.evict(postId);log.info("event=COMMENT_PERSISTED commentId={} postId={} actorId={} correlationId={}",comment.getId(),postId,actor,correlation);return comment;}
  @Transactional public Comment updateComment(UUID id,String actor,boolean admin,String body,String key,String correlation){String op="COMMENT_UPDATE:"+id;Optional<CommandReceipt> replay=receipts.find(key,actor,op);
   if(replay.isPresent())return requiredComment(id);Comment c=ownedComment(id,actor,admin);c.update(body);c=comments.save(c);receipts.save(CommandReceipt.create(key,actor,op,id,true));
   outbox.append("interaction.comment.updated","comment",id.toString(),actor,correlation,Map.of("commentId",id,"postId",c.getPostId()));return c;}

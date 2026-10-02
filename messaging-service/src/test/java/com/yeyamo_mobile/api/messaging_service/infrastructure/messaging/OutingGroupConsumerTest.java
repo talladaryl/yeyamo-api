@@ -55,4 +55,19 @@ class OutingGroupConsumerTest {
         assertEquals(groupId, link.getValue().getConversationId());
         verify(conversations, times(1)).create(eq("owner-1"), any(), eq("corr-1"));
     }
+
+    @Test
+    void addsTheConfirmedParticipantToTheExistingOutingGroup() throws Exception {
+        UUID outingId = UUID.randomUUID();
+        UUID groupId = UUID.randomUUID();
+        OutingGroupLinkEntity existing = OutingGroupLinkEntity.create(outingId, groupId, "owner-1");
+        when(links.findById(outingId)).thenReturn(Optional.of(existing));
+        String payload = new ObjectMapper().writeValueAsString(java.util.Map.of(
+                "producer", "event-service", "eventType", "event.registration.created", "correlationId", "corr-2",
+                "payload", java.util.Map.of("eventId", outingId.toString(), "registrationUserId", "participant-2")));
+
+        new OutingGroupConsumer(new ObjectMapper(), conversations, links, events).consume(payload);
+
+        verify(conversations).addMember("owner-1", groupId, "participant-2", "corr-2");
+    }
 }

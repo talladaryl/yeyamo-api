@@ -26,6 +26,7 @@ public class NotificationEventConsumer {
 
     @KafkaListener(topics = {
             "${yeyamo.kafka.topics.auth-events:auth.events}",
+            "${yeyamo.kafka.topics.user-events:user-events}",
             "${yeyamo.kafka.topics.partner-events:partner-events}",
             "${yeyamo.kafka.topics.moderation-events:moderation.events}",
             "${yeyamo.kafka.topics.messaging-events:messaging.events}",

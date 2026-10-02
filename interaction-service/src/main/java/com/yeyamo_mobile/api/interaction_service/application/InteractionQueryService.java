@@ -5,16 +5,19 @@ import com.yeyamo_mobile.api.interaction_service.application.port.InteractionCac
 public class InteractionQueryService{
  private final RelationRepository relations;private final CommentRepository comments;private final ShareRepository shares;private final CheckInRepository checks;
  private final com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.SpringReviewRepository reviews;
+ private final com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.SpringPostViewRepository postViews;
  private final InteractionCachePort cache;
  public InteractionQueryService(RelationRepository r,CommentRepository c,ShareRepository s,CheckInRepository i,
   com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.SpringReviewRepository rev,
+  com.yeyamo_mobile.api.interaction_service.infrastructure.persistence.SpringPostViewRepository postViews,
   InteractionCachePort cache){
-  relations=r;comments=c;shares=s;checks=i;reviews=rev;this.cache=cache;
+  relations=r;comments=c;shares=s;checks=i;reviews=rev;this.postViews=postViews;this.cache=cache;
  }
- @Transactional(readOnly=true)public InteractionSummary summary(UUID postId,String viewer){InteractionSummary.Counts counts=cache.getCounts(postId).orElseGet(()->{var c=new InteractionSummary.Counts(relations.count(postId,RelationType.LIKE),comments.countActiveByPost(postId),shares.countByPost(postId));cache.putCounts(postId,c);return c;});
+ @Transactional(readOnly=true)public InteractionSummary summary(UUID postId,String viewer){return summary(postId,viewer,postViews.countByIdPostId(postId));}
+ private InteractionSummary summary(UUID postId,String viewer,long views){InteractionSummary.Counts counts=cache.getCounts(postId).orElseGet(()->{var c=new InteractionSummary.Counts(relations.count(postId,RelationType.LIKE),comments.countActiveByPost(postId),shares.countByPost(postId));cache.putCounts(postId,c);return c;});
   boolean liked=viewer!=null&&relations.find(postId,viewer,RelationType.LIKE).isPresent();boolean favorite=viewer!=null&&relations.find(postId,viewer,RelationType.FAVORITE).isPresent();
-  return new InteractionSummary(postId,counts.likes(),counts.comments(),counts.shares(),liked,favorite);}
- @Transactional(readOnly=true)public List<InteractionSummary> summaries(List<UUID> postIds,String viewer){if(postIds==null||postIds.isEmpty())return List.of();return postIds.stream().filter(Objects::nonNull).distinct().limit(50).map(id->summary(id,viewer)).toList();}
+  return new InteractionSummary(postId,counts.likes(),counts.comments(),counts.shares(),views,liked,favorite);}
+ @Transactional(readOnly=true)public List<InteractionSummary> summaries(List<UUID> postIds,String viewer){if(postIds==null||postIds.isEmpty())return List.of();var ids=postIds.stream().filter(Objects::nonNull).distinct().limit(50).toList();Map<UUID,Long> views=new HashMap<>();postViews.countByPostIds(ids).forEach(row->views.put((UUID)row[0],((Number)row[1]).longValue()));return ids.stream().map(id->summary(id,viewer,views.getOrDefault(id,0L))).toList();}
  @Transactional(readOnly=true)public List<Comment> comments(UUID postId,int limit){return comments.findActiveByPost(postId,cap(limit));}
  @Transactional(readOnly=true)public List<PostRelation> favorites(String user,int limit){return relations.findFavorites(user,cap(limit));}
  @Transactional(readOnly=true)public List<PostRelation> likes(String user,int limit){return relations.findLikes(user,cap(limit));}

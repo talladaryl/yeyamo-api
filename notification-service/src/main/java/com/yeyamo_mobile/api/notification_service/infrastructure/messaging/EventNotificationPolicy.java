@@ -9,15 +9,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /** Maps versioned domain events to the user-facing notification vocabulary. */
 @Component
 public class EventNotificationPolicy {
 
     private final ObjectMapper mapper;
+    private final ContentOwnerClient contentOwners;
 
     public EventNotificationPolicy(ObjectMapper mapper) {
+        this(mapper, null);
+    }
+
+    @Autowired
+    public EventNotificationPolicy(ObjectMapper mapper, ContentOwnerClient contentOwners) {
         this.mapper = mapper;
+        this.contentOwners = contentOwners;
     }
 
     public List<NotificationIntent> map(JsonNode event) {
@@ -91,7 +99,8 @@ public class EventNotificationPolicy {
 
     private String notificationType(String eventType) {
         return switch (eventType) {
-            case "user.created", "user.role_added", "user.password_changed",
+            case "user.created", "user.role_added", "user.password_changed", "social.followed",
+                    "interaction.like.added", "interaction.comment.created", "interaction.post.shared",
                     "partner.submitted", "partner.approved", "partner.rejected", "partner.needs_info",
                     "partner.requires_changes", "moderation.report.approved", "moderation.report.rejected" -> eventType;
             case "place.suggestion.approved" -> "PLACE_SUGGESTION_APPROVED";
@@ -119,6 +128,9 @@ public class EventNotificationPolicy {
     private String recipientFor(String eventType, JsonNode payload) {
         return switch (eventType) {
             case "user.created", "user.role_added", "user.password_changed" -> required(payload, "userId");
+            case "social.followed" -> required(payload, "followeeAuthUserId");
+            case "interaction.like.added", "interaction.post.shared" -> postOwnerUnlessSelf(payload);
+            case "interaction.comment.created" -> replyRecipient(payload);
             case "partner.submitted" -> required(payload, "requesterId");
             case "partner.approved", "partner.rejected", "partner.needs_info", "partner.requires_changes" -> required(payload, "ownerUserId");
             case "moderation.report.approved", "moderation.report.rejected" -> required(payload, "reporterId");
@@ -135,6 +147,20 @@ public class EventNotificationPolicy {
             case "event.invitation.created" -> requiredAny(payload, "recipientId", "inviteeUserId", "recipientIds");
             default -> requiredAny(payload, "buyerUserId", "buyerId", "artisanUserId", "artisanId", "artisanPartnerId");
         };
+    }
+
+    private String postOwnerUnlessSelf(JsonNode payload) {
+        if (contentOwners == null) return null;
+        String actor = requiredAny(payload, "userId", "authorId");
+        String owner = contentOwners.postOwner(UUID.fromString(required(payload, "postId")));
+        return actor.equals(owner) ? null : owner;
+    }
+
+    private String replyRecipient(JsonNode payload) {
+        String parentAuthor = text(payload, "parentAuthorId");
+        if (parentAuthor == null || parentAuthor.isBlank()) return null;
+        String actor = required(payload, "authorId");
+        return actor.equals(parentAuthor) ? null : parentAuthor;
     }
 
     private Map<String, String> variables(String eventType, String notificationType, JsonNode payload) {

@@ -13,6 +13,8 @@ public class InteractionController{
  public CommandResponse favorite(@PathVariable UUID postId,@RequestHeader("Idempotency-Key")@NotBlank String key,@RequestHeader(value="X-Correlation-Id",required=false)String correlation,Authentication auth){return CommandResponse.from(commands.addRelation(postId,auth.getName(),RelationType.FAVORITE,key,correlation));}
  @DeleteMapping("/posts/{postId}/favorite")@Operation(summary="Remove a saved post",security=@SecurityRequirement(name="bearerAuth"))
  public CommandResponse unfavorite(@PathVariable UUID postId,@RequestHeader("Idempotency-Key")@NotBlank String key,@RequestHeader(value="X-Correlation-Id",required=false)String correlation,Authentication auth){return CommandResponse.from(commands.removeRelation(postId,auth.getName(),RelationType.FAVORITE,key,correlation));}
+ @PostMapping("/posts/{postId}/view")@ResponseStatus(HttpStatus.NO_CONTENT)@Operation(summary="Record one persisted post view for the authenticated viewer",security=@SecurityRequirement(name="bearerAuth"))
+ public void recordView(@PathVariable UUID postId,@RequestHeader(value="X-Correlation-Id",required=false)String correlation,Authentication auth){commands.recordPostView(postId,auth.getName(),correlation);}
  @PostMapping("/posts/{postId}/comments")@ResponseStatus(HttpStatus.CREATED)@Operation(summary="Comment a post",security=@SecurityRequirement(name="bearerAuth"))
  public CommentResponse comment(@PathVariable UUID postId,@Valid@RequestBody CommentRequest request,@RequestHeader("Idempotency-Key")@NotBlank String key,@RequestHeader(value="X-Correlation-Id",required=false)String correlation,Authentication auth){
   return CommentResponse.from(commands.addComment(postId,request.parentId(),auth.getName(),request.body(),key,correlation));}

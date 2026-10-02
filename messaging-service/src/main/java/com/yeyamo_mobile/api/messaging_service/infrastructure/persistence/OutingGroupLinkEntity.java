@@ -26,4 +26,5 @@ public class OutingGroupLinkEntity {
     }
     public UUID getOutingId() { return outingId; }
     public UUID getConversationId() { return conversationId; }
+    public String getOwnerUserId() { return ownerUserId; }
 }
