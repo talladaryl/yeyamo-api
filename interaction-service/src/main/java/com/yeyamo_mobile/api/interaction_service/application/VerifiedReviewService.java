@@ -58,7 +58,11 @@ public class VerifiedReviewService {
         var replay = receipts.find(idempotencyKey, actor, operation);
         if (replay.isPresent()) return required(replay.get().resultId());
 
-        Eligibility eligibility = verify(targetType, targetId, actor);
+        EligibilityDecision decision = eligibility(targetType, targetId, actor);
+        if (!decision.eligible()) {
+            throw new InteractionException("REVIEW_ELIGIBILITY_REQUIRED", eligibilityMessage(decision.reasonCode()));
+        }
+        Eligibility eligibility = new Eligibility(decision.evidenceReference());
         if (reviews.existsByUserIdAndTargetTypeAndEvidenceReference(actor, targetType.name(), eligibility.reference())) {
             throw new InteractionException("REVIEW_ALREADY_EXISTS", "Vous avez deja publie un avis pour cette interaction verifiee");
         }
@@ -148,18 +152,17 @@ public class VerifiedReviewService {
         return new ReviewAggregateResponse(count, average);
     }
 
-    private Eligibility verify(ReviewTargetType type, UUID targetId, String actor) {
+    @Transactional(readOnly = true)
+    public EligibilityDecision eligibility(ReviewTargetType type, UUID targetId, String actor) {
         return switch (type) {
             case PLACE -> placeEligibility(targetId, actor);
             case EXPERIENCE -> remoteEligibility(bookings, "/internal/review-eligibility/experiences/" + targetId + "/users/" + actor);
             case EVENT -> remoteEligibility(events, "/internal/review-eligibility/events/" + targetId + "/users/" + actor);
-            case ARTISAN -> throw new InteractionException("REVIEW_ELIGIBILITY_UNAVAILABLE", "La preuve canonique de transaction artisan n'est pas encore exposee");
+            case ARTISAN -> EligibilityDecision.ineligible(type, targetId, "VERIFICATION_NOT_SUPPORTED");
         };
     }
 
-    private Eligibility placeEligibility(UUID placeId, String actor) {
-        CheckInEntity checkIn = checkIns.findFirstByUserIdAndCatalogAssetIdOrderByOccurredAtDesc(actor, placeId)
-                .orElseThrow(() -> new InteractionException("REVIEW_ELIGIBILITY_REQUIRED", "Un check-in sur ce lieu est requis avant de publier un avis"));
+    private EligibilityDecision placeEligibility(UUID placeId, String actor) {
         try {
             places.get().uri("/api/v1/places/{id}", placeId).retrieve()
                     .onStatus(HttpStatusCode::isError, (request, response) -> {
@@ -170,10 +173,12 @@ public class VerifiedReviewService {
         } catch (Exception exception) {
             throw new InteractionException("REVIEW_ELIGIBILITY_UNAVAILABLE", "La validation du lieu est indisponible");
         }
-        return new Eligibility("checkin:" + checkIn.getId());
+        return checkIns.findFirstByUserIdAndCatalogAssetIdOrderByOccurredAtDesc(actor, placeId)
+                .map(checkIn -> EligibilityDecision.eligible(ReviewTargetType.PLACE, placeId, "checkin:" + checkIn.getId()))
+                .orElseGet(() -> EligibilityDecision.ineligible(ReviewTargetType.PLACE, placeId, "CHECKIN_REQUIRED"));
     }
 
-    private Eligibility remoteEligibility(RestClient client, String uri) {
+    private EligibilityDecision remoteEligibility(RestClient client, String uri) {
         if (internalToken == null || internalToken.isBlank()) {
             throw new InteractionException("REVIEW_ELIGIBILITY_UNAVAILABLE", "Le jeton de service interne est indisponible");
         }
@@ -182,10 +187,16 @@ public class VerifiedReviewService {
                     .onStatus(HttpStatusCode::isError, (request, response) -> {
                         throw new InteractionException("REVIEW_ELIGIBILITY_UNAVAILABLE", "La preuve de transaction est indisponible");
                     }).body(RemoteEligibility.class);
-            if (result == null || !result.eligible() || result.transactionId() == null) {
-                throw new InteractionException("REVIEW_ELIGIBILITY_REQUIRED", "Une interaction terminee et verifiee est requise avant de publier un avis");
+            if (result == null) throw new InteractionException("REVIEW_ELIGIBILITY_UNAVAILABLE", "La preuve de transaction est indisponible");
+            ReviewTargetType targetType = uri.contains("/events/") ? ReviewTargetType.EVENT : ReviewTargetType.EXPERIENCE;
+            UUID targetId = UUID.fromString(uri.split("/")[4]);
+            if (!result.eligible() || result.transactionId() == null) {
+                String reason = result.reasonCode() == null || result.reasonCode().isBlank()
+                        ? (targetType == ReviewTargetType.EVENT ? "REGISTRATION_NOT_CONFIRMED" : "BOOKING_NOT_ELIGIBLE")
+                        : result.reasonCode();
+                return EligibilityDecision.ineligible(targetType, targetId, reason);
             }
-            return new Eligibility(result.transactionId());
+            return EligibilityDecision.eligible(targetType, targetId, result.transactionId());
         } catch (InteractionException exception) {
             throw exception;
         } catch (Exception exception) {
@@ -194,6 +205,27 @@ public class VerifiedReviewService {
     }
 
     private ReviewEntity required(UUID id) { return reviews.findById(id).orElseThrow(() -> new InteractionException("REVIEW_NOT_FOUND", "Avis introuvable")); }
+    private String eligibilityMessage(String reasonCode) {
+        return switch (reasonCode) {
+            case "EVENT_NOT_COMPLETED" -> "Vous pourrez laisser un avis verifie apres la fin de cet evenement";
+            case "REGISTRATION_NOT_CONFIRMED" -> "Une participation confirmee est requise";
+            case "BOOKING_NOT_ELIGIBLE" -> "Une reservation terminee est requise";
+            case "CHECKIN_REQUIRED" -> "Une visite confirmee est requise";
+            case "VERIFICATION_NOT_SUPPORTED" -> "La verification n'est pas disponible pour cette cible";
+            case "TARGET_NOT_FOUND" -> "La cible est introuvable";
+            default -> "Votre eligibilite n'a pas pu etre confirmee";
+        };
+    }
     private record Eligibility(String reference) { }
-    private record RemoteEligibility(boolean eligible, String transactionId) { }
+    private record RemoteEligibility(boolean eligible, String transactionId, String reasonCode) { }
+
+    public record EligibilityDecision(boolean eligible, String reasonCode, ReviewTargetType targetType,
+            UUID targetId, String evidenceReference) {
+        static EligibilityDecision eligible(ReviewTargetType type, UUID id, String reference) {
+            return new EligibilityDecision(true, "ELIGIBLE", type, id, reference);
+        }
+        static EligibilityDecision ineligible(ReviewTargetType type, UUID id, String reason) {
+            return new EligibilityDecision(false, reason, type, id, null);
+        }
+    }
 }

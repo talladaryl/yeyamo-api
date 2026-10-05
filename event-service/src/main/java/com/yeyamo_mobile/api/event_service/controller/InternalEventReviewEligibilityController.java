@@ -34,9 +34,13 @@ public class InternalEventReviewEligibilityController {
     @GetMapping("/events/{eventId}/users/{userId}")
     public Eligibility event(@PathVariable UUID eventId, @PathVariable String userId, @RequestHeader("X-Internal-Token") String token) {
         requireToken(token);
-        boolean completed = events.findById(eventId).map(event -> event.getStatus() == EventStatus.COMPLETED).orElse(false);
+        var event = events.findById(eventId);
+        if (event.isEmpty()) return new Eligibility(false, null, "TARGET_NOT_FOUND");
+        boolean completed = event.get().getStatus() == EventStatus.COMPLETED;
+        if (!completed) return new Eligibility(false, null, "EVENT_NOT_COMPLETED");
         boolean registered = registrations.existsByEventIdAndUserIdAndStatus(eventId, userId, RegistrationStatus.CONFIRMED);
-        return new Eligibility(completed && registered, completed && registered ? eventId.toString() : null);
+        if (!registered) return new Eligibility(false, null, "REGISTRATION_NOT_CONFIRMED");
+        return new Eligibility(true, eventId.toString(), "ELIGIBLE");
     }
 
     private void requireToken(String token) {
@@ -44,5 +48,5 @@ public class InternalEventReviewEligibilityController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Internal token required");
         }
     }
-    public record Eligibility(boolean eligible, String transactionId) { }
+    public record Eligibility(boolean eligible, String transactionId, String reasonCode) { }
 }

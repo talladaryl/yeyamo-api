@@ -59,10 +59,12 @@ public class UserServiceClient {
                 new ParameterizedTypeReference<List<String>>() {}
             );
             
-            return response.getBody() == null ? List.of() : response.getBody();
+            List<String> authorIds = response.getBody() == null ? List.of() : response.getBody();
+            log.info("event=STORY_FOLLOWING_RESOLUTION viewerAuthId={} followedAuthorCount={} status=SUCCESS", userId, authorIds.size());
+            return authorIds;
             
         } catch (Exception e) {
-            log.warn("Failed to fetch following from user-service for user {}: {}", userId, e.getMessage());
+            log.warn("event=STORY_FOLLOWING_RESOLUTION viewerAuthId={} followedAuthorCount=0 status=FAILED errorType={}", userId, e.getClass().getSimpleName());
             // En cas d'erreur, retourner une liste vide plutôt que de faire échouer la requête
             return List.of();
         }

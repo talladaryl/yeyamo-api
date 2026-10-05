@@ -333,6 +333,15 @@ public class SocialGraphService {
     }
 
     @Transactional(readOnly = true)
+    public UserProfile publicSocialProfile(String viewerAuthUserId, UUID profileId) {
+        UserProfile profile = requireProfile(profileId);
+        if (!profile.isVisibleTo(viewerAuthUserId)) {
+            throw new UserProfileException("PROFILE_NOT_ACCESSIBLE", "Ce profil n'est pas accessible", HttpStatus.FORBIDDEN);
+        }
+        return profile;
+    }
+
+    @Transactional(readOnly = true)
     public UserProfile getSocialSettings(String authUserId) {
         return getProfile(authUserId);
     }
@@ -381,6 +390,20 @@ public class SocialGraphService {
                 .filter(p -> !blockerIds.contains(p.getId()))
                 .limit(limit)
                 .collect(Collectors.toList());
+
+        if (suggestions.size() < limit) {
+            var excluded = new java.util.HashSet<UUID>();
+            excluded.add(userId);
+            excluded.addAll(followRepository.findFollowingIds(userId));
+            excluded.addAll(blockedIds);
+            excluded.addAll(blockerIds);
+            excluded.addAll(suggestions.stream().map(UserProfile::getId).toList());
+            profileRepository.searchPublic("", PageRequest.of(0, Math.max(limit * 3, 20))).stream()
+                    .filter(p -> p.getStatus() == ProfileStatus.ACTIVE)
+                    .filter(p -> !excluded.contains(p.getId()))
+                    .limit(limit - suggestions.size())
+                    .forEach(suggestions::add);
+        }
         
         return suggestions;
     }

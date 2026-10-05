@@ -38,6 +38,15 @@ public class VerifiedReviewController {
                 request.rating().shortValue(), request.comment(), key, correlation));
     }
 
+    @GetMapping("/eligibility")
+    public ReviewEligibilityResponse eligibility(
+            @RequestParam ReviewTargetType targetType,
+            @RequestParam UUID targetId,
+            Authentication authentication) {
+        var decision = reviews.eligibility(targetType, targetId, authentication.getName());
+        return new ReviewEligibilityResponse(decision.eligible(), decision.reasonCode(), decision.targetType(), decision.targetId());
+    }
+
     @PutMapping("/{id}")
     public ReviewResponse update(@PathVariable UUID id, @Valid @RequestBody ReviewRequest request, Authentication authentication,
             @RequestHeader("Idempotency-Key") @NotBlank String key,
@@ -70,4 +79,6 @@ public class VerifiedReviewController {
     public ReviewAggregateResponse aggregate(@PathVariable ReviewTargetType targetType, @PathVariable UUID targetId) {
         return reviews.aggregate(targetType, targetId);
     }
+
+    public record ReviewEligibilityResponse(boolean eligible, String reasonCode, ReviewTargetType targetType, UUID targetId) { }
 }

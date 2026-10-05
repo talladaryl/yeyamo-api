@@ -71,6 +71,19 @@ public class SocialGraphController {
         return socialGraphService.resolveMessagingIdentities(authentication.getName(), authUserIds);
     }
 
+    @GetMapping("/profiles/{profileId}")
+    @Operation(summary = "Get one public social profile by its canonical profile UUID")
+    public UserProfileSummaryResponse getPublicSocialProfile(
+            @PathVariable UUID profileId,
+            Authentication authentication) {
+        UserProfile profile = socialGraphService.publicSocialProfile(authentication.getName(), profileId);
+        return UserProfileSummaryResponse.from(
+                profile,
+                socialGraphService.isFollowing(authentication.getName(), profileId),
+                socialGraphService.countFollowers(profileId),
+                socialGraphService.countFollowing(profileId));
+    }
+
     // ─── FOLLOW OPERATIONS ──────────────────────────────────────────────────────
 
     @PostMapping("/{userId}/follow")

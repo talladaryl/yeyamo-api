@@ -91,12 +91,14 @@ class MessagingIntegrationTest {
 
         // Retrait d'un membre "carol"
         service.removeMember("alice", group.id(), "carol", "corr-5");
+        assertEquals(2, service.get("alice", group.id()).members().size());
         var membersAfterRemove = conversationMemberRepository.findByConversationId(group.id());
         var carol = membersAfterRemove.stream().filter(m -> m.getUserId().equals("carol")).findFirst().orElseThrow();
         assertEquals(MemberStatus.REMOVED, carol.getStatus());
 
         // Départ de "bob"
         service.leave("bob", group.id(), "corr-6");
+        assertEquals(1, service.get("alice", group.id()).members().size());
         var bob = conversationMemberRepository.findByConversationIdAndUserId(group.id(), "bob").orElseThrow();
         assertEquals(MemberStatus.LEFT, bob.getStatus());
     }

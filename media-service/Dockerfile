@@ -5,6 +5,11 @@ COPY . .
 RUN --mount=type=cache,target=/root/.m2 mvn -B -pl media-service -am -DskipTests package
 
 FROM eclipse-temurin:21-jre-jammy
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends curl ffmpeg \
+    && ffmpeg -version \
+    && ffprobe -version \
+    && rm -rf /var/lib/apt/lists/*
 RUN useradd --system --uid 10001 --create-home spring
 WORKDIR /app
 COPY --from=build --chown=spring:spring /workspace/media-service/target/media-service-0.0.1-SNAPSHOT.jar app.jar

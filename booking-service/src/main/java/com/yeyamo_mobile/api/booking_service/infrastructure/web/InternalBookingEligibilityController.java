@@ -34,8 +34,8 @@ public class InternalBookingEligibilityController {
         requireToken(token);
         return bookings.findFirstByUserIdAndActivityIdAndActivityTypeAndStatusOrderByCompletedAtDesc(userId, experienceId,
                 ActivityType.EXPERIENCE, BookingStatus.COMPLETED)
-                .map(booking -> new Eligibility(true, booking.getId().toString()))
-                .orElseGet(() -> new Eligibility(false, null));
+                .map(booking -> new Eligibility(true, booking.getId().toString(), "ELIGIBLE"))
+                .orElseGet(() -> new Eligibility(false, null, "BOOKING_NOT_ELIGIBLE"));
     }
 
     private void requireToken(String token) {
@@ -44,5 +44,5 @@ public class InternalBookingEligibilityController {
         }
     }
 
-    public record Eligibility(boolean eligible, String transactionId) { }
+    public record Eligibility(boolean eligible, String transactionId, String reasonCode) { }
 }

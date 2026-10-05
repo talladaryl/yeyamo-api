@@ -7,10 +7,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import java.util.Optional;
 import java.util.List;
 import java.util.UUID;
+import java.time.Instant;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -84,6 +87,23 @@ class SocialGraphAlignmentTest {
     }
 
     @Test
+    void returnsFollowedAuthSubjectForCrossAccountStoryResolution() {
+        UserProfile viewerB = UserProfile.create("auth-b", "Viewer B");
+        UserProfile authorA = UserProfile.create("auth-a", "Author A");
+        FollowEntity relation = new FollowEntity(viewerB.getId(), authorA.getId(), Instant.now());
+        when(profiles.findByAuthUserId("auth-b")).thenReturn(Optional.of(viewerB));
+        when(profiles.findById(viewerB.getId())).thenReturn(Optional.of(viewerB));
+        when(follows.findFollowing(any(UUID.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(relation)));
+        when(profiles.findByIdIn(List.of(authorA.getId()))).thenReturn(List.of(authorA));
+
+        List<String> contentAuthorIds = service.getFollowingAuthUserIds("auth-b");
+
+        assertEquals(List.of("auth-a"), contentAuthorIds);
+        assertTrue(!contentAuthorIds.contains("auth-b"));
+    }
+
+    @Test
     void resolvesTheViewersOwnPrivateProfileForSafeFeedOwnershipChecks() {
         UserProfile viewer = UserProfile.create("42", "Viewer");
         viewer.update("Viewer", null, null, null, com.yeyamo_mobile.api.user_service.domain.model.ProfileVisibility.PRIVATE);
@@ -106,5 +126,29 @@ class SocialGraphAlignmentTest {
                 () -> service.follow("42", viewer.getId(), "correlation"));
 
         assertEquals("CANNOT_FOLLOW_YOURSELF", error.getCode());
+    }
+
+    @Test
+    void resolvesPublicProfileDirectlyFromProfileUuid() {
+        UserProfile viewer = UserProfile.create("42", "Viewer");
+        UserProfile author = UserProfile.create("99", "Author");
+        when(profiles.findByAuthUserId("42")).thenReturn(Optional.of(viewer));
+        when(profiles.findById(author.getId())).thenReturn(Optional.of(author));
+
+        assertEquals(author.getId(), service.publicSocialProfile("42", author.getId()).getId());
+    }
+
+    @Test
+    void suggestionsFallBackToEligiblePublicProfilesWhenSecondDegreeGraphIsEmpty() {
+        UserProfile viewer = UserProfile.create("42", "Viewer");
+        UserProfile candidate = UserProfile.create("99", "Candidate");
+        when(profiles.findByAuthUserId("42")).thenReturn(Optional.of(viewer));
+        when(follows.findSecondDegreeSuggestions(any(), any())).thenReturn(List.of());
+        when(follows.findFollowingIds(viewer.getId())).thenReturn(List.of());
+        when(blocks.findBlockedIds(viewer.getId())).thenReturn(List.of());
+        when(blocks.findBlockerIds(viewer.getId())).thenReturn(List.of());
+        when(profiles.searchPublic(any(), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(viewer, candidate)));
+
+        assertEquals(List.of(candidate), service.getSuggestions("42", 10));
     }
 }

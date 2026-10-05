@@ -14,7 +14,7 @@ public final class MessagingDtos {
 
     public record ConversationView(UUID id, ConversationType type, String title, String ownerId, Instant createdAt, Instant updatedAt, UUID lastMessageId, String lastMessagePreview, Instant lastMessageAt, List<MemberView> members) {
         public static ConversationView from(ConversationEntity c, List<ConversationMemberEntity> members) {
-            return new ConversationView(c.getId(), c.getType(), c.getTitle(), c.getOwnerId(), c.getCreatedAt(), c.getUpdatedAt(), c.getLastMessageId(), c.getLastMessagePreview(), c.getLastMessageAt(), members.stream().map(MemberView::from).toList());
+            return new ConversationView(c.getId(), c.getType(), c.getTitle(), c.getOwnerId(), c.getCreatedAt(), c.getUpdatedAt(), c.getLastMessageId(), c.getLastMessagePreview(), c.getLastMessageAt(), members.stream().filter(member -> member.getStatus() == MemberStatus.ACTIVE).map(MemberView::from).toList());
         }
     }
 
