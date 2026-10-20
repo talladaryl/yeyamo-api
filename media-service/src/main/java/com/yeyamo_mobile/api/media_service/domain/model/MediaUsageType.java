@@ -16,6 +16,9 @@ public enum MediaUsageType {
     ARTWORK_CREATION_PROCESS(MediaType.IMAGE),
     PROFILE_PHOTO(MediaType.IMAGE),
     POST_IMAGE(MediaType.IMAGE),
+    RECIPE_HERO_IMAGE(MediaType.IMAGE),
+    RECIPE_GALLERY_IMAGE(MediaType.IMAGE),
+    RECIPE_STEP_IMAGE(MediaType.IMAGE),
 
     // ---- Audio ------------------------------------------------------------
     ARTISAN_STORY_AUDIO(MediaType.AUDIO),
@@ -31,7 +34,8 @@ public enum MediaUsageType {
 
     // ---- Video ------------------------------------------------------------
     POST_VIDEO(MediaType.VIDEO),
-    ARTWORK_VIDEO(MediaType.VIDEO);
+    ARTWORK_VIDEO(MediaType.VIDEO),
+    RECIPE_VIDEO(MediaType.VIDEO);
 
     private final MediaType allowedType;
 

@@ -87,6 +87,38 @@ class OAuthTokenVerifierSecurityTests {
         assertEquals(503, failure.getStatus().value());
     }
 
+    @Test
+    void validatesMicrosoftIssuerAudienceAndSubject() {
+        JwtDecoder microsoft = token -> Jwt.withTokenValue(token).header("alg", "RS256")
+                .subject("microsoft-subject")
+                .issuer("https://login.microsoftonline.com/11111111-1111-1111-1111-111111111111/v2.0")
+                .audience(List.of("yeyamo-microsoft"))
+                .issuedAt(Instant.now().minusSeconds(1)).expiresAt(Instant.now().plusSeconds(60))
+                .claim("preferred_username", "test@example.com").build();
+        OAuthTokenVerifier verifier = new OAuthTokenVerifier(
+                "yeyamo-google", "", "yeyamo-apple", "yeyamo-microsoft", "common",
+                microsoft, microsoft, microsoft);
+
+        OAuthTokenVerifier.OAuthUserInfo info = verifier.verify("microsoft", "signed-token");
+
+        assertEquals("microsoft", info.provider());
+        assertEquals("microsoft-subject", info.providerUserId());
+        assertEquals("test@example.com", info.email());
+    }
+
+    @Test
+    void rejectsMicrosoftTokenForAnotherClient() {
+        JwtDecoder microsoft = token -> jwt(
+                "https://login.microsoftonline.com/11111111-1111-1111-1111-111111111111/v2.0",
+                List.of("attacker-client"), true);
+        OAuthTokenVerifier verifier = new OAuthTokenVerifier(
+                "yeyamo-google", "", "yeyamo-apple", "yeyamo-microsoft", "common",
+                microsoft, microsoft, microsoft);
+
+        assertEquals("MICROSOFT_AUDIENCE_INVALID", assertThrows(ApiException.class,
+                () -> verifier.verify("microsoft", "signed-token")).getCode());
+    }
+
     private Jwt jwt(String issuer, List<String> audience, boolean verified) {
         return Jwt.withTokenValue("signed-token").header("alg", "RS256").subject("subject-1")
                 .issuer(issuer).audience(audience).issuedAt(Instant.now().minusSeconds(1))

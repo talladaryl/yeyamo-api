@@ -96,7 +96,9 @@ public class PlaceController {
     }
 
     @PutMapping("/{id}")
-    public PlaceResponse update(@PathVariable UUID id, @Valid @RequestBody PlaceRequest request) {
-        return placeService.update(id, request);
+    public PlaceResponse update(@PathVariable UUID id, @Valid @RequestBody PlaceRequest request, Authentication authentication) {
+        boolean admin = authentication.getAuthorities().stream().anyMatch(authority ->
+                authority.getAuthority().equals("ROLE_ADMIN") || authority.getAuthority().equals("ROLE_SUPER_ADMIN"));
+        return placeService.updateAuthorized(id, request, authentication.getName(), admin);
     }
 }

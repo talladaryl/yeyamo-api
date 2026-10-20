@@ -5,9 +5,11 @@ import org.springframework.security.config.http.SessionCreationPolicy;import org
 import org.springframework.security.oauth2.server.resource.authentication.*;import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 public class SecurityConfig{
- @Bean SecurityFilterChain security(HttpSecurity http)throws Exception{return http.csrf(c->c.disable()).sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+ @Bean SecurityFilterChain security(HttpSecurity http,CultureServiceTokenFilter serviceTokenFilter)throws Exception{return http.csrf(c->c.disable()).sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
   .authorizeHttpRequests(a->a.requestMatchers("/actuator/health/**","/actuator/info","/v3/api-docs/**","/swagger-ui/**","/swagger-ui.html").permitAll()
+   .requestMatchers("/service/v1/media/culture/**").hasAuthority("SCOPE_media:associate:culture")
    .requestMatchers(HttpMethod.GET,"/api/v1/media/**").permitAll().requestMatchers("/api/v1/media/**").authenticated().anyRequest().authenticated())
+  .addFilterBefore(serviceTokenFilter,org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)
   .oauth2ResourceServer(o->o.jwt(j->j.jwtAuthenticationConverter(authorities()))).build();}
  @Bean JwtDecoder decoder(@Value("${jwt.secret}")String secret){if(secret==null||secret.getBytes(StandardCharsets.UTF_8).length<32)throw new IllegalArgumentException("JWT_SECRET must contain at least 32 bytes");
   SecretKey key=new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8),"HmacSHA256");return NimbusJwtDecoder.withSecretKey(key).build();}

@@ -2,6 +2,8 @@ package com.yeyamo_mobile.api.auth_service.dto;
 
 import java.util.UUID;
 
+import com.yeyamo_mobile.api.auth_service.enums.AccountType;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -26,6 +28,13 @@ public record RegisterRequest(
         @Pattern(regexp = "[A-Z]{2}", message = "Country code must be ISO 3166-1 alpha-2") String countryCode,
         UUID cityId,
         @Size(max = 10) String preferredLanguageCode,
-        @Size(max = 50) String timezone
+        @Size(max = 50) String timezone,
+        AccountType accountType
 ) {
+    public RegisterRequest(String email, String phone, String password, String displayName,
+            String turnstileToken, String countryCode, UUID cityId,
+            String preferredLanguageCode, String timezone) {
+        this(email, phone, password, displayName, turnstileToken, countryCode, cityId,
+                preferredLanguageCode, timezone, AccountType.EXPLORER);
+    }
 }

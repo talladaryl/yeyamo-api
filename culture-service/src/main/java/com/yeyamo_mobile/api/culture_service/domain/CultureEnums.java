@@ -14,4 +14,9 @@ public final class CultureEnums {
     public enum LanguageStatus { DISABLED, BETA, ACTIVE, ARCHIVED }
     public enum LessonStatus { DRAFT, PUBLISHED, ARCHIVED }
     public enum ExerciseType { MULTIPLE_CHOICE, AUDIO_CHOICE, MATCH_WORD_IMAGE, COMPLETE_PHRASE, IDENTIFY_LANGUAGE, PRONUNCIATION_SUBMISSION }
+    public enum RecipeDifficulty { SIMPLE, INTERMEDIAIRE, AVANCE }
+    public enum QuantityUnitCode { G, KG, ML, L, UNIT, TSP, TBSP }
+    public enum TemperatureUnit { C, F }
+ public enum RecipeMediaRole { GALLERY, RESULT, PROCESS }
+ public enum RecipeRevisionStatus { DRAFT, SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED }
 }

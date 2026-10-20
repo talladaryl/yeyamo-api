@@ -181,8 +181,45 @@ public class PlaceService {
     public record ApprovedMediaReference(UUID mediaId, String contentUrl, MediaType type, int displayOrder) { }
 
     public PlaceResponse update(UUID id, PlaceRequest request) {
+        return updateInternal(id, request);
+    }
+
+    public PlaceResponse updateAuthorized(UUID id, PlaceRequest request, String actorId, boolean admin) {
         Place place = placeRepository.findDetailedById(id)
                 .orElseThrow(() -> new ApiException("PLACE_NOT_FOUND", "Lieu introuvable", HttpStatus.NOT_FOUND));
+
+        if (!admin) {
+            if (partners == null) {
+                throw new ApiException("PARTNER_VALIDATION_UNAVAILABLE", "Validation partenaire indisponible", HttpStatus.SERVICE_UNAVAILABLE);
+            }
+            PartnerReadModel partner = partners.findByOwnerUserId(actorId)
+                    .orElseThrow(() -> new ApiException("PLACE_NOT_FOUND", "Lieu introuvable", HttpStatus.NOT_FOUND));
+            if (!partner.getPartnerId().equals(place.getPartnerId())) {
+                throw new ApiException("PLACE_NOT_FOUND", "Lieu introuvable", HttpStatus.NOT_FOUND);
+            }
+            if (!partner.isApproved()) {
+                throw new ApiException("PARTNER_NOT_APPROVED", "Le partenaire doit etre approuve", HttpStatus.CONFLICT);
+            }
+            if (request.getPartnerId() != null && !request.getPartnerId().equals(place.getPartnerId())) {
+                throw new ApiException("PLACE_PROTECTED_FIELD", "Le proprietaire du lieu ne peut pas etre modifie", HttpStatus.BAD_REQUEST);
+            }
+            if (request.getStatus() != null && request.getStatus() != place.getStatus()) {
+                throw new ApiException("PLACE_PROTECTED_FIELD", "Le statut du lieu ne peut pas etre modifie ici", HttpStatus.BAD_REQUEST);
+            }
+        }
+        return updateInternal(place, request, admin);
+    }
+
+    private PlaceResponse updateInternal(UUID id, PlaceRequest request) {
+        Place place = placeRepository.findDetailedById(id)
+                .orElseThrow(() -> new ApiException("PLACE_NOT_FOUND", "Lieu introuvable", HttpStatus.NOT_FOUND));
+        return updateInternal(place, request, true);
+    }
+
+    private PlaceResponse updateInternal(Place place, PlaceRequest request, boolean protectedFieldsAllowed) {
+        UUID owner = place.getPartnerId();
+        PlaceStatus status = place.getStatus();
+        boolean verified = place.isVerified();
 
         String slug = resolveSlug(request.getSlug(), request.getName());
         if (!place.getSlug().equals(slug) && placeRepository.existsBySlug(slug)) {
@@ -190,6 +227,11 @@ public class PlaceService {
         }
 
         applyRequest(place, request);
+        if (!protectedFieldsAllowed) {
+            place.setPartnerId(owner);
+            place.setStatus(status);
+            place.setVerified(verified);
+        }
         place.setSlug(slug);
         Place saved = placeRepository.save(place);
         eventPublisher.publishUpdated(saved);

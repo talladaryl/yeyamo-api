@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -126,6 +128,11 @@ public class EventController {
             Authentication authentication
     ) {
         return eventService.unregister(id, authentication.getName());
+    }
+
+    @GetMapping("/organized/me")
+    public Page<EventResponse> organizedByMe(Authentication authentication, Pageable pageable) {
+        return eventService.findOrganizedByUser(authentication.getName(), pageable);
     }
 
     @PostMapping("/{id}/invitations")

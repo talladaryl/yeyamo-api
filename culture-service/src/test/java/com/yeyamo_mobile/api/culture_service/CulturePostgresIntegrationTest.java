@@ -52,6 +52,15 @@ class CulturePostgresIntegrationTest {
     }
 
     @Test
+    void flywayCreatesRecipeEnrichmentAndRevisionSchema() throws Exception {
+        try (var connection = dataSource.getConnection();
+                var result = connection.createStatement().executeQuery(
+                        "select count(*) from information_schema.tables where table_name in ('culture_recipe_equipment','culture_recipe_media','culture_recipe_step_ingredients','culture_recipe_revisions')")) {
+            assertTrue(result.next() && result.getInt(1) == 4);
+        }
+    }
+
+    @Test
     void contextProvidesCountryConfigClientAndRestClientBuilder() {
         assertTrue(restClientBuilder != null);
         assertTrue(countryConfigClient != null);

@@ -63,6 +63,11 @@ public class AuthController {
         return authService.oauthLogin("apple", request);
     }
 
+    @PostMapping("/oauth/microsoft")
+    public AuthResponse microsoft(@Valid @RequestBody OAuthLoginRequest request) {
+        return authService.oauthLogin("microsoft", request);
+    }
+
     @PostMapping("/refresh")
     public AuthResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
         return authService.refresh(request);

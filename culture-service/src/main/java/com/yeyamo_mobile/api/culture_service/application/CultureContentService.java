@@ -13,6 +13,10 @@ import com.yeyamo_mobile.api.culture_service.domain.RecipeDetailsEntity;
 import com.yeyamo_mobile.api.culture_service.infrastructure.persistence.CultureRepositories.Contents;
 import com.yeyamo_mobile.api.culture_service.infrastructure.persistence.CultureRepositories.Languages;
 import com.yeyamo_mobile.api.culture_service.infrastructure.persistence.CultureRepositories.Translations;
+import com.yeyamo_mobile.api.culture_service.infrastructure.persistence.CultureRepositories.RecipeRevisions;
+import com.yeyamo_mobile.api.culture_service.domain.CultureRecipeRevision;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,22 +41,36 @@ public class CultureContentService {
     private final CultureEventPublisher events;
     private final CountryConfigClient countries;
     private final Languages languages;
+    private final RecipeRevisions recipeRevisions;
+    private final ObjectMapper objectMapper;
+    private final MediaAssociationClient mediaAssociations;
 
     public CultureContentService(Contents contents, Translations translations, CultureEventPublisher events) {
-        this(contents, translations, events, null, null);
+        this(contents, translations, events, null, null, null, new ObjectMapper().findAndRegisterModules(), null);
     }
 
     public CultureContentService(Contents contents, Translations translations, CultureEventPublisher events, CountryConfigClient countries) {
-        this(contents, translations, events, countries, null);
+        this(contents, translations, events, countries, null, null, new ObjectMapper().findAndRegisterModules(), null);
+    }
+
+    public CultureContentService(Contents contents, Translations translations, CultureEventPublisher events, CountryConfigClient countries, Languages languages) {
+        this(contents,translations,events,countries,languages,null,new ObjectMapper().findAndRegisterModules(),null);
+    }
+
+    public CultureContentService(Contents contents, Translations translations, CultureEventPublisher events, CountryConfigClient countries, Languages languages, RecipeRevisions recipeRevisions, ObjectMapper objectMapper) {
+        this(contents, translations, events, countries, languages, recipeRevisions, objectMapper, null);
     }
 
     @Autowired
-    public CultureContentService(Contents contents, Translations translations, CultureEventPublisher events, CountryConfigClient countries, Languages languages) {
+    public CultureContentService(Contents contents, Translations translations, CultureEventPublisher events, CountryConfigClient countries, Languages languages, RecipeRevisions recipeRevisions, ObjectMapper objectMapper, MediaAssociationClient mediaAssociations) {
         this.contents = contents;
         this.translations = translations;
         this.events = events;
         this.countries = countries;
         this.languages = languages;
+        this.recipeRevisions=recipeRevisions;
+        this.objectMapper=objectMapper;
+        this.mediaAssociations=mediaAssociations;
     }
 
     @Transactional(readOnly = true)
@@ -109,7 +127,7 @@ public class CultureContentService {
                 request.visibility());
         content.updateLocation(request.adminLevel1Id(), request.adminLevel2Id(), request.cityId(), request.localityId(),
                 request.communityName());
-        applyDetails(content, request);
+        applyDetails(content, request, actor, false);
         contents.save(content);
         TranslationRequest translation = request.translation();
         translations.save(CultureTranslation.create(content.getId(), new LanguageReference(translation.languageCode()).languageCode(),
@@ -125,15 +143,32 @@ public class CultureContentService {
         if (!admin && !content.getCreatedBy().equals(actor)) {
             throw new CultureException("FORBIDDEN", "Contribution inaccessible", HttpStatus.FORBIDDEN);
         }
+        validate(request);
+        if(content.getType()==ContentType.RECIPE&&content.getStatus()==ContentStatus.PUBLISHED){
+            if(recipeRevisions==null)throw new CultureException("RECIPE_REVISION_UNAVAILABLE","Le stockage des rÃ©visions de recette est indisponible",HttpStatus.SERVICE_UNAVAILABLE);
+            if(request.recipeDetails()!=null)YouTubeUrlValidator.normalize(request.recipeDetails().youtubeVideoUrl());
+            CultureRecipeRevision revision=recipeRevisions.findFirstByContentIdAndStatusInOrderByCreatedAtDesc(id,Set.of(RecipeRevisionStatus.DRAFT,RecipeRevisionStatus.SUBMITTED,RecipeRevisionStatus.UNDER_REVIEW)).orElse(null);
+            String candidate=writeCandidate(request);
+            if(revision==null)revision=recipeRevisions.save(CultureRecipeRevision.draft(id,actor,content.getVersion(),candidate));
+            else {try{revision.replaceDraft(content.getVersion(),candidate,actor);}catch(SecurityException exception){throw new CultureException("FORBIDDEN",exception.getMessage(),HttpStatus.FORBIDDEN);}catch(IllegalStateException exception){throw new CultureException("REVISION_ALREADY_SUBMITTED",exception.getMessage(),HttpStatus.CONFLICT);}}
+            events.publish("CultureRecipeRevisionCreated",id,Map.of("contentId",id,"contributorId",actor,"baseVersion",content.getVersion()));
+            return ContentResponse.from(content,revision);
+        }
         content.updateLocation(request.adminLevel1Id(), request.adminLevel2Id(), request.cityId(), request.localityId(),
                 request.communityName());
-        applyDetails(content, request);
+        applyDetails(content, request, actor, content.getStatus()==ContentStatus.PUBLISHED);
         events.publish("CultureContentUpdated", id, contentEventPayload(content, title(content), active(content), content.getCreatedBy()));
         return ContentResponse.from(content);
     }
 
     public ContentResponse submit(UUID id, String actor) {
         CultureContent content = require(id);
+        if(content.getType()==ContentType.RECIPE&&content.getStatus()==ContentStatus.PUBLISHED&&recipeRevisions!=null){
+            CultureRecipeRevision revision=recipeRevisions.findFirstByContentIdAndStatusInOrderByCreatedAtDesc(id,Set.of(RecipeRevisionStatus.DRAFT)).orElseThrow(()->new CultureException("RECIPE_REVISION_NOT_FOUND","Aucune rÃ©vision de recette Ã  soumettre",HttpStatus.CONFLICT));
+            try{revision.submit(actor);}catch(SecurityException exception){throw new CultureException("FORBIDDEN",exception.getMessage(),HttpStatus.FORBIDDEN);}
+            events.publish("CultureContributionSubmitted",id,Map.of("contentId",id,"revisionId",revision.getId(),"contributorId",actor,"userId",actor));
+            return ContentResponse.from(content,revision);
+        }
         try {
             content.submit(actor);
         } catch (SecurityException exception) {
@@ -163,6 +198,22 @@ public class CultureContentService {
 
     public ContentResponse review(UUID id, ReviewRequest request, String reviewer) {
         CultureContent content = require(id);
+        if(content.getType()==ContentType.RECIPE&&content.getStatus()==ContentStatus.PUBLISHED&&recipeRevisions!=null){
+            if(!Set.of(ContentStatus.APPROVED,ContentStatus.REJECTED).contains(request.decision()))throw new CultureException("INVALID_REVIEW_DECISION","Une rÃ©vision publiÃ©e doit Ãªtre approuvÃ©e ou rejetÃ©e",HttpStatus.BAD_REQUEST);
+            CultureRecipeRevision revision=recipeRevisions.findFirstByContentIdAndStatusInOrderByCreatedAtDesc(id,Set.of(RecipeRevisionStatus.SUBMITTED)).orElseThrow(()->new CultureException("RECIPE_REVISION_NOT_FOUND","Aucune rÃ©vision soumise",HttpStatus.CONFLICT));
+            revision.beginReview();
+            if(request.decision()==ContentStatus.APPROVED){
+                if(content.getVersion()!=revision.getBaseVersion())throw new CultureException("RECIPE_REVISION_CONFLICT","La recette publique a changÃ© depuis la crÃ©ation de la rÃ©vision",HttpStatus.CONFLICT);
+                ContentRequest candidate=readCandidate(revision.getCandidateJson());validate(candidate);
+                content.updateLocation(candidate.adminLevel1Id(),candidate.adminLevel2Id(),candidate.cityId(),candidate.localityId(),candidate.communityName());applyDetails(content,candidate,revision.getAuthorId(),true);
+                TranslationRequest requested=candidate.translation();String language=new LanguageReference(requested.languageCode()).languageCode();
+                CultureTranslation translation=translations.findByContentIdOrderByLanguageCode(id).stream().filter(value->value.getLanguageCode().equals(language)).findFirst().orElseGet(()->translations.save(CultureTranslation.create(id,language,requested.title(),requested.summary(),requested.body(),revision.getAuthorId())));
+                translation.applyApprovedRevision(requested.title(),requested.summary(),requested.body(),revision.getAuthorId());
+            }
+            revision.decide(request.decision()==ContentStatus.APPROVED,reviewer,request.reason());
+            events.publish(request.decision()==ContentStatus.APPROVED?"CultureContributionApproved":"CultureContributionRejected",id,Map.of("contentId",id,"revisionId",revision.getId(),"contributorId",revision.getAuthorId(),"reviewerId",reviewer,"reason",request.reason()));
+            return ContentResponse.from(content,revision);
+        }
         if (content.getStatus() == ContentStatus.SUBMITTED) content.changeStatus(ContentStatus.UNDER_REVIEW);
         if (request.verified()) content.markVerified();
         if (!Set.of(ContentStatus.APPROVED, ContentStatus.CORRECTIONS_REQUIRED, ContentStatus.REJECTED)
@@ -179,7 +230,7 @@ public class CultureContentService {
 
     @Transactional(readOnly = true)
     public Page<ContentResponse> mine(String actor, Pageable pageable) {
-        return contents.findByCreatedBy(actor, pageable).map(ContentResponse::from);
+        return contents.findByCreatedBy(actor, pageable).map(this::contributorResponse);
     }
 
     @Transactional(readOnly = true)
@@ -188,7 +239,7 @@ public class CultureContentService {
         if (!content.getCreatedBy().equals(actor)) {
             throw new CultureException("FORBIDDEN", "Contribution inaccessible", HttpStatus.FORBIDDEN);
         }
-        return ContentResponse.from(content);
+        return contributorResponse(content);
     }
 
     public void deleteDraft(UUID id, String actor) {
@@ -210,7 +261,7 @@ public class CultureContentService {
 
     @Transactional(readOnly = true)
     public ContentResponse adminGet(UUID id) {
-        return ContentResponse.from(require(id));
+        return contributorResponse(require(id));
     }
 
     @Transactional(readOnly = true)
@@ -241,6 +292,11 @@ public class CultureContentService {
         return new CultureException("CULTURE_CONTENT_NOT_FOUND", "Contenu culturel introuvable", HttpStatus.NOT_FOUND);
     }
 
+    private ContentResponse contributorResponse(CultureContent content){CultureRecipeRevision revision=recipeRevisions==null?null:recipeRevisions.findFirstByContentIdOrderByCreatedAtDesc(content.getId()).orElse(null);return ContentResponse.from(content,revision);}
+
+    private String writeCandidate(ContentRequest request){try{return objectMapper.writeValueAsString(request);}catch(JsonProcessingException exception){throw new CultureException("RECIPE_REVISION_SERIALIZATION_FAILED","Impossible d'enregistrer la rÃ©vision",HttpStatus.INTERNAL_SERVER_ERROR);}}
+    private ContentRequest readCandidate(String json){try{return objectMapper.readValue(json,ContentRequest.class);}catch(JsonProcessingException exception){throw new CultureException("RECIPE_REVISION_INVALID","La rÃ©vision enregistrÃ©e est invalide",HttpStatus.INTERNAL_SERVER_ERROR);}}
+
     private void validate(ContentRequest request) {
         new CountryReference(request.countryCode());
         new LanguageReference(request.primaryLanguageCode());
@@ -255,7 +311,7 @@ public class CultureContentService {
         }
     }
 
-    private void applyDetails(CultureContent content, ContentRequest request) {
+    private void applyDetails(CultureContent content, ContentRequest request, String actor, boolean publication) {
         if (request.proverbDetails() != null) {
             ProverbDetailsRequest details = request.proverbDetails();
             Language language = languages == null ? null : languages.findById(new LanguageReference(details.originLanguageCode()).languageCode())
@@ -268,11 +324,43 @@ public class CultureContentService {
         }
         if (request.recipeDetails() != null) {
             RecipeDetailsRequest details = request.recipeDetails();
-            List<RecipeDetailsEntity.RecipeIngredient> ingredients = details.ingredients().stream()
-                    .map(value -> new RecipeDetailsEntity.RecipeIngredient(value.name(), value.quantity(), value.unit())).toList();
-            List<RecipeDetailsEntity.RecipeStep> steps = details.steps().stream()
-                    .map(value -> new RecipeDetailsEntity.RecipeStep(value.instruction())).toList();
-            content.replaceDetails(null, RecipeDetailsEntity.create(content, ingredients, steps, details.prepTimeMinutes(), details.servings()));
+            RecipeDetailsEntity previous=content.getRecipeDetails();
+            Set<UUID> previousIngredientIds=previous==null?Set.of():previous.getIngredients().stream().map(RecipeDetailsEntity.RecipeIngredient::getId).collect(java.util.stream.Collectors.toSet());
+            Set<UUID> previousStepIds=previous==null?Set.of():previous.getSteps().stream().map(RecipeDetailsEntity.RecipeStep::getId).collect(java.util.stream.Collectors.toSet());
+            List<RecipeDetailsEntity.RecipeIngredient> ingredients=new ArrayList<>();
+            for(int index=0;index<details.ingredients().size();index++){
+                RecipeIngredientRequest value=details.ingredients().get(index);UUID stable=value.id();
+                if(stable!=null&&!previousIngredientIds.contains(stable))throw new CultureException("FOREIGN_RECIPE_INGREDIENT_ID","Identifiant ingrédient étranger à cette recette",HttpStatus.BAD_REQUEST);
+                if(stable==null&&previous!=null&&index<previous.getIngredients().size())stable=previous.getIngredients().get(index).getId();
+                UUID stableId=stable;RecipeDetailsEntity.RecipeIngredient old=previous==null?null:previous.getIngredients().stream().filter(item->item.getId().equals(stableId)).findFirst().orElse(null);
+                ingredients.add(new RecipeDetailsEntity.RecipeIngredient(stable,value.name(),value.quantity(),value.unit(),value.groupName()!=null?value.groupName():old==null?null:old.getGroupName(),value.optional()!=null?value.optional():old!=null&&old.isOptional(),value.substitutionNotes()!=null?value.substitutionNotes():old==null?null:old.getSubstitutionNotes(),value.quantityValue()!=null?value.quantityValue():old==null?null:old.getQuantityValue(),value.quantityMaxValue()!=null?value.quantityMaxValue():old==null?null:old.getQuantityMaxValue(),value.quantityUnitCode()!=null?value.quantityUnitCode():old==null?null:old.getQuantityUnitCode()));
+            }
+            Map<UUID,RecipeDetailsEntity.RecipeIngredient> ingredientsById=ingredients.stream().collect(java.util.stream.Collectors.toMap(RecipeDetailsEntity.RecipeIngredient::getId,v->v));
+            List<RecipeDetailsEntity.RecipeStep> steps=new ArrayList<>();
+            for(int index=0;index<details.steps().size();index++){
+                RecipeStepRequest value=details.steps().get(index);UUID stable=value.id();
+                if(stable!=null&&!previousStepIds.contains(stable))throw new CultureException("FOREIGN_RECIPE_STEP_ID","Identifiant étape étranger à cette recette",HttpStatus.BAD_REQUEST);
+                if(stable==null&&previous!=null&&index<previous.getSteps().size())stable=previous.getSteps().get(index).getId();
+                UUID stableId=stable;RecipeDetailsEntity.RecipeStep old=previous==null?null:previous.getSteps().stream().filter(item->item.getId().equals(stableId)).findFirst().orElse(null);
+                RecipeDetailsEntity.RecipeStep step=new RecipeDetailsEntity.RecipeStep(stable,value.title()!=null?value.title():old==null?null:old.getTitle(),value.instruction(),value.durationMinutes()!=null?value.durationMinutes():old==null?null:old.getDurationMinutes(),value.temperatureValue()!=null?value.temperatureValue():old==null?null:old.getTemperatureValue(),value.temperatureUnit()!=null?value.temperatureUnit():old==null?null:old.getTemperatureUnit(),value.expectedResult()!=null?value.expectedResult():old==null?null:old.getExpectedResult(),value.tip()!=null?value.tip():old==null?null:old.getTip(),value.safetyNote()!=null?value.safetyNote():old==null?null:old.getSafetyNote(),value.mediaId()!=null?value.mediaId():old==null?null:old.getMediaId());
+                if(value.ingredientIds()!=null){List<RecipeDetailsEntity.RecipeIngredient> linked=value.ingredientIds().stream().map(ingredientId->{RecipeDetailsEntity.RecipeIngredient found=ingredientsById.get(ingredientId);if(found==null)throw new CultureException("CROSS_RECIPE_INGREDIENT_REFERENCE","Une étape référence un ingrédient absent de la recette",HttpStatus.BAD_REQUEST);return found;}).toList();step.linkIngredients(linked);}
+                steps.add(step);
+            }
+            List<RecipeDetailsEntity.RecipeEquipment> equipment=details.equipment()==null&&previous!=null?previous.getEquipment().stream().map(value->new RecipeDetailsEntity.RecipeEquipment(value.getId(),value.getName(),value.isOptional())).toList():details.equipment()==null?List.of():details.equipment().stream().map(value->new RecipeDetailsEntity.RecipeEquipment(value.id(),value.name(),Boolean.TRUE.equals(value.optional()))).toList();
+            List<RecipeDetailsEntity.RecipeMedia> gallery=details.gallery()==null&&previous!=null?previous.getGallery().stream().map(value->new RecipeDetailsEntity.RecipeMedia(value.getId(),value.getMediaId(),value.getRole(),value.getCaption(),value.getAltText())).toList():details.gallery()==null?List.of():details.gallery().stream().map(value->new RecipeDetailsEntity.RecipeMedia(value.id(),value.mediaId(),value.role(),value.caption(),value.altText())).toList();
+            List<MediaAssociationClient.Reference> mediaReferences=new ArrayList<>();
+            if(details.heroMediaId()!=null)mediaReferences.add(new MediaAssociationClient.Reference(details.heroMediaId(),MediaAssociationClient.Usage.HERO));
+            if(details.videoMediaId()!=null)mediaReferences.add(new MediaAssociationClient.Reference(details.videoMediaId(),MediaAssociationClient.Usage.VIDEO));
+            details.steps().stream().filter(step->step.mediaId()!=null).forEach(step->mediaReferences.add(new MediaAssociationClient.Reference(step.mediaId(),MediaAssociationClient.Usage.STEP)));
+            if(details.gallery()!=null)details.gallery().stream().filter(item->item.mediaId()!=null).forEach(item->mediaReferences.add(new MediaAssociationClient.Reference(item.mediaId(),MediaAssociationClient.Usage.GALLERY)));
+            if(!mediaReferences.isEmpty()){
+                if(mediaAssociations==null)throw new CultureException("MEDIA_VALIDATION_UNAVAILABLE","Le contrat distant de validation des droits média n'est pas disponible",HttpStatus.SERVICE_UNAVAILABLE);
+                mediaAssociations.validate(actor,mediaReferences,publication);
+            }
+            String youtube=details.youtubeVideoUrl()!=null?YouTubeUrlValidator.normalize(details.youtubeVideoUrl()):previous==null?null:previous.getYoutubeVideoUrl();
+            RecipeDetailsEntity recipe=RecipeDetailsEntity.create(content,ingredients,steps,details.prepTimeMinutes(),details.servings());
+            recipe.enrich(details.cookTimeMinutes()!=null?details.cookTimeMinutes():previous==null?null:previous.getCookTimeMinutes(),details.restTimeMinutes()!=null?details.restTimeMinutes():previous==null?null:previous.getRestTimeMinutes(),details.difficulty()!=null?details.difficulty():previous==null?null:previous.getDifficulty(),details.yieldText()!=null?details.yieldText():previous==null?null:previous.getYieldText(),details.heroMediaId()!=null?details.heroMediaId():previous==null?null:previous.getHeroMediaId(),details.videoMediaId()!=null?details.videoMediaId():previous==null?null:previous.getVideoMediaId(),youtube,details.preparationAhead()!=null?details.preparationAhead():previous==null?null:previous.getPreparationAhead(),details.plating()!=null?details.plating():previous==null?null:previous.getPlating(),details.storage()!=null?details.storage():previous==null?null:previous.getStorage(),details.reheating()!=null?details.reheating():previous==null?null:previous.getReheating(),details.tips()!=null?details.tips():previous==null?null:previous.getTips(),details.variants()!=null?details.variants():previous==null?null:previous.getVariants(),details.accompaniments()!=null?details.accompaniments():previous==null?null:previous.getAccompaniments(),details.safetyNotes()!=null?details.safetyNotes():previous==null?null:previous.getSafetyNotes(),equipment,gallery);
+            content.synchronizeRecipe(recipe);
             return;
         }
         content.replaceDetails(null, null);

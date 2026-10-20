@@ -30,6 +30,7 @@ import com.yeyamo_mobile.api.auth_service.dto.UserResponse;
 import com.yeyamo_mobile.api.auth_service.enums.LabelRole;
 import com.yeyamo_mobile.api.auth_service.enums.Roles;
 import com.yeyamo_mobile.api.auth_service.enums.UserStatus;
+import com.yeyamo_mobile.api.auth_service.enums.AccountType;
 import com.yeyamo_mobile.api.auth_service.exception.ApiException;
 import com.yeyamo_mobile.api.auth_service.event.AuthEventOutbox;
 import com.yeyamo_mobile.api.auth_service.models.OAuthAccount;
@@ -144,6 +145,7 @@ public class AuthService {
         user.setPhone(clean(request.phone()));
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setStatus(hasText(request.email()) ? UserStatus.PENDING : UserStatus.ACTIVE);
+        user.setAccountType(request.accountType() == null ? AccountType.EXPLORER : request.accountType());
         user.getRoles().add(defaultUserRole());
         
         // Set geographic fields
@@ -220,7 +222,8 @@ public class AuthService {
         User user = oAuthAccountRepository
                 .findByProviderAndProviderUserId(userInfo.provider(), userInfo.providerUserId())
                 .map(OAuthAccount::getUser)
-                .orElseGet(() -> findOrCreateOAuthUser(userInfo));
+                .orElseGet(() -> findOrCreateOAuthUser(userInfo,
+                        request.accountType() == null ? AccountType.EXPLORER : request.accountType()));
 
         assertOAuthLoginAllowed(user);
 
@@ -361,7 +364,7 @@ public class AuthService {
                 .filter(java.util.Objects::nonNull).collect(Collectors.toSet());
         return new UserResponse(user.getId(), user.getEmail(), user.getPhone(), user.getStatus(), roles,
                 RoleAuthorities.permissions(roleCodes), RoleAuthorities.scopes(roleCodes),
-                user.getCreatedAt(), user.getEmailVerifiedAt());
+                user.getCreatedAt(), user.getEmailVerifiedAt(), user.getAccountType());
     }
 
     private Role defaultUserRole() {
@@ -392,24 +395,24 @@ public class AuthService {
         return new ApiException("INVALID_CREDENTIALS", "Identifiant ou mot de passe invalide", HttpStatus.UNAUTHORIZED);
     }
 
-    private User findOrCreateOAuthUser(OAuthUserInfo userInfo) {
-        User user = null;
-        if (hasText(userInfo.email())) {
-            user = userRepository.findByEmail(clean(userInfo.email())).orElse(null);
+    private User findOrCreateOAuthUser(OAuthUserInfo userInfo, AccountType requestedAccountType) {
+        if (hasText(userInfo.email()) && userRepository.existsByEmail(clean(userInfo.email()))) {
+            throw new ApiException("OAUTH_ACCOUNT_CONFLICT",
+                    "Un compte existe deja avec cet email. Connectez-vous puis liez le fournisseur depuis les parametres.",
+                    HttpStatus.CONFLICT);
         }
 
-        if (user == null) {
-            user = new User();
-            user.setEmail(clean(userInfo.email()));
-            user.setPasswordHash(passwordEncoder.encode("oauth2:" + userInfo.provider() + ":" + userInfo.providerUserId()));
-            user.setStatus(UserStatus.ACTIVE);
-            if (hasText(userInfo.email())) {
-                user.setEmailVerifiedAt(Instant.now());
-            }
-            user.getRoles().add(defaultUserRole());
-            user = userRepository.save(user);
-            eventOutbox.userCreated(user, null);
+        User user = new User();
+        user.setEmail(clean(userInfo.email()));
+        user.setPasswordHash(passwordEncoder.encode("oauth2:" + userInfo.provider() + ":" + userInfo.providerUserId()));
+        user.setStatus(UserStatus.ACTIVE);
+        user.setAccountType(requestedAccountType == null ? AccountType.EXPLORER : requestedAccountType);
+        if (hasText(userInfo.email())) {
+            user.setEmailVerifiedAt(Instant.now());
         }
+        user.getRoles().add(defaultUserRole());
+        user = userRepository.save(user);
+        eventOutbox.userCreated(user, null);
 
         OAuthAccount account = new OAuthAccount();
         account.setUser(user);

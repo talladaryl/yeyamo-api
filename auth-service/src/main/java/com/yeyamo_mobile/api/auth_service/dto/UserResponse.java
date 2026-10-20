@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.Set;
 
 import com.yeyamo_mobile.api.auth_service.enums.UserStatus;
+import com.yeyamo_mobile.api.auth_service.enums.AccountType;
 
 public record UserResponse(
         Long id,
@@ -15,6 +16,7 @@ public record UserResponse(
         Set<String> permissions,
         Set<String> scopes,
         LocalDateTime createdAt,
-        Instant emailVerifiedAt
+        Instant emailVerifiedAt,
+        AccountType accountType
 ) {
 }

@@ -6,6 +6,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
@@ -331,6 +333,12 @@ public class EventService {
                 .stream()
                 .map(EventParticipantResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<EventResponse> findOrganizedByUser(String userId, Pageable pageable) {
+        return eventRepository.findByOwnerUserIdOrderByCreatedAtDesc(userId, pageable)
+                .map(EventResponse::from);
     }
 
     @Transactional(readOnly = true)

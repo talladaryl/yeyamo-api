@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import jakarta.persistence.LockModeType;
@@ -25,6 +27,8 @@ public interface EventRepository extends JpaRepository<Event, UUID>,org.springfr
     List<Event> findByPlaceIdAndStatusAndVisibilityOrderByStartAtAsc(UUID placeId, EventStatus status, EventVisibility visibility);
 
     List<Event> findByPlaceIdOrderByStartAtAsc(UUID placeId);
+
+    Page<Event> findByOwnerUserIdOrderByCreatedAtDesc(String ownerUserId, Pageable pageable);
 
     List<Event> findByStatusAndStartAtAfterOrderByStartAtAsc(EventStatus status, Instant after);
 

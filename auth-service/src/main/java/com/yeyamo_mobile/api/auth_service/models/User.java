@@ -10,6 +10,7 @@ import org.springframework.data.annotation.CreatedDate;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.yeyamo_mobile.api.auth_service.enums.UserStatus;
+import com.yeyamo_mobile.api.auth_service.enums.AccountType;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -52,6 +53,10 @@ public class User{
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserStatus status = UserStatus.ACTIVE;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "account_type", nullable = false)
+    private AccountType accountType = AccountType.EXPLORER;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
