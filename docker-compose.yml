@@ -1,5 +1,10 @@
 x-java-service-env: &java-service-env
   JAVA_TOOL_OPTIONS: "${JAVA_TOOL_OPTIONS:--Xms64m -Xmx256m -XX:+UseSerialGC}"
+  CONFIG_SERVER_URL: "${CONFIG_SERVER_URL:-http://config-server:8080}"
+  CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+  CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
+  SPRING_CLOUD_CONFIG_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+  SPRING_CLOUD_CONFIG_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
   # Un `docker compose up --build` démarre plus de vingt JVM. Le Config Server
   # peut répondre lentement pendant ce pic CPU : laisser assez de temps évite
   # les ConfigClientFailFastException observées au premier démarrage.
@@ -187,8 +192,8 @@ services:
     environment:
       <<: *java-service-env
       SPRING_PROFILES_ACTIVE: native
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
     ports:
       - "8080:8080"
     volumes:
@@ -213,8 +218,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_HOSTNAME: registry-service
       EUREKA_USERNAME: eureka
       EUREKA_PASSWORD: eureka123
@@ -246,8 +251,8 @@ services:
       SERVER_PORT: "8117"
       CONFIG_SERVER_URL: http://config-server:8080
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_SERVER: http://eureka:eureka123@registry-service:8761/eureka/
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -290,8 +295,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
@@ -323,8 +328,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_auth
       SPRING_DATASOURCE_USERNAME: postgres
@@ -383,8 +388,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_user
       SPRING_DATASOURCE_USERNAME: postgres
@@ -421,8 +426,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_partner
       SPRING_DATASOURCE_USERNAME: postgres
@@ -457,8 +462,8 @@ services:
       <<: *java-service-env
       SERVER_PORT: "8110"
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME:-admin}
-      CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:-admin123}
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_campaign
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
@@ -485,10 +490,10 @@ services:
       <<: *java-service-env
       SERVER_PORT: "8111"
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME:-admin}
-      CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:-admin123}
-      SPRING_CLOUD_CONFIG_USERNAME: ${CONFIG_SERVER_USERNAME:-admin}
-      SPRING_CLOUD_CONFIG_PASSWORD: ${CONFIG_SERVER_PASSWORD:-admin123}
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
+      SPRING_CLOUD_CONFIG_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      SPRING_CLOUD_CONFIG_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       SPRING_CONFIG_IMPORT: configserver:http://config-server:8080
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_ads
@@ -519,8 +524,8 @@ services:
       <<: *java-service-env
       SERVER_PORT: "8112"
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME:-admin}
-      CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:-admin123}
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_ticket
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
@@ -554,8 +559,8 @@ services:
       <<: *java-service-env
       SERVER_PORT: "8113"
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: ${CONFIG_SERVER_USERNAME:-admin}
-      CONFIG_SERVER_PASSWORD: ${CONFIG_SERVER_PASSWORD:-admin123}
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_commerce
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
@@ -581,8 +586,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_admin
       SPRING_DATASOURCE_USERNAME: postgres
@@ -623,8 +628,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_catalog
       SPRING_DATASOURCE_USERNAME: postgres
@@ -657,8 +662,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_place
       SPRING_DATASOURCE_USERNAME: postgres
@@ -698,8 +703,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_content
       SPRING_DATASOURCE_USERNAME: postgres
@@ -732,8 +737,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_interaction
       SPRING_DATASOURCE_USERNAME: postgres
@@ -769,8 +774,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_feed
       SPRING_DATASOURCE_USERNAME: postgres
@@ -810,8 +815,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_media
       SPRING_DATASOURCE_USERNAME: postgres
@@ -846,8 +851,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_moderation
       SPRING_DATASOURCE_USERNAME: postgres
@@ -884,8 +889,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_event
       SPRING_DATASOURCE_USERNAME: postgres
@@ -918,8 +923,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_booking
       SPRING_DATASOURCE_USERNAME: postgres
@@ -952,8 +957,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_payment
       SPRING_DATASOURCE_USERNAME: postgres
@@ -991,8 +996,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_messaging
       SPRING_DATASOURCE_USERNAME: postgres
@@ -1023,8 +1028,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_notification
       SPRING_DATASOURCE_USERNAME: postgres
@@ -1091,8 +1096,8 @@ services:
       <<: *java-service-env
       SERVER_PORT: "8114"
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_support
       SPRING_DATASOURCE_USERNAME: postgres
@@ -1123,8 +1128,8 @@ services:
       <<: *java-service-env
       SERVER_PORT: "8115"
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_culture
       SPRING_DATASOURCE_USERNAME: postgres
@@ -1161,8 +1166,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_gamification
       SPRING_DATASOURCE_USERNAME: postgres
@@ -1198,8 +1203,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_mission
       SPRING_DATASOURCE_USERNAME: postgres
@@ -1232,8 +1237,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_recommendation
       SPRING_DATASOURCE_USERNAME: postgres
@@ -1273,8 +1278,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_referral
       SPRING_DATASOURCE_USERNAME: postgres
@@ -1311,8 +1316,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       OPENSEARCH_URIS: http://opensearch:9200
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_analytics
@@ -1353,8 +1358,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_ingestion
       SPRING_DATASOURCE_USERNAME: postgres
@@ -1387,8 +1392,8 @@ services:
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/yeyamo_discovery
       SPRING_DATASOURCE_USERNAME: postgres
@@ -1430,8 +1435,8 @@ services:
   #   build: ./search-service
   #   environment:
   #     CONFIG_SERVER_URL: http://config-server:8080
-        # CONFIG_SERVER_USERNAME: admin
-        # CONFIG_SERVER_PASSWORD: admin123
+        # CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+        # CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
   #     EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
   #     OPENSEARCH_HOST: opensearch
   #     OPENSEARCH_PORT: 9200
@@ -1459,8 +1464,8 @@ services:
       <<: *java-service-env
       SERVER_PORT: "8116"
       CONFIG_SERVER_URL: http://config-server:8080
-      CONFIG_SERVER_USERNAME: admin
-      CONFIG_SERVER_PASSWORD: admin123
+      CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
+      CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       NEO4J_URI: bolt://neo4j:7687
       NEO4J_USERNAME: neo4j
@@ -1484,7 +1489,7 @@ services:
   # social-service:
   #   build: ./social-service
   #   environment:
-    # ERVER_PASSWORD: admin123
+    # CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
   #     EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
   #     SPRING_CASSANDRA_CONTACT_POINTS: cassandra
   #     SPRING_CASSANDRA_PORT: 9042
