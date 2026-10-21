@@ -178,7 +178,12 @@ services:
   # ============================================
 
   config-server:
-    build: ./config-server
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: config-server
+        SERVICE_PORT: "8080"
     environment:
       <<: *java-service-env
       SPRING_PROFILES_ACTIVE: native
@@ -199,7 +204,12 @@ services:
 
 
   registry-service:
-    build: ./registry-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: registry-service
+        SERVICE_PORT: "8761"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -224,7 +234,12 @@ services:
       - yeyamo-network
 
   country-config-service:
-    build: ./country-config-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: country-config-service
+        SERVICE_PORT: "8117"
     deploy: *java-limits
     environment:
       <<: *java-service-env
@@ -266,7 +281,12 @@ services:
       - yeyamo-network
 
   api-gateway:
-    build: ./api-gateway
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: api-gateway
+        SERVICE_PORT: "8083"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -293,7 +313,12 @@ services:
   # ============================================
 
   auth-service:
-    build: ./auth-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: auth-service
+        SERVICE_PORT: "8082"
     restart: unless-stopped
     environment:
       <<: *java-service-env
@@ -335,8 +360,8 @@ services:
     ports:
       - "8082:8082"
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       kafka:
@@ -349,7 +374,12 @@ services:
       - yeyamo-network
 
   user-service:
-    build: ./user-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: user-service
+        SERVICE_PORT: "8086"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -368,11 +398,13 @@ services:
     ports:
       - "8086:8086"
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       kafka:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -380,7 +412,12 @@ services:
       - yeyamo-network
 
   partner-service:
-    build: ./partner-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: partner-service
+        SERVICE_PORT: "8087"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -397,9 +434,11 @@ services:
     ports:
       - "8087:8087"
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       kafka:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -407,7 +446,12 @@ services:
       - yeyamo-network
 
   campaign-service:
-    build: ./campaign-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: campaign-service
+        SERVICE_PORT: "8110"
     deploy: *java-limits
     environment:
       <<: *java-service-env
@@ -425,11 +469,17 @@ services:
     depends_on:
       postgres-init: {condition: service_completed_successfully}
       kafka: {condition: service_healthy}
+      config-server: {condition: service_healthy}
       registry-service: {condition: service_healthy}
     networks: [yeyamo-network]
 
   ads-delivery-service:
-    build: ./ads-delivery-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: ads-delivery-service
+        SERVICE_PORT: "8111"
     deploy: *java-limits
     environment:
       <<: *java-service-env
@@ -458,7 +508,12 @@ services:
     networks: [yeyamo-network]
 
   ticket-service:
-    build: ./ticket-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: ticket-service
+        SERVICE_PORT: "8112"
     deploy: *java-limits
     environment:
       <<: *java-service-env
@@ -472,6 +527,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_KAFKA_CONSUMER_GROUP_ID: ticket-service
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-local-docker-secret-change-me-1234567890}
       TICKET_QR_KEY_ID: ${TICKET_QR_KEY_ID:-ticket-qr-key-local-1}
       TICKET_QR_PRIVATE_KEY_BASE64: ${TICKET_QR_PRIVATE_KEY_BASE64:-}
@@ -482,10 +539,16 @@ services:
       registry-service: {condition: service_healthy}
       postgres-init: {condition: service_completed_successfully}
       kafka: {condition: service_healthy}
+      redis: {condition: service_healthy}
     networks: [yeyamo-network]
 
   commerce-service:
-    build: ./commerce-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: commerce-service
+        SERVICE_PORT: "8113"
     deploy: *java-limits
     environment:
       <<: *java-service-env
@@ -509,7 +572,12 @@ services:
     networks: [yeyamo-network]
 
   admin-service:
-    build: ./admin-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: admin-service
+        SERVICE_PORT: "8096"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -528,11 +596,13 @@ services:
     ports:
       - "8096:8096"
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       kafka:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -544,7 +614,12 @@ services:
   # ============================================
 
   catalog-service:
-    build: ./catalog-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: catalog-service
+        SERVICE_PORT: "8088"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -561,9 +636,11 @@ services:
     ports:
       - "8088:8088"
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       kafka:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -571,7 +648,12 @@ services:
       - yeyamo-network
 
   place-service:
-    build: ./place-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: place-service
+        SERVICE_PORT: "8084"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -589,11 +671,13 @@ services:
     ports:
       - "8084:8084"
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       kafka:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -605,7 +689,12 @@ services:
   # ============================================
 
   content-service:
-    build: ./content-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: content-service
+        SERVICE_PORT: "8090"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -622,9 +711,11 @@ services:
     ports:
       - "8090:8090"
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       kafka:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -632,7 +723,12 @@ services:
       - yeyamo-network
 
   interaction-service:
-    build: ./interaction-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: interaction-service
+        SERVICE_PORT: "8091"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -650,11 +746,13 @@ services:
     ports:
       - "8091:8091"
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       kafka:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -662,7 +760,12 @@ services:
       - yeyamo-network
 
   feed-service:
-    build: ./feed-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: feed-service
+        SERVICE_PORT: "8092"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -686,6 +789,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      config-server:
+        condition: service_healthy
       registry-service:
         condition: service_healthy
     networks:
@@ -696,7 +801,12 @@ services:
   # ============================================
 
   media-service:
-    build: ./media-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: media-service
+        SERVICE_PORT: "8101"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -719,13 +829,20 @@ services:
         condition: service_completed_successfully
       kafka:
         condition: service_healthy
+      config-server:
+        condition: service_healthy
       registry-service:
         condition: service_healthy
     networks:
       - yeyamo-network
 
   moderation-trust-service:
-    build: ./moderation-trust-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: moderation-trust-service
+        SERVICE_PORT: "8100"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -742,9 +859,11 @@ services:
     ports:
       - "8100:8100"
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       kafka:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -756,7 +875,12 @@ services:
   # ============================================
 
   event-service:
-    build: ./event-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: event-service
+        SERVICE_PORT: "8085"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -773,9 +897,11 @@ services:
     ports:
       - "8085:8085"
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       kafka:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -783,7 +909,12 @@ services:
       - yeyamo-network
 
   booking-service:
-    build: ./booking-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: booking-service
+        SERVICE_PORT: "8102"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -800,9 +931,11 @@ services:
     ports:
       - "8102:8102"
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       kafka:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -810,7 +943,12 @@ services:
       - yeyamo-network
 
   payment-service:
-    build: ./payment-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: payment-service
+        SERVICE_PORT: "8103"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -828,9 +966,11 @@ services:
     ports:
       - "8103:8103"
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       kafka:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -842,7 +982,12 @@ services:
   # ============================================
 
   messaging-service:
-    build: ./messaging-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: messaging-service
+        SERVICE_PORT: "8104"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -857,9 +1002,11 @@ services:
     ports:
       - "8104:8104"
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       kafka:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -867,7 +1014,12 @@ services:
       - yeyamo-network
 
   notification-service:
-    build: ./notification-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: notification-service
+        SERVICE_PORT: "8094"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -896,9 +1048,11 @@ services:
     ports:
       - "8094:8094"
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       kafka:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -927,7 +1081,12 @@ services:
       - yeyamo-network
 
   support-service:
-    build: ./support-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: support-service
+        SERVICE_PORT: "8114"
     environment:
       <<: *java-service-env
       SERVER_PORT: "8114"
@@ -944,7 +1103,9 @@ services:
     ports:
       - "8114:8114"
     depends_on:
-      postgres:
+      postgres-init:
+        condition: service_completed_successfully
+      config-server:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -952,7 +1113,12 @@ services:
       - yeyamo-network
 
   culture-service:
-    build: ./culture-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: culture-service
+        SERVICE_PORT: "8115"
     environment:
       <<: *java-service-env
       SERVER_PORT: "8115"
@@ -974,6 +1140,8 @@ services:
         condition: service_completed_successfully
       kafka:
         condition: service_healthy
+      config-server:
+        condition: service_healthy
       registry-service:
         condition: service_healthy
     networks:
@@ -984,7 +1152,12 @@ services:
   # ============================================
 
   gamification-service:
-    build: ./gamification-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: gamification-service
+        SERVICE_PORT: "8105"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -1002,11 +1175,13 @@ services:
     ports:
       - "8105:8105"
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       kafka:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -1014,7 +1189,12 @@ services:
       - yeyamo-network
 
   mission-reward-service:
-    build: ./mission-reward-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: mission-reward-service
+        SERVICE_PORT: "8098"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -1031,9 +1211,11 @@ services:
     ports:
       - "8098:8098"
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       kafka:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -1041,7 +1223,12 @@ services:
       - yeyamo-network
 
   recommendation-service:
-    build: ./recommendation-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: recommendation-service
+        SERVICE_PORT: "8095"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -1065,6 +1252,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      config-server:
+        condition: service_healthy
       registry-service:
         condition: service_healthy
     networks:
@@ -1075,7 +1264,12 @@ services:
   # ============================================
 
   referral-service:
-    build: ./referral-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: referral-service
+        SERVICE_PORT: "8099"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -1093,11 +1287,13 @@ services:
     ports:
       - "8099:8099"
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       kafka:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -1105,7 +1301,12 @@ services:
       - yeyamo-network
 
   analytics-service:
-    build: ./analytics-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: analytics-service
+        SERVICE_PORT: "8097"
     deploy: *java-limits
     environment:
       <<: *java-service-env
@@ -1131,6 +1332,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      config-server:
+        condition: service_healthy
       registry-service:
         condition: service_healthy
     networks:
@@ -1141,7 +1344,12 @@ services:
   # ============================================
 
   ingestion-service:
-    build: ./ingestion-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: ingestion-service
+        SERVICE_PORT: "8089"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -1158,9 +1366,11 @@ services:
     ports:
       - "8089:8089"
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       kafka:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -1168,7 +1378,12 @@ services:
       - yeyamo-network
 
   discovery-service:
-    build: ./discovery-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: discovery-service
+        SERVICE_PORT: "8093"
     environment:
       <<: *java-service-env
       CONFIG_SERVER_URL: http://config-server:8080
@@ -1197,6 +1412,8 @@ services:
       kafka:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      config-server:
         condition: service_healthy
       registry-service:
         condition: service_healthy
@@ -1231,7 +1448,12 @@ services:
   #     - yeyamo-network
 
   graph-service:
-    build: ./graph-service
+    build:
+      context: .
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_MODULE: graph-service
+        SERVICE_PORT: "8116"
     deploy: *java-limits
     environment:
       <<: *java-service-env

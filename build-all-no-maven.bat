@@ -1,68 +1,24 @@
 @echo off
 echo ========================================
-echo Building all microservices...
-echo Using individual Maven wrappers
+echo Building all microservices through the Maven reactor
 echo ========================================
 
-echo.
-echo This script will build each service individually using their mvnw.cmd wrapper
-echo This is slower but doesn't require Maven to be installed
-echo.
+if "%MAVEN_THREADS%"=="" set MAVEN_THREADS=1
 
-set FAILED=0
-
-echo Building security-hardening-starter...
-cd security-hardening-starter
-if exist mvnw.cmd (
-    call mvnw.cmd clean install -DskipTests
-    if errorlevel 1 set FAILED=1
-) else (
-    echo WARNING: No mvnw.cmd found in security-hardening-starter
-)
-cd ..
-
-if %FAILED%==1 (
-    echo ERROR: Failed to build security-hardening-starter
+if not exist auth-service\mvnw.cmd (
+    echo ERROR: Maven Wrapper not found in auth-service
     exit /b 1
 )
 
-for /d %%i in (*-service) do (
+call auth-service\mvnw.cmd -f pom.xml -B -ntp -T %MAVEN_THREADS% install -DskipTests
+if errorlevel 1 (
     echo.
-    echo Building %%i...
-    cd %%i
-    if exist mvnw.cmd (
-        call mvnw.cmd clean package -DskipTests
-        if errorlevel 1 (
-            echo ERROR: Failed to build %%i
-            cd ..
-            exit /b 1
-        )
-    ) else (
-        echo WARNING: No mvnw.cmd found in %%i, skipping...
-    )
-    cd ..
-)
-
-echo.
-echo Building config-server and registry-service...
-for %%i in (config-server registry-service api-gateway) do (
-    echo Building %%i...
-    cd %%i
-    if exist mvnw.cmd (
-        call mvnw.cmd clean package -DskipTests
-        if errorlevel 1 (
-            echo ERROR: Failed to build %%i
-            cd ..
-            exit /b 1
-        )
-    ) else (
-        echo WARNING: No mvnw.cmd found in %%i, skipping...
-    )
-    cd ..
+    echo ERROR: Reactor build failed
+    exit /b 1
 )
 
 echo.
 echo ========================================
-echo Build completed!
+echo Build completed successfully!
 echo ========================================
-echo You can now run: docker compose up -d --build
+echo Shared modules were compiled once for all selected services.

@@ -4,7 +4,14 @@
 # mounts are removed.
 name: yeyamo-production
 
+x-java-limits: &java-limits
+  resources:
+    limits:
+      cpus: "${JAVA_CPU_LIMIT:-1.0}"
+      memory: "${JAVA_MEMORY_LIMIT:-512M}"
+
 x-production-java-env: &production-java-env
+  JAVA_TOOL_OPTIONS: "${JAVA_TOOL_OPTIONS:--Xms64m -Xmx256m -XX:+UseSerialGC -XX:ActiveProcessorCount=1}"
   CONFIG_SERVER_URL: "http://config-server:8080"
   CONFIG_SERVER_USERNAME: "${CONFIG_SERVER_USERNAME:?CONFIG_SERVER_USERNAME is required}"
   CONFIG_SERVER_PASSWORD: "${CONFIG_SERVER_PASSWORD:?CONFIG_SERVER_PASSWORD is required}"
@@ -65,6 +72,7 @@ x-default-logging: &default-logging
 
 x-private-service: &private-service
   restart: unless-stopped
+  deploy: *java-limits
   ports: !reset []
   logging: *default-logging
   environment:
@@ -128,7 +136,6 @@ services:
   config-server:
     extends: { file: docker-compose.yml, service: config-server }
     logging: *default-logging
-    build: { context: ., dockerfile: config-server/Dockerfile }
     restart: unless-stopped
     ports: !reset []
     volumes: !reset []
@@ -148,12 +155,10 @@ services:
 
   registry-service:
     extends: { file: docker-compose.yml, service: registry-service }
-    build: { context: ., dockerfile: registry-service/Dockerfile }
     <<: *private-service
 
   api-gateway:
     extends: { file: docker-compose.yml, service: api-gateway }
-    build: { context: ., dockerfile: api-gateway/Dockerfile }
     <<: *private-service
     expose: ["8083"]
     networks:
@@ -162,7 +167,6 @@ services:
 
   auth-service:
     extends: { file: docker-compose.yml, service: auth-service }
-    build: { context: ., dockerfile: auth-service/Dockerfile }
     <<: *private-service
     environment:
       <<: *production-java-env
@@ -176,83 +180,63 @@ services:
       LOGIN_TURNSTILE_THRESHOLD: "${LOGIN_TURNSTILE_THRESHOLD:-3}"
   user-service:
     extends: { file: docker-compose.yml, service: user-service }
-    build: { context: ., dockerfile: user-service/Dockerfile }
     <<: *private-service
   partner-service:
     extends: { file: docker-compose.yml, service: partner-service }
-    build: { context: ., dockerfile: partner-service/Dockerfile }
     <<: *private-service
   campaign-service:
     extends: { file: docker-compose.yml, service: campaign-service }
-    build: { context: ., dockerfile: campaign-service/Dockerfile }
     <<: *private-service
   ads-delivery-service:
     extends: { file: docker-compose.yml, service: ads-delivery-service }
-    build: { context: ., dockerfile: ads-delivery-service/Dockerfile }
     <<: *private-service
   ticket-service:
     extends: { file: docker-compose.yml, service: ticket-service }
-    build: { context: ., dockerfile: ticket-service/Dockerfile }
     <<: *private-service
   commerce-service:
     extends: { file: docker-compose.yml, service: commerce-service }
-    build: { context: ., dockerfile: commerce-service/Dockerfile }
     <<: *private-service
   admin-service:
     extends: { file: docker-compose.yml, service: admin-service }
-    build: { context: ., dockerfile: admin-service/Dockerfile }
     <<: *private-service
   catalog-service:
     extends: { file: docker-compose.yml, service: catalog-service }
-    build: { context: ., dockerfile: catalog-service/Dockerfile }
     <<: *private-service
   place-service:
     extends: { file: docker-compose.yml, service: place-service }
-    build: { context: ., dockerfile: place-service/Dockerfile }
     <<: *private-service
   event-service:
     extends: { file: docker-compose.yml, service: event-service }
-    build: { context: ., dockerfile: event-service/Dockerfile }
     <<: *private-service
   content-service:
     extends: { file: docker-compose.yml, service: content-service }
-    build: { context: ., dockerfile: content-service/Dockerfile }
     <<: *private-service
   interaction-service:
     extends: { file: docker-compose.yml, service: interaction-service }
-    build: { context: ., dockerfile: interaction-service/Dockerfile }
     <<: *private-service
   feed-service:
     extends: { file: docker-compose.yml, service: feed-service }
-    build: { context: ., dockerfile: feed-service/Dockerfile }
     <<: *private-service
   discovery-service:
     extends: { file: docker-compose.yml, service: discovery-service }
-    build: { context: ., dockerfile: discovery-service/Dockerfile }
     <<: *private-service
   recommendation-service:
     extends: { file: docker-compose.yml, service: recommendation-service }
-    build: { context: ., dockerfile: recommendation-service/Dockerfile }
     <<: *private-service
   gamification-service:
     extends: { file: docker-compose.yml, service: gamification-service }
-    build: { context: ., dockerfile: gamification-service/Dockerfile }
     <<: *private-service
   mission-reward-service:
     extends: { file: docker-compose.yml, service: mission-reward-service }
-    build: { context: ., dockerfile: mission-reward-service/Dockerfile }
     <<: *private-service
   referral-service:
     extends: { file: docker-compose.yml, service: referral-service }
-    build: { context: ., dockerfile: referral-service/Dockerfile }
     <<: *private-service
   moderation-trust-service:
     extends: { file: docker-compose.yml, service: moderation-trust-service }
-    build: { context: ., dockerfile: moderation-trust-service/Dockerfile }
     <<: *private-service
   media-service:
     extends: { file: docker-compose.yml, service: media-service }
-    build: { context: ., dockerfile: media-service/Dockerfile }
     <<: *private-service
     environment:
       <<: *production-java-env
@@ -266,46 +250,36 @@ services:
       MEDIA_STORAGE_LOCAL_ENABLED: "false"
   notification-service:
     extends: { file: docker-compose.yml, service: notification-service }
-    build: { context: ., dockerfile: notification-service/Dockerfile }
     <<: *private-service
   booking-service:
     extends: { file: docker-compose.yml, service: booking-service }
-    build: { context: ., dockerfile: booking-service/Dockerfile }
     <<: *private-service
   payment-service:
     extends: { file: docker-compose.yml, service: payment-service }
-    build: { context: ., dockerfile: payment-service/Dockerfile }
     <<: *private-service
     environment:
       <<: *production-java-env
       SPRING_PROFILES_ACTIVE: prod
   messaging-service:
     extends: { file: docker-compose.yml, service: messaging-service }
-    build: { context: ., dockerfile: messaging-service/Dockerfile }
     <<: *private-service
   support-service:
     extends: { file: docker-compose.yml, service: support-service }
-    build: { context: ., dockerfile: support-service/Dockerfile }
     <<: *private-service
   culture-service:
     extends: { file: docker-compose.yml, service: culture-service }
-    build: { context: ., dockerfile: culture-service/Dockerfile }
     <<: *private-service
   graph-service:
     extends: { file: docker-compose.yml, service: graph-service }
-    build: { context: ., dockerfile: graph-service/Dockerfile }
     <<: *private-service
   country-config-service:
     extends: { file: docker-compose.yml, service: country-config-service }
-    build: { context: ., dockerfile: country-config-service/Dockerfile }
     <<: *private-service
   analytics-service:
     extends: { file: docker-compose.yml, service: analytics-service }
-    build: { context: ., dockerfile: analytics-service/Dockerfile }
     <<: *private-service
   ingestion-service:
     extends: { file: docker-compose.yml, service: ingestion-service }
-    build: { context: ., dockerfile: ingestion-service/Dockerfile }
     <<: *private-service
 
 volumes:

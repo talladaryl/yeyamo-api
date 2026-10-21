@@ -10,11 +10,13 @@ echo.
 echo.
 echo Checking for Maven or Maven Wrapper...
 
+if "%MAVEN_THREADS%"=="" set MAVEN_THREADS=1
+
 REM Check if Maven is installed
 where mvn >nul 2>&1
 if not errorlevel 1 (
     echo Maven found in PATH, using mvn command
-    call mvn clean install -Dmaven.test.skip=true
+    call mvn -B -ntp -T %MAVEN_THREADS% install -DskipTests
     goto :check_result
 )
 
@@ -23,19 +25,19 @@ echo Maven not found in PATH, trying to use Maven Wrapper...
 
 if exist user-service\mvnw.cmd (
     echo Using Maven Wrapper from user-service
-    call user-service\mvnw.cmd clean install -Dmaven.test.skip=true
+    call user-service\mvnw.cmd -f pom.xml -B -ntp -T %MAVEN_THREADS% install -DskipTests
     goto :check_result
 )
 
 if exist auth-service\mvnw.cmd (
     echo Using Maven Wrapper from auth-service
-    call auth-service\mvnw.cmd clean install -Dmaven.test.skip=true
+    call auth-service\mvnw.cmd -f pom.xml -B -ntp -T %MAVEN_THREADS% install -DskipTests
     goto :check_result
 )
 
 if exist catalog-service\mvnw.cmd (
     echo Using Maven Wrapper from catalog-service
-    call catalog-service\mvnw.cmd clean install -Dmaven.test.skip=true
+    call catalog-service\mvnw.cmd -f pom.xml -B -ntp -T %MAVEN_THREADS% install -DskipTests
     goto :check_result
 )
 

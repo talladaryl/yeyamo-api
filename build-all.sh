@@ -7,22 +7,25 @@ echo "========================================"
 echo ""
 echo "Checking for Maven or Maven Wrapper..."
 
+MAVEN_THREADS="${MAVEN_THREADS:-1}"
+MAVEN_ARGS=(-B -ntp -T "${MAVEN_THREADS}" -DskipTests install)
+
 # Check if Maven is installed
 if command -v mvn &> /dev/null; then
     echo "Maven found in PATH, using mvn command"
-    mvn clean install -DskipTests
+    mvn "${MAVEN_ARGS[@]}"
     BUILD_RESULT=$?
 elif [ -f "user-service/mvnw" ]; then
     echo "Using Maven Wrapper from user-service"
-    user-service/mvnw clean install -DskipTests
+    user-service/mvnw -f pom.xml "${MAVEN_ARGS[@]}"
     BUILD_RESULT=$?
 elif [ -f "auth-service/mvnw" ]; then
     echo "Using Maven Wrapper from auth-service"
-    auth-service/mvnw clean install -DskipTests
+    auth-service/mvnw -f pom.xml "${MAVEN_ARGS[@]}"
     BUILD_RESULT=$?
 elif [ -f "catalog-service/mvnw" ]; then
     echo "Using Maven Wrapper from catalog-service"
-    catalog-service/mvnw clean install -DskipTests
+    catalog-service/mvnw -f pom.xml "${MAVEN_ARGS[@]}"
     BUILD_RESULT=$?
 else
     echo ""

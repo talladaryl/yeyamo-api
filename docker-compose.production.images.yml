@@ -1,0 +1,97 @@
+# Optional production override for images built by GitHub Actions.
+# Use with docker-compose.production.yml and keep IMAGE_TAG immutable (sha-*).
+x-prebuilt-service: &prebuilt-service
+  build: !reset null
+  pull_policy: if_not_present
+
+services:
+  config-server:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-config-server:${IMAGE_TAG:?IMAGE_TAG is required}"
+  registry-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-registry-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  api-gateway:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-api-gateway:${IMAGE_TAG:?IMAGE_TAG is required}"
+  auth-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-auth-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  user-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-user-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  partner-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-partner-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  campaign-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-campaign-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  ads-delivery-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-ads-delivery-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  ticket-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-ticket-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  commerce-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-commerce-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  admin-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-admin-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  catalog-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-catalog-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  place-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-place-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  content-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-content-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  interaction-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-interaction-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  feed-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-feed-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  media-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-media-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  moderation-trust-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-moderation-trust-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  event-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-event-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  booking-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-booking-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  payment-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-payment-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  messaging-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-messaging-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  notification-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-notification-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  support-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-support-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  culture-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-culture-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  graph-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-graph-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  country-config-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-country-config-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  analytics-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-analytics-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  ingestion-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-ingestion-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  discovery-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-discovery-service:${IMAGE_TAG:?IMAGE_TAG is required}"
