@@ -64,7 +64,9 @@ ARG SERVICE_PORT=8080
 RUN apt-get update \
     && apt-get install --no-install-recommends --yes curl \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --system --uid 10001 --create-home spring
+    && useradd --system --uid 10001 --create-home spring \
+    && mkdir -p /app/data \
+    && chown -R spring:spring /app/data
 
 WORKDIR /app
 COPY --from=build --chown=spring:spring "/workspace/${SERVICE_MODULE}/target/${SERVICE_MODULE}-0.0.1-SNAPSHOT.jar" app.jar

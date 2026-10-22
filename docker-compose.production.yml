@@ -170,7 +170,9 @@ services:
     logging: *default-logging
     restart: unless-stopped
     deploy: *opensearch-limits
-    container_name: !reset null
+    container_name: yeyamo-opensearch
+    environment:
+      OPENSEARCH_JAVA_OPTS: "${OPENSEARCH_JAVA_OPTS:--Xms384m -Xmx384m}"
     ports: !reset []
 
   neo4j:
@@ -257,6 +259,11 @@ services:
     extends: { file: docker-compose.yml, service: partner-service }
     profiles: ["experience"]
     <<: *private-service
+    environment:
+      <<: *production-java-env
+      PARTNER_DOCUMENT_ROOT: /app/data/partner-documents
+    volumes:
+      - partner-documents:/app/data
   campaign-service:
     extends: { file: docker-compose.yml, service: campaign-service }
     profiles: ["advanced"]
@@ -390,6 +397,7 @@ volumes:
   opensearch-data:
   neo4j-data:
   media-storage:
+  partner-documents:
 
 networks:
   yeyamo-network:
