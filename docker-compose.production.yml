@@ -7,8 +7,56 @@ name: yeyamo-production
 x-java-limits: &java-limits
   resources:
     limits:
-      cpus: "${JAVA_CPU_LIMIT:-1.0}"
+      cpus: "${JAVA_CPU_LIMIT:-0.5}"
       memory: "${JAVA_MEMORY_LIMIT:-512M}"
+
+x-postgres-limits: &postgres-limits
+  resources:
+    limits:
+      cpus: "${POSTGRES_CPU_LIMIT:-1.0}"
+      memory: "${POSTGRES_MEMORY_LIMIT:-1024M}"
+
+x-postgres-init-limits: &postgres-init-limits
+  resources:
+    limits:
+      cpus: "${POSTGRES_INIT_CPU_LIMIT:-0.25}"
+      memory: "${POSTGRES_INIT_MEMORY_LIMIT:-256M}"
+
+x-redis-limits: &redis-limits
+  resources:
+    limits:
+      cpus: "${REDIS_CPU_LIMIT:-0.25}"
+      memory: "${REDIS_MEMORY_LIMIT:-256M}"
+
+x-kafka-limits: &kafka-limits
+  resources:
+    limits:
+      cpus: "${KAFKA_CPU_LIMIT:-1.0}"
+      memory: "${KAFKA_MEMORY_LIMIT:-768M}"
+
+x-kafka-init-limits: &kafka-init-limits
+  resources:
+    limits:
+      cpus: "${KAFKA_INIT_CPU_LIMIT:-0.25}"
+      memory: "${KAFKA_INIT_MEMORY_LIMIT:-128M}"
+
+x-opensearch-limits: &opensearch-limits
+  resources:
+    limits:
+      cpus: "${OPENSEARCH_CPU_LIMIT:-1.0}"
+      memory: "${OPENSEARCH_MEMORY_LIMIT:-768M}"
+
+x-neo4j-limits: &neo4j-limits
+  resources:
+    limits:
+      cpus: "${NEO4J_CPU_LIMIT:-0.75}"
+      memory: "${NEO4J_MEMORY_LIMIT:-768M}"
+
+x-spring-infra-limits: &spring-infra-limits
+  resources:
+    limits:
+      cpus: "${SPRING_INFRA_CPU_LIMIT:-0.5}"
+      memory: "${SPRING_INFRA_MEMORY_LIMIT:-512M}"
 
 x-production-java-env: &production-java-env
   JAVA_TOOL_OPTIONS: "${JAVA_TOOL_OPTIONS:--Xms64m -Xmx256m -XX:+UseSerialGC -XX:ActiveProcessorCount=1}"
@@ -83,20 +131,25 @@ x-private-service: &private-service
 services:
   postgres:
     extends: { file: docker-compose.yml, service: postgres }
+    profiles: ["core", "discovery", "social", "experience", "advanced"]
     logging: *default-logging
     build: { context: ., dockerfile: deploy/postgres-init.Dockerfile }
     restart: unless-stopped
+    deploy: *postgres-limits
     ports: !reset []
-    volumes: !reset [postgres-data:/var/lib/postgresql/data]
+    volumes: !override
+      - postgres-data:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER is required}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
 
   postgres-init:
     extends: { file: docker-compose.yml, service: postgres-init }
+    profiles: ["core", "discovery", "social", "experience", "advanced"]
     logging: *default-logging
     build: { context: ., dockerfile: deploy/postgres-init.Dockerfile }
     restart: "no"
+    deploy: *postgres-init-limits
     volumes: !reset []
     environment:
       POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER is required}"
@@ -105,40 +158,52 @@ services:
 
   redis:
     extends: { file: docker-compose.yml, service: redis }
+    profiles: ["core", "discovery", "social", "experience", "advanced"]
     logging: *default-logging
     restart: unless-stopped
+    deploy: *redis-limits
     ports: !reset []
 
   opensearch:
     extends: { file: docker-compose.yml, service: opensearch }
+    profiles: ["discovery", "advanced"]
     logging: *default-logging
     restart: unless-stopped
+    deploy: *opensearch-limits
     container_name: !reset null
     ports: !reset []
 
   neo4j:
     extends: { file: docker-compose.yml, service: neo4j }
+    profiles: ["advanced"]
     logging: *default-logging
     restart: unless-stopped
+    deploy: *neo4j-limits
     ports: !reset []
     environment:
       NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:?NEO4J_PASSWORD is required}"
 
   kafka:
     extends: { file: docker-compose.yml, service: kafka }
+    profiles: ["core", "discovery", "social", "experience", "advanced"]
     logging: *default-logging
     restart: unless-stopped
+    deploy: *kafka-limits
     ports: !reset []
 
   kafka-init:
     extends: { file: docker-compose.yml, service: kafka-init }
+    profiles: ["core", "discovery", "social", "experience", "advanced"]
     logging: *default-logging
     restart: "no"
+    deploy: *kafka-init-limits
 
   config-server:
     extends: { file: docker-compose.yml, service: config-server }
+    profiles: ["core", "discovery", "social", "experience", "advanced"]
     logging: *default-logging
     restart: unless-stopped
+    deploy: *spring-infra-limits
     ports: !reset []
     volumes: !reset []
     environment:
@@ -157,10 +222,13 @@ services:
 
   registry-service:
     extends: { file: docker-compose.yml, service: registry-service }
+    profiles: ["core", "discovery", "social", "experience", "advanced"]
     <<: *private-service
+    deploy: *spring-infra-limits
 
   api-gateway:
     extends: { file: docker-compose.yml, service: api-gateway }
+    profiles: ["core"]
     <<: *private-service
     expose: ["8083"]
     networks:
@@ -169,6 +237,7 @@ services:
 
   auth-service:
     extends: { file: docker-compose.yml, service: auth-service }
+    profiles: ["core"]
     <<: *private-service
     environment:
       <<: *production-java-env
@@ -182,63 +251,83 @@ services:
       LOGIN_TURNSTILE_THRESHOLD: "${LOGIN_TURNSTILE_THRESHOLD:-3}"
   user-service:
     extends: { file: docker-compose.yml, service: user-service }
+    profiles: ["core"]
     <<: *private-service
   partner-service:
     extends: { file: docker-compose.yml, service: partner-service }
+    profiles: ["experience"]
     <<: *private-service
   campaign-service:
     extends: { file: docker-compose.yml, service: campaign-service }
+    profiles: ["advanced"]
     <<: *private-service
   ads-delivery-service:
     extends: { file: docker-compose.yml, service: ads-delivery-service }
+    profiles: ["advanced"]
     <<: *private-service
   ticket-service:
     extends: { file: docker-compose.yml, service: ticket-service }
+    profiles: ["experience"]
     <<: *private-service
   commerce-service:
     extends: { file: docker-compose.yml, service: commerce-service }
+    profiles: ["experience"]
     <<: *private-service
   admin-service:
     extends: { file: docker-compose.yml, service: admin-service }
+    profiles: ["advanced"]
     <<: *private-service
   catalog-service:
     extends: { file: docker-compose.yml, service: catalog-service }
+    profiles: ["discovery"]
     <<: *private-service
   place-service:
     extends: { file: docker-compose.yml, service: place-service }
+    profiles: ["discovery"]
     <<: *private-service
   event-service:
     extends: { file: docker-compose.yml, service: event-service }
+    profiles: ["experience"]
     <<: *private-service
   content-service:
     extends: { file: docker-compose.yml, service: content-service }
+    profiles: ["social"]
     <<: *private-service
   interaction-service:
     extends: { file: docker-compose.yml, service: interaction-service }
+    profiles: ["social"]
     <<: *private-service
   feed-service:
     extends: { file: docker-compose.yml, service: feed-service }
+    profiles: ["social"]
     <<: *private-service
   discovery-service:
     extends: { file: docker-compose.yml, service: discovery-service }
+    profiles: ["discovery"]
     <<: *private-service
   recommendation-service:
     extends: { file: docker-compose.yml, service: recommendation-service }
+    profiles: ["advanced"]
     <<: *private-service
   gamification-service:
     extends: { file: docker-compose.yml, service: gamification-service }
+    profiles: ["advanced"]
     <<: *private-service
   mission-reward-service:
     extends: { file: docker-compose.yml, service: mission-reward-service }
+    profiles: ["advanced"]
     <<: *private-service
   referral-service:
     extends: { file: docker-compose.yml, service: referral-service }
+    profiles: ["advanced"]
     <<: *private-service
   moderation-trust-service:
     extends: { file: docker-compose.yml, service: moderation-trust-service }
+    profiles: ["advanced"]
     <<: *private-service
   media-service:
     extends: { file: docker-compose.yml, service: media-service }
+    profiles: ["discovery"]
     <<: *private-service
     environment:
       <<: *production-java-env
@@ -252,41 +341,52 @@ services:
       MEDIA_STORAGE_LOCAL_ENABLED: "false"
   notification-service:
     extends: { file: docker-compose.yml, service: notification-service }
+    profiles: ["social"]
     <<: *private-service
   booking-service:
     extends: { file: docker-compose.yml, service: booking-service }
+    profiles: ["experience"]
     <<: *private-service
   payment-service:
     extends: { file: docker-compose.yml, service: payment-service }
+    profiles: ["experience"]
     <<: *private-service
     environment:
       <<: *production-java-env
       SPRING_PROFILES_ACTIVE: prod
   messaging-service:
     extends: { file: docker-compose.yml, service: messaging-service }
+    profiles: ["social"]
     <<: *private-service
   support-service:
     extends: { file: docker-compose.yml, service: support-service }
+    profiles: ["advanced"]
     <<: *private-service
   culture-service:
     extends: { file: docker-compose.yml, service: culture-service }
+    profiles: ["experience"]
     <<: *private-service
   graph-service:
     extends: { file: docker-compose.yml, service: graph-service }
+    profiles: ["advanced"]
     <<: *private-service
   country-config-service:
     extends: { file: docker-compose.yml, service: country-config-service }
+    profiles: ["discovery"]
     <<: *private-service
   analytics-service:
     extends: { file: docker-compose.yml, service: analytics-service }
+    profiles: ["advanced"]
     <<: *private-service
   ingestion-service:
     extends: { file: docker-compose.yml, service: ingestion-service }
+    profiles: ["advanced"]
     <<: *private-service
 
 volumes:
   postgres-data:
   redis-data:
+  redpanda-data:
   opensearch-data:
   neo4j-data:
   media-storage:

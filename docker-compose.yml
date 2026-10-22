@@ -170,6 +170,8 @@ services:
       - kafka:9092
     ports:
       - "9092:9092"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
     healthcheck:
       test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
       interval: 10s
@@ -199,7 +201,7 @@ services:
     volumes:
       - ./cloud-conf-yeyamo:/config:ro
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health/readiness | grep UP || exit 1"]
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:8080/actuator/health/readiness | grep -q 'UP' || exit 1"]
       interval: 10s
       timeout: 5s 
       retries: 15
@@ -230,7 +232,7 @@ services:
       config-server:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8761/actuator/health/readiness || exit 1"]
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:8761/actuator/health/readiness >/dev/null || exit 1"]
       interval: 15s
       timeout: 10s
       start_period: 120s
@@ -1514,6 +1516,7 @@ services:
 volumes:
   postgres-data:
   redis-data:
+  redpanda-data:
   opensearch-data:
   neo4j-data:
   media-storage:
