@@ -43,6 +43,7 @@ import com.yeyamo_mobile.api.auth_service.security.JwtService;
 import com.yeyamo_mobile.api.auth_service.security.RoleAuthorities;
 import com.yeyamo_mobile.api.auth_service.security.AntiBotAction;
 import com.yeyamo_mobile.api.auth_service.security.AntiBotVerifier;
+import com.yeyamo_mobile.api.auth_service.security.SessionEligibilityPolicy;
 import com.yeyamo_mobile.api.auth_service.service.OAuthTokenVerifier.OAuthUserInfo;
 
 @Service
@@ -166,6 +167,7 @@ public class AuthService {
         eventOutbox.userCreated(savedUser, null);
         if (hasText(savedUser.getEmail())) {
             sendEmailVerificationOtp(savedUser);
+            return new AuthResponse(null, null, "Bearer", 0, toResponse(savedUser), true);
         }
         return tokensFor(savedUser);
     }
@@ -195,6 +197,9 @@ public class AuthService {
             if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
                 loginAttemptService.failed(identifier);
                 throw invalidCredentials();
+            }
+            if (SessionEligibilityPolicy.requiresVerifiedEmail(user)) {
+                throw emailNotVerified();
             }
             user.setStatus(UserStatus.ACTIVE);
             userRepository.saveAndFlush(user);
@@ -239,7 +244,8 @@ public class AuthService {
             throw new ApiException("INVALID_REFRESH_TOKEN", "Refresh token requis", HttpStatus.UNAUTHORIZED);
         }
 
-        RefreshTokenService.Rotation rotation = refreshTokenService.rotate(request.refreshToken());
+        RefreshTokenService.Rotation rotation = refreshTokenService.rotate(
+                request.refreshToken(), this::assertSessionEligible);
         User user = rotation.user();
         String newRefreshToken = rotation.rawToken();
         String accessToken = jwtService.generateAccessToken(user);
@@ -348,9 +354,27 @@ public class AuthService {
     }
 
     private AuthResponse tokensFor(User user) {
+        assertSessionEligible(user);
         String accessToken = jwtService.generateAccessToken(user);
         String refreshToken = refreshTokenService.create(user);
         return new AuthResponse(accessToken, refreshToken, jwtService.accessTokenExpirationMs() / 1000, toResponse(user));
+    }
+
+    private void assertSessionEligible(User user) {
+        if (user == null) {
+            throw new ApiException("ACCOUNT_DISABLED", "Ce compte ne peut pas ouvrir de session", HttpStatus.FORBIDDEN);
+        }
+        if (user.getStatus() == UserStatus.PENDING || SessionEligibilityPolicy.requiresVerifiedEmail(user)) {
+            throw emailNotVerified();
+        }
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new ApiException("ACCOUNT_DISABLED", "Ce compte ne peut pas ouvrir de session", HttpStatus.FORBIDDEN);
+        }
+    }
+
+    private ApiException emailNotVerified() {
+        return new ApiException("EMAIL_NOT_VERIFIED",
+                "Veuillez verifier votre email avant d'ouvrir une session", HttpStatus.FORBIDDEN);
     }
 
     private UserResponse toResponse(User user) {
@@ -430,7 +454,9 @@ public class AuthService {
         }
         if (user.getStatus() == UserStatus.PENDING || user.getStatus() == UserStatus.INACTIVE) {
             user.setStatus(UserStatus.ACTIVE);
-            if (user.getEmailVerifiedAt() == null) user.setEmailVerifiedAt(Instant.now());
+        }
+        if (hasText(user.getEmail()) && user.getEmailVerifiedAt() == null) {
+            user.setEmailVerifiedAt(Instant.now());
         }
     }
 

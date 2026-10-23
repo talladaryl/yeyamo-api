@@ -101,6 +101,11 @@ class AuthServiceMultiCountryTests {
         AuthResponse response = authService.register(request);
 
         assertNotNull(response);
+        assertNull(response.accessToken());
+        assertNull(response.refreshToken());
+        assertTrue(response.verificationRequired());
+        verify(jwtService, never()).generateAccessToken(any());
+        verify(refreshTokenService, never()).create(any());
         verify(countryValidationService).validateRegistrationEligibility("CM", false);
         verify(userRepository).save(argThat(user -> 
                 "CM".equals(user.getCountryCode()) &&

@@ -80,6 +80,18 @@ services:
   culture-service:
     <<: *prebuilt-service
     image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-culture-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  gamification-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-gamification-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  mission-reward-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-mission-reward-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  recommendation-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-recommendation-service:${IMAGE_TAG:?IMAGE_TAG is required}"
+  referral-service:
+    <<: *prebuilt-service
+    image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-referral-service:${IMAGE_TAG:?IMAGE_TAG is required}"
   graph-service:
     <<: *prebuilt-service
     image: "${IMAGE_REGISTRY:?IMAGE_REGISTRY is required}/yeyamo-graph-service:${IMAGE_TAG:?IMAGE_TAG is required}"

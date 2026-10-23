@@ -39,6 +39,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             Long userId = jwtService.extractUserId(token);
             if (SecurityContextHolder.getContext().getAuthentication() == null && jwtService.isTokenValid(token)) {
                 UserPrincipal principal = (UserPrincipal) userDetailsService.loadUserById(userId);
+                if (!principal.isEnabled() || !SessionEligibilityPolicy.isEligible(principal.user())) {
+                    throw new IllegalArgumentException("Account is not eligible for an authenticated session");
+                }
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                         principal,
                         null,

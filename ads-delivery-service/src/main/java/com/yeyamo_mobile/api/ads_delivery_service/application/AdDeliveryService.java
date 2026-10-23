@@ -1,5 +1,7 @@
 package com.yeyamo_mobile.api.ads_delivery_service.application;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yeyamo_mobile.api.ads_delivery_service.application.dto.*;
 import com.yeyamo_mobile.api.ads_delivery_service.domain.model.*;
 import com.yeyamo_mobile.api.ads_delivery_service.domain.port.*;
@@ -28,6 +30,7 @@ public class AdDeliveryService {
     private final AdSelectionEngine selectionEngine;
     private final FeatureFlagService featureFlagService;
     private final AdsOutboxService outbox;
+    private final ObjectMapper objectMapper;
 
     public AdDeliveryService(
             CampaignProjectionRepository campaignRepository,
@@ -36,7 +39,8 @@ public class AdDeliveryService {
             TrackingTokenService tokenService,
             AdDeliveryRecordRepository deliveryRecordRepository,
             FeatureFlagService featureFlagService,
-            AdsOutboxService outbox) {
+            AdsOutboxService outbox,
+            ObjectMapper objectMapper) {
         this.campaignRepository = campaignRepository;
         this.frequencyCapService = frequencyCapService;
         this.budgetService = budgetService;
@@ -44,6 +48,7 @@ public class AdDeliveryService {
         this.deliveryRecordRepository = deliveryRecordRepository;
         this.featureFlagService = featureFlagService;
         this.outbox = outbox;
+        this.objectMapper = objectMapper;
         this.selectionEngine = new AdSelectionEngine();
     }
 
@@ -301,6 +306,7 @@ public class AdDeliveryService {
             responses.add(new SponsoredPlacementResponse(
                 deliveryId,
                 campaign.getCampaignId(),
+                campaign.getPartnerId(),
                 campaign.getPromotedEntityType().name(),
                 campaign.getPromotedEntityId(),
                 context.getPlacement().name(),
@@ -318,14 +324,44 @@ public class AdDeliveryService {
         return responses;
     }
 
-    @SuppressWarnings("unchecked")
     private Map<String, Object> parseCreative(String creativeJson) {
         try {
-            // Simple JSON parsing - in production use Jackson
-            return Map.of("raw", creativeJson);
+            var root = objectMapper.readTree(creativeJson);
+            if (root == null || !root.isObject()) {
+                throw new IllegalArgumentException("Creative must be a JSON object");
+            }
+            Map<String, Object> creative = objectMapper.convertValue(
+                    root, new TypeReference<LinkedHashMap<String, Object>>() { });
+            creative.put("media", normalizeMedia(creative.get("media")));
+            creative.putIfAbsent("caption", null);
+            creative.putIfAbsent("ctaLabel", "Découvrir");
+            return creative;
         } catch (Exception e) {
-            logger.error("Failed to parse creative JSON", e);
-            return Map.of();
+            logger.warn("Ignoring malformed sponsored creative: errorType={}", e.getClass().getSimpleName());
+            return emptyCreative();
         }
+    }
+
+    private List<Map<String, Object>> normalizeMedia(Object rawMedia) {
+        if (!(rawMedia instanceof List<?> media)) {
+            return List.of();
+        }
+        return media.stream()
+                .filter(Map.class::isInstance)
+                .map(value -> new LinkedHashMap<>((Map<?, ?>) value))
+                .filter(mediaItem -> {
+                    Object url = mediaItem.get("url");
+                    return url instanceof String text && !text.isBlank();
+                })
+                .map(mediaItem -> (Map<String, Object>) mediaItem)
+                .toList();
+    }
+
+    private Map<String, Object> emptyCreative() {
+        Map<String, Object> creative = new LinkedHashMap<>();
+        creative.put("media", List.of());
+        creative.put("caption", null);
+        creative.put("ctaLabel", "Découvrir");
+        return creative;
     }
 }

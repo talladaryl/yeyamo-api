@@ -29,7 +29,7 @@ class RefreshTokenServiceSecurityTests {
         when(repository.findLockedByTokenHash(any())).thenReturn(Optional.of(previous));
         when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        RefreshTokenService.Rotation rotation = service.rotate("old-refresh-token");
+        RefreshTokenService.Rotation rotation = service.rotate("old-refresh-token", ignored -> { });
 
         assertEquals(user, rotation.user());
         assertNotEquals("old-refresh-token", rotation.rawToken());
@@ -45,10 +45,28 @@ class RefreshTokenServiceSecurityTests {
         reused.setRevokedAt(LocalDateTime.now().minusSeconds(1));
         when(repository.findLockedByTokenHash(any())).thenReturn(Optional.of(reused));
 
-        ApiException failure = assertThrows(ApiException.class, () -> service.rotate("stolen-refresh-token"));
+        ApiException failure = assertThrows(ApiException.class,
+                () -> service.rotate("stolen-refresh-token", ignored -> { }));
 
         assertEquals("REFRESH_TOKEN_REUSE_DETECTED", failure.getCode());
         verify(repository).deleteByUser(user);
+    }
+
+    @Test
+    void ineligibleAccountIsCheckedBeforeRotation() {
+        RefreshTokenRepository repository = mock(RefreshTokenRepository.class);
+        RefreshTokenService service = new RefreshTokenService(repository, 3_600_000);
+        User user = new User();
+        RefreshToken previous = token(user);
+        when(repository.findLockedByTokenHash(any())).thenReturn(Optional.of(previous));
+
+        ApiException failure = assertThrows(ApiException.class,
+                () -> service.rotate("old-refresh-token", ignored -> {
+                    throw new ApiException("ACCOUNT_DISABLED", "disabled", org.springframework.http.HttpStatus.FORBIDDEN);
+                }));
+
+        assertEquals("ACCOUNT_DISABLED", failure.getCode());
+        verify(repository, org.mockito.Mockito.never()).save(any());
     }
 
     private RefreshToken token(User user) {

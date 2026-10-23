@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.*;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -63,7 +64,7 @@ public class ResilientAdsDeliveryClient implements AdsDeliveryPort {
                     .header("X-Correlation-ID", request.correlationId())
                     .body(buildRequestBody(request))
                     .retrieve()
-                    .toEntity(AdSelectionResponse.class);
+                    .toEntity(new ParameterizedTypeReference<List<PlacementDto>>() {});
             
             long duration = System.currentTimeMillis() - start;
             
@@ -108,35 +109,37 @@ public class ResilientAdsDeliveryClient implements AdsDeliveryPort {
         return body;
     }
     
-    private List<SponsoredPlacement> mapToPlacements(AdSelectionResponse response) {
-        if (response.placements() == null) {
+    private List<SponsoredPlacement> mapToPlacements(List<PlacementDto> placements) {
+        if (placements == null) {
             return List.of();
         }
         
-        return response.placements().stream()
+        return placements.stream()
                 .map(p -> new SponsoredPlacement(
                     p.deliveryId(),
                     p.campaignId(),
+                    p.partnerId(),
                     p.promotedEntityType(),
                     p.promotedEntityId(),
                     p.creative(),
                     p.bidAmount(),
-                    p.trackingToken()
+                    p.impressionTrackingToken(),
+                    p.impressionTrackingToken(),
+                    p.clickTrackingToken()
                 ))
                 .toList();
     }
-    
-    // Internal response mapping
-    private record AdSelectionResponse(List<PlacementDto> placements) {}
-    
+
     private record PlacementDto(
         String deliveryId,
         String campaignId,
+        String partnerId,
         String promotedEntityType,
         String promotedEntityId,
         Map<String, Object> creative,
         java.math.BigDecimal bidAmount,
-        String trackingToken
+        String impressionTrackingToken,
+        String clickTrackingToken
     ) {}
     
     /**

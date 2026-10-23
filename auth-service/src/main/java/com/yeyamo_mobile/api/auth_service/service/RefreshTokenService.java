@@ -18,6 +18,7 @@ import com.yeyamo_mobile.api.auth_service.models.RefreshToken;
 import com.yeyamo_mobile.api.auth_service.models.User;
 import com.yeyamo_mobile.api.auth_service.repository.RefreshTokenRepository;
 import com.yeyamo_mobile.api.auth_service.dto.SessionResponse;
+import java.util.function.Consumer;
 
 @Service
 public class RefreshTokenService {
@@ -88,7 +89,7 @@ public class RefreshTokenService {
     }
 
     @Transactional
-    public Rotation rotate(String rawToken) {
+    public Rotation rotate(String rawToken, Consumer<User> eligibilityCheck) {
         RefreshToken existing = refreshTokenRepository.findLockedByTokenHash(hash(rawToken))
                 .orElseThrow(() -> invalidToken("Refresh token invalide"));
         if (existing.getRevokedAt() != null) {
@@ -100,6 +101,7 @@ public class RefreshTokenService {
             throw invalidToken("Refresh token expiré");
         }
         User user = existing.getUser();
+        eligibilityCheck.accept(user);
         revoke(existing);
         return new Rotation(user, create(user));
     }

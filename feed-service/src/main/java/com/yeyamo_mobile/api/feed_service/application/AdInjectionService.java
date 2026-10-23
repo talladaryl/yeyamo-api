@@ -131,11 +131,14 @@ public class AdInjectionService {
                 result.add(FeedItem.sponsored(
                     placement.deliveryId(),
                     placement.campaignId(),
+                    placement.partnerId(),
                     placement.promotedEntityType(),
                     placement.promotedEntityId(),
                     placement.creative(),
                     placement.bidAmount(),
-                    placement.trackingToken()
+                    placement.trackingToken(),
+                    placement.impressionTrackingToken(),
+                    placement.clickTrackingToken()
                 ));
                 adIndex++;
                 itemsSinceLastAd = 0;

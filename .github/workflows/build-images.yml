@@ -21,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Verify workflow and image override alignment
+        run: bash scripts/verify-image-contract.sh
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -44,6 +46,7 @@ jobs:
         include:
           - {service: config-server, port: 8080}
           - {service: registry-service, port: 8761}
+          - {service: country-config-service, port: 8117}
           - {service: api-gateway, port: 8083}
           - {service: auth-service, port: 8082}
           - {service: user-service, port: 8086}

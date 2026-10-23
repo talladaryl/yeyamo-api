@@ -31,5 +31,9 @@ class JwtServiceCountryClaimTest {
 
         assertEquals("CM", Jwts.parser().verifyWith(key).build()
                 .parseSignedClaims(token).getPayload().get("country", String.class));
+        assertEquals(Boolean.FALSE, Jwts.parser().verifyWith(key).build()
+                .parseSignedClaims(token).getPayload().get("email_verified", Boolean.class));
+        assertEquals("ACTIVE", Jwts.parser().verifyWith(key).build()
+                .parseSignedClaims(token).getPayload().get("account_status", String.class));
     }
 }

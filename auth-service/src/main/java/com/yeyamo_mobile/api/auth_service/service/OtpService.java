@@ -9,6 +9,7 @@ import java.util.HexFormat;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +17,24 @@ import com.yeyamo_mobile.api.auth_service.exception.ApiException;
 
 @Service
 public class OtpService {
+
+    private static final DefaultRedisScript<Long> VERIFY_AND_CONSUME_SCRIPT = new DefaultRedisScript<>("""
+            local attempts = redis.call('INCR', KEYS[2])
+            redis.call('EXPIRE', KEYS[2], ARGV[1])
+            if attempts > tonumber(ARGV[2]) then
+                redis.call('DEL', KEYS[1], KEYS[2])
+                return 2
+            end
+            local expected = redis.call('GET', KEYS[1])
+            if not expected then
+                return 0
+            end
+            if expected ~= ARGV[3] then
+                return -1
+            end
+            redis.call('DEL', KEYS[1], KEYS[2])
+            return 1
+            """, Long.class);
 
     private final StringRedisTemplate redisTemplate;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -44,34 +63,27 @@ public class OtpService {
             throw new ApiException("OTP_REQUIRED", "Code OTP requis", HttpStatus.BAD_REQUEST);
         }
 
-        String attemptsKey = attemptsKey(purpose, email);
-        Long attempts = redisTemplate.opsForValue().increment(attemptsKey);
-        redisTemplate.expire(attemptsKey, Duration.ofMinutes(expirationMinutes));
+        long expirationSeconds = Math.max(1, Duration.ofMinutes(expirationMinutes).getSeconds());
+        Long result = redisTemplate.execute(
+                VERIFY_AND_CONSUME_SCRIPT,
+                java.util.List.of(otpKey(purpose, email), attemptsKey(purpose, email)),
+                String.valueOf(expirationSeconds),
+                String.valueOf(maxAttempts),
+                hash(otp));
 
-        if (attempts != null && attempts > maxAttempts) {
-            delete(purpose, email);
+        if (Long.valueOf(2L).equals(result)) {
             throw new ApiException("OTP_MAX_ATTEMPTS", "Nombre maximal de tentatives depasse", HttpStatus.TOO_MANY_REQUESTS);
         }
-
-        String expectedHash = redisTemplate.opsForValue().get(otpKey(purpose, email));
-        if (expectedHash == null) {
+        if (Long.valueOf(0L).equals(result)) {
             throw new ApiException("OTP_EXPIRED", "Code OTP expire ou introuvable", HttpStatus.BAD_REQUEST);
         }
-
-        if (!MessageDigest.isEqual(expectedHash.getBytes(StandardCharsets.UTF_8), hash(otp).getBytes(StandardCharsets.UTF_8))) {
+        if (!Long.valueOf(1L).equals(result)) {
             throw new ApiException("OTP_INVALID", "Code OTP invalide", HttpStatus.BAD_REQUEST);
         }
-
-        delete(purpose, email);
     }
 
     public int expirationMinutes() {
         return expirationMinutes;
-    }
-
-    private void delete(String purpose, String email) {
-        redisTemplate.delete(otpKey(purpose, email));
-        redisTemplate.delete(attemptsKey(purpose, email));
     }
 
     private String otpKey(String purpose, String email) {

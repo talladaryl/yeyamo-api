@@ -7,9 +7,10 @@ public record AuthResponse(
         String refreshToken,
         String tokenType,
         long expiresIn,
-        UserResponse user
+        UserResponse user,
+        boolean verificationRequired
 ) {
     public AuthResponse(String accessToken, String refreshToken, long expiresIn, UserResponse user) {
-        this(accessToken, refreshToken, "Bearer", expiresIn, user);
+        this(accessToken, refreshToken, "Bearer", expiresIn, user, false);
     }
 }

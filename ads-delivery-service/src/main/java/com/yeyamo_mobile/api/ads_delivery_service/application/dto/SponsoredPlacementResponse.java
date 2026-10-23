@@ -7,6 +7,7 @@ import java.util.Map;
 public record SponsoredPlacementResponse(
     String deliveryId,
     String campaignId,
+    String partnerId,
     String promotedEntityType,
     String promotedEntityId,
     String placement,

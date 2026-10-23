@@ -73,11 +73,14 @@ public class JwtService {
         return Jwts.builder()
                 .header().keyId(keyId).and()
                 .subject(String.valueOf(user.getId()))
+                .claim("token_type", "access")
                 .issuer(issuer)
                 .audience().add(audience).and()
                 .claim("email", user.getEmail())
                 .claim("phone", user.getPhone())
                 .claim("country", user.getCountryCode())
+                .claim("email_verified", user.getEmail() == null || user.getEmailVerifiedAt() != null)
+                .claim("account_status", user.getStatus().name())
                 .claim("roles", roles)
                 .claim("scope", String.join(" ", scopes))
                 .claim("scopes", scopes)
@@ -93,8 +96,31 @@ public class JwtService {
     }
 
     public boolean isTokenValid(String token) {
-        extractAllClaims(token);
-        return true;
+        Claims claims = extractAllClaims(token);
+        String subject = claims.getSubject();
+        if (!StringUtils.hasText(subject)) {
+            return false;
+        }
+        try {
+            Long.parseLong(subject);
+        } catch (NumberFormatException exception) {
+            return false;
+        }
+
+        String tokenType = claims.get("token_type", String.class);
+        if (StringUtils.hasText(tokenType) && !"access".equals(tokenType)) {
+            return false;
+        }
+
+        String email = claims.get("email", String.class);
+        if (StringUtils.hasText(email)) {
+            if (!Boolean.TRUE.equals(claims.get("email_verified"))
+                    || !"ACTIVE".equals(claims.get("account_status", String.class))) {
+                return false;
+            }
+        }
+        String accountStatus = claims.get("account_status", String.class);
+        return !StringUtils.hasText(accountStatus) || "ACTIVE".equals(accountStatus);
     }
 
     public long accessTokenExpirationMs() {

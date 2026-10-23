@@ -30,11 +30,14 @@ public record FeedItem(
     // Sponsored content fields (present when itemType=SPONSORED)
     String deliveryId,
     String campaignId,
+    String sponsorId,
     String promotedEntityType,
     String promotedEntityId,
     Map<String, Object> creative,
     BigDecimal bidAmount,
-    String trackingToken
+    String trackingToken,
+    String impressionTrackingToken,
+    String clickTrackingToken
     ,FeedLinkedContent linkedContent
 ) {
     public record FeedLinkedContent(String type, UUID id, String title) { }
@@ -62,7 +65,7 @@ public record FeedItem(
             "ORGANIC",
             postId, authorId, caption, catalogAssetId, cardType, referenceType, referenceId, mediaIds, hashtags,
             publishedAt, likes, comments, shares, rankingScore,
-            null, null, null, null, null, null, null, null
+            null, null, null, null, null, null, null, null, null, null, null
         );
     }
     
@@ -77,19 +80,48 @@ public record FeedItem(
             Map<String, Object> creative,
             BigDecimal bidAmount,
             String trackingToken) {
-        
+        return sponsored(deliveryId, campaignId, null, promotedEntityType, promotedEntityId,
+                creative, bidAmount, trackingToken, trackingToken, trackingToken);
+    }
+
+    public static FeedItem sponsored(
+            String deliveryId,
+            String campaignId,
+            String promotedEntityType,
+            String promotedEntityId,
+            Map<String, Object> creative,
+            BigDecimal bidAmount,
+            String trackingToken,
+            String impressionTrackingToken,
+            String clickTrackingToken) {
+        return sponsored(deliveryId, campaignId, null, promotedEntityType, promotedEntityId,
+                creative, bidAmount, trackingToken, impressionTrackingToken, clickTrackingToken);
+    }
+
+    public static FeedItem sponsored(
+            String deliveryId,
+            String campaignId,
+            String sponsorId,
+            String promotedEntityType,
+            String promotedEntityId,
+            Map<String, Object> creative,
+            BigDecimal bidAmount,
+            String trackingToken,
+            String impressionTrackingToken,
+            String clickTrackingToken) {
         return new FeedItem(
             "SPONSORED",
             null, null, null, null, null, null, null, null, null, null, 0, 0, 0, 0,
-            deliveryId, campaignId, promotedEntityType, promotedEntityId,
-            creative, bidAmount, trackingToken, null
+            deliveryId, campaignId, sponsorId, promotedEntityType, promotedEntityId,
+            creative, bidAmount, trackingToken, impressionTrackingToken, clickTrackingToken, null
         );
     }
 
     public FeedItem withLinkedContent(FeedLinkedContent content) {
         return new FeedItem(itemType, postId, authorId, caption, catalogAssetId, cardType, referenceType, referenceId,
-            mediaIds, hashtags, publishedAt, likes, comments, shares, rankingScore, deliveryId, campaignId,
-            promotedEntityType, promotedEntityId, creative, bidAmount, trackingToken, content);
+            mediaIds, hashtags, publishedAt, likes, comments, shares, rankingScore, deliveryId, campaignId, sponsorId,
+            promotedEntityType, promotedEntityId, creative, bidAmount, trackingToken,
+            impressionTrackingToken, clickTrackingToken, content);
     }
     
     public boolean isSponsored() {

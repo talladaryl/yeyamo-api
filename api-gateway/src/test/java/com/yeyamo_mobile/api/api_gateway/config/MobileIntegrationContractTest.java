@@ -55,6 +55,8 @@ class MobileIntegrationContractTest {
     @Test
     void exposesOnlyTheExpectedAnonymousMobileRoutes() {
         assertTrue(SecurityConfig.isPublicMobileRequest(request("POST", "/api/v1/auth/register")));
+        assertTrue(SecurityConfig.isPublicMobileRequest(request("POST", "/api/v1/auth/email/verification/request")));
+        assertTrue(SecurityConfig.isPublicMobileRequest(request("POST", "/api/v1/auth/email/verification/confirm")));
         assertTrue(SecurityConfig.isPublicMobileRequest(request("GET", "/api/v1/regions")));
         assertTrue(SecurityConfig.isPublicMobileRequest(request("GET", "/api/v1/events/upcoming")));
         assertTrue(SecurityConfig.isPublicMobileRequest(request("GET", "/api/v1/catalog/assets")));

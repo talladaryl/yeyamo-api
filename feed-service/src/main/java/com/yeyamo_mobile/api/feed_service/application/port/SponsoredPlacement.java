@@ -9,9 +9,26 @@ import java.util.Map;
 public record SponsoredPlacement(
     String deliveryId,
     String campaignId,
+    String partnerId,
     String promotedEntityType,
     String promotedEntityId,
     Map<String, Object> creative,
     BigDecimal bidAmount,
-    String trackingToken
-) {}
+    String trackingToken,
+    String impressionTrackingToken,
+    String clickTrackingToken
+) {
+    public SponsoredPlacement(String deliveryId, String campaignId, String promotedEntityType,
+            String promotedEntityId, Map<String, Object> creative, BigDecimal bidAmount,
+            String trackingToken, String impressionTrackingToken, String clickTrackingToken) {
+        this(deliveryId, campaignId, null, promotedEntityType, promotedEntityId, creative, bidAmount,
+                trackingToken, impressionTrackingToken, clickTrackingToken);
+    }
+
+    public SponsoredPlacement(String deliveryId, String campaignId, String promotedEntityType,
+            String promotedEntityId, Map<String, Object> creative, BigDecimal bidAmount,
+            String trackingToken) {
+        this(deliveryId, campaignId, null, promotedEntityType, promotedEntityId, creative, bidAmount,
+                trackingToken, trackingToken, trackingToken);
+    }
+}

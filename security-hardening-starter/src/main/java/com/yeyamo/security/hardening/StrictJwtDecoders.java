@@ -76,7 +76,8 @@ public final class StrictJwtDecoders {
                 ? OAuth2TokenValidatorResult.success()
                 : OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token",
                         "Required JWT audience is missing", null));
-        return new DelegatingOAuth2TokenValidator<>(timestamps, issuerValidator, audienceValidator);
+        return new DelegatingOAuth2TokenValidator<>(timestamps, issuerValidator, audienceValidator,
+                new JwtAccountEligibilityValidator());
     }
 
     private static String requiredSecret(String secret) {
