@@ -24,6 +24,7 @@ import jakarta.servlet.http.HttpServletRequestWrapper;
 public class CorrelationIdFilter extends OncePerRequestFilter {
 
     public static final String HEADER = "X-Correlation-ID";
+    public static final String START_NANOS_ATTRIBUTE = CorrelationIdFilter.class.getName() + ".startNanos";
     private static final String MDC_KEY = "correlationId";
 
     @Override
@@ -31,6 +32,7 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String correlationId = normalize(request.getHeader(HEADER));
         response.setHeader(HEADER, correlationId);
+        request.setAttribute(START_NANOS_ATTRIBUTE, System.nanoTime());
         MDC.put(MDC_KEY, correlationId);
         try {
             chain.doFilter(new CorrelationRequest(request, correlationId), response);

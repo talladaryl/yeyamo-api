@@ -41,6 +41,13 @@ class CultureArtisanGatewayContractTest {
                 .contains("security.rate-limit.culture.reporting.requests");
     }
 
+    @Test
+    void circuitBreakerUsesMvcIdArgumentForEveryConfiguredRoute() throws IOException {
+        String properties = Files.readString(gatewayProperties());
+        assertThat(properties).contains("routes[31].filters[0].args.id=graphServiceCircuitBreaker")
+                .doesNotContain("filters[0].args.name=");
+    }
+
     private Path gatewayProperties() {
         Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         for (int depth = 0; depth < 3 && current != null; depth++, current = current.getParent()) {
