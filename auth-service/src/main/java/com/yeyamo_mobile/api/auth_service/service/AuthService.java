@@ -19,6 +19,7 @@ import com.yeyamo_mobile.api.auth_service.dto.AuthResponse;
 import com.yeyamo_mobile.api.auth_service.dto.ChangePasswordRequest;
 import com.yeyamo_mobile.api.auth_service.dto.DeactivateAccountRequest;
 import com.yeyamo_mobile.api.auth_service.dto.EmailRequest;
+import com.yeyamo_mobile.api.auth_service.dto.EmailVerificationResponse;
 import com.yeyamo_mobile.api.auth_service.dto.LoginRequest;
 import com.yeyamo_mobile.api.auth_service.dto.OAuthLoginRequest;
 import com.yeyamo_mobile.api.auth_service.dto.OtpVerificationRequest;
@@ -313,17 +314,22 @@ public class AuthService {
     }
 
     @Transactional
-    public void confirmEmailVerification(OtpVerificationRequest request) {
+    public EmailVerificationResponse confirmEmailVerification(OtpVerificationRequest request) {
         User user = requireUserByEmail(request == null ? null : request.email());
         if (!hasText(request.otp())) {
             throw new ApiException("OTP_REQUIRED", "Code OTP requis", HttpStatus.BAD_REQUEST);
         }
+        boolean wasPending = user.getStatus() == UserStatus.PENDING;
         otpService.verify("email-verification", user.getEmail(), request.otp());
         user.setEmailVerifiedAt(Instant.now());
-        if (user.getStatus() == UserStatus.PENDING) {
+        if (wasPending) {
             user.setStatus(UserStatus.ACTIVE);
         }
         userRepository.save(user);
+        if (!wasPending) {
+            return EmailVerificationResponse.confirmed(toResponse(user));
+        }
+        return EmailVerificationResponse.authenticated(tokensFor(user));
     }
 
     public void requestPasswordReset(EmailRequest request) {

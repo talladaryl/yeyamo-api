@@ -17,6 +17,7 @@ import com.yeyamo_mobile.api.auth_service.dto.AuthResponse;
 import com.yeyamo_mobile.api.auth_service.dto.ChangePasswordRequest;
 import com.yeyamo_mobile.api.auth_service.dto.DeactivateAccountRequest;
 import com.yeyamo_mobile.api.auth_service.dto.EmailRequest;
+import com.yeyamo_mobile.api.auth_service.dto.EmailVerificationResponse;
 import com.yeyamo_mobile.api.auth_service.dto.LoginRequest;
 import com.yeyamo_mobile.api.auth_service.dto.MessageResponse;
 import com.yeyamo_mobile.api.auth_service.dto.OAuthLoginRequest;
@@ -80,9 +81,8 @@ public class AuthController {
     }
 
     @PostMapping("/email/verification/confirm")
-    public MessageResponse confirmEmailVerification(@Valid @RequestBody OtpVerificationRequest request) {
-        authService.confirmEmailVerification(request);
-        return new MessageResponse("Email verifie avec succes");
+    public EmailVerificationResponse confirmEmailVerification(@Valid @RequestBody OtpVerificationRequest request) {
+        return authService.confirmEmailVerification(request);
     }
 
     @PostMapping("/password/forgot")

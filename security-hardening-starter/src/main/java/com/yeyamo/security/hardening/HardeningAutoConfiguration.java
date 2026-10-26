@@ -30,7 +30,7 @@ public class HardeningAutoConfiguration {
                     return bean;
                 }
                 return StrictJwtDecoders.create(
-                        environment.getProperty("jwt.secret"),
+                        environment.getRequiredProperty("jwt.secret"),
                         environment.getProperty("jwt.previous-secrets", ""),
                         environment.getProperty("jwt.jwk-set-uri", ""),
                         environment.getProperty("jwt.issuer", "https://auth.yeyamo.internal"),

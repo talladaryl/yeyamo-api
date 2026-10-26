@@ -302,7 +302,7 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:eureka123@registry-service:8761/eureka
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8083:8083"
     depends_on:
@@ -344,7 +344,7 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       MANAGEMENT_HEALTH_MAIL_ENABLED: "false"
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       YEYAMO_BOOTSTRAP_ADMIN_ENABLED: ${YEYAMO_BOOTSTRAP_ADMIN_ENABLED:-false}
       YEYAMO_BOOTSTRAP_ADMIN_EMAIL: ${YEYAMO_BOOTSTRAP_ADMIN_EMAIL:-}
       YEYAMO_BOOTSTRAP_ADMIN_PASSWORD: ${YEYAMO_BOOTSTRAP_ADMIN_PASSWORD:-}
@@ -401,7 +401,7 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8086:8086"
     depends_on:
@@ -437,7 +437,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8087:8087"
     depends_on:
@@ -471,7 +471,7 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JWT_SECRET: ${JWT_SECRET:-local-docker-secret-change-me-1234567890}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports: ["8110:8110"]
     depends_on:
       postgres-init: {condition: service_completed_successfully}
@@ -504,7 +504,7 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_DATA_REDIS_HOST: redis
       ADS_TOKEN_SECRET: ${ADS_TOKEN_SECRET:-local-ads-token-secret-change-me-1234567890}
-      JWT_SECRET: ${JWT_SECRET:-local-docker-secret-change-me-1234567890}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports: ["8111:8111"]
     depends_on:
       config-server: {condition: service_healthy}
@@ -536,7 +536,7 @@ services:
       SPRING_KAFKA_CONSUMER_GROUP_ID: ticket-service
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: ${JWT_SECRET:-local-docker-secret-change-me-1234567890}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       TICKET_QR_KEY_ID: ${TICKET_QR_KEY_ID:-ticket-qr-key-local-1}
       TICKET_QR_PRIVATE_KEY_BASE64: ${TICKET_QR_PRIVATE_KEY_BASE64:-}
       TICKET_QR_PUBLIC_KEY_BASE64: ${TICKET_QR_PUBLIC_KEY_BASE64:-}
@@ -569,7 +569,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_KAFKA_CONSUMER_GROUP_ID: commerce-service
-      JWT_SECRET: ${JWT_SECRET:-local-docker-secret-change-me-1234567890}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports: ["8113:8113"]
     depends_on:
       config-server: {condition: service_healthy}
@@ -599,7 +599,7 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8096:8096"
     depends_on:
@@ -639,7 +639,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8088:8088"
     depends_on:
@@ -674,7 +674,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8084:8084"
     depends_on:
@@ -714,7 +714,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8090:8090"
     depends_on:
@@ -749,7 +749,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8091:8091"
     depends_on:
@@ -786,7 +786,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8092:8092"
     depends_on:
@@ -826,7 +826,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8101:8101"
     volumes:
@@ -862,7 +862,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8100:8100"
     depends_on:
@@ -900,7 +900,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8085:8085"
     depends_on:
@@ -934,7 +934,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8102:8102"
     depends_on:
@@ -968,7 +968,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       PAYMENT_AGGREGATOR_WEBHOOK_SECRET: webhook-secret-change-me
     ports:
       - "8103:8103"
@@ -1005,7 +1005,7 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8104:8104"
     depends_on:
@@ -1039,7 +1039,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       MAIL_HOST: ${MAIL_HOST:-smtp-relay.brevo.com}
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
@@ -1106,7 +1106,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8114:8114"
     depends_on:
@@ -1139,7 +1139,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8115:8115"
     depends_on:
@@ -1178,7 +1178,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8105:8105"
     depends_on:
@@ -1214,7 +1214,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8098:8098"
     depends_on:
@@ -1249,7 +1249,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8095:8095"
     depends_on:
@@ -1290,7 +1290,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8099:8099"
     depends_on:
@@ -1327,7 +1327,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       SPRING_DATA_REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8097:8097"
     depends_on:
@@ -1369,7 +1369,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 5
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8089:8089"
     depends_on:
@@ -1405,7 +1405,7 @@ services:
       OPENSEARCH_URL: http://opensearch:9200
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
-      JWT_SECRET: local-docker-secret-change-me-1234567890
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       GOOGLE_MAPS_SERVER_API_KEY: ${GOOGLE_MAPS_SERVER_API_KEY:-}
       GOOGLE_MAPS_BASE_URL: ${GOOGLE_MAPS_BASE_URL:-https://maps.googleapis.com}
       GOOGLE_ROUTES_BASE_URL: ${GOOGLE_ROUTES_BASE_URL:-https://routes.googleapis.com}
@@ -1443,7 +1443,7 @@ services:
   #     OPENSEARCH_HOST: opensearch
   #     OPENSEARCH_PORT: 9200
   #     KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-  #     JWT_SECRET: local-docker-secret-change-me-1234567890
+  #     JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
   #   depends_on:
   #     opensearch:
   #       condition: service_healthy
@@ -1473,7 +1473,7 @@ services:
       NEO4J_USERNAME: neo4j
       NEO4J_PASSWORD: ${NEO4J_PASSWORD:-CHANGE_ME_LOCAL}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JWT_SECRET: ${JWT_SECRET:-local-docker-secret-change-me-1234567890}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     ports:
       - "8116:8116"
     depends_on:
@@ -1498,7 +1498,7 @@ services:
   #     SPRING_CASSANDRA_KEYSPACE: yeyamo_social
   #     SPRING_CASSANDRA_LOCAL_DATACENTER: datacenter1
   #     KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-  #     JWT_SECRET: local-docker-secret-change-me-1234567890
+  #     JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
   #   depends_on:
   #     cassandra:
   #       condition: service_healthy

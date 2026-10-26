@@ -38,7 +38,19 @@ class StrictJwtDecodersTests {
         assertThrows(JwtException.class,
                 () -> decoder.decode(token(CURRENT, ISSUER, "another-api", Instant.now().plusSeconds(60))));
         assertThrows(JwtException.class,
+                () -> decoder.decode(token(CURRENT, "https://attacker.example", AUDIENCE, Instant.now().plusSeconds(60))));
+        assertThrows(JwtException.class,
                 () -> decoder.decode(token(CURRENT, ISSUER, AUDIENCE, Instant.now().minusSeconds(120))));
+    }
+
+    @Test
+    void rejectsMissingSubjectAndRequiredTrustClaims() throws Exception {
+        var decoder = StrictJwtDecoders.create(CURRENT, "", "", ISSUER, AUDIENCE);
+
+        assertThrows(JwtException.class,
+                () -> decoder.decode(tokenWithoutSubject(CURRENT, ISSUER, AUDIENCE)));
+        assertThrows(JwtException.class,
+                () -> decoder.decode(tokenWithoutIssuer(CURRENT, AUDIENCE)));
     }
 
     @Test
@@ -76,6 +88,30 @@ class StrictJwtDecodersTests {
                 .expirationTime(Date.from(expiration))
                 .build();
         SignedJWT jwt = new SignedJWT(new JWSHeader(algorithm), claims);
+        jwt.sign(new MACSigner(secret.getBytes(StandardCharsets.UTF_8)));
+        return jwt.serialize();
+    }
+
+    private String tokenWithoutSubject(String secret, String issuer, String audience) throws Exception {
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .issuer(issuer)
+                .audience(List.of(audience))
+                .issueTime(Date.from(Instant.now().minusSeconds(1)))
+                .expirationTime(Date.from(Instant.now().plusSeconds(60)))
+                .build();
+        SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
+        jwt.sign(new MACSigner(secret.getBytes(StandardCharsets.UTF_8)));
+        return jwt.serialize();
+    }
+
+    private String tokenWithoutIssuer(String secret, String audience) throws Exception {
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .subject("42")
+                .audience(List.of(audience))
+                .issueTime(Date.from(Instant.now().minusSeconds(1)))
+                .expirationTime(Date.from(Instant.now().plusSeconds(60)))
+                .build();
+        SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
         jwt.sign(new MACSigner(secret.getBytes(StandardCharsets.UTF_8)));
         return jwt.serialize();
     }
